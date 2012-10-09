@@ -251,6 +251,10 @@ Toolbox.prototype = {
     vbox.className = "toolbox-panel";
     vbox.id = "toolbox-panel-" + id;
 
+    let nbox = doc.createElement("notificationbox");
+    nbox.setAttribute("flex", 1);
+    nbox.id = "toolbox-panel-nbox-" + id;
+
     let iframe = doc.createElement("iframe");
     iframe.className = "toolbox-panel-iframe";
     iframe.id = "toolbox-panel-iframe-" + id;
@@ -258,7 +262,8 @@ Toolbox.prototype = {
     iframe.setAttribute("flex", 1);
 
     tabs.appendChild(radio);
-    vbox.appendChild(iframe);
+    vbox.appendChild(nbox);
+    nbox.appendChild(iframe);
     deck.appendChild(vbox);
   },
 
@@ -298,8 +303,12 @@ Toolbox.prototype = {
 
       let boundLoad = function() {
         iframe.removeEventListener("DOMContentLoaded", boundLoad, true);
-        let instance = definition.build(iframe.contentWindow, this.target);
-        this._toolPanels.set(id, instance);
+
+        let win = iframe.contentWindow;
+        let nbox = doc.getElementById("toolbox-panel-nbox-" + id);
+
+        let panel = definition.build(win, this.target, nbox);
+        this._toolPanels.set(id, panel);
       }
       .bind(this)
       iframe.addEventListener("DOMContentLoaded", boundLoad, true);
