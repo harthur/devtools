@@ -140,6 +140,7 @@ Toolbox.prototype = {
 
   set target(aValue) {
     this._target = aValue;
+    this.emit("target-changed");
   },
 
   /**
