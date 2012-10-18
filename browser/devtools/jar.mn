@@ -31,3 +31,5 @@ browser.jar:
     content/browser/devtools/framework/toolbox-window.xul    (framework/toolbox-window.xul)
     content/browser/devtools/framework/toolbox.xul           (framework/toolbox.xul)
     content/browser/devtools/framework/toolbox.css           (framework/toolbox.css)
+    content/browser/devtools/framework/remote-prompt.xul     (framework/remote-prompt.xul)
+    

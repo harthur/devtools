@@ -10,6 +10,7 @@ const Ci = Components.interfaces;
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource:///modules/devtools/EventEmitter.jsm");
 Cu.import("resource:///modules/devtools/ToolboxHosts.jsm");
+Cu.import("resource:///modules/devtools/Target.jsm");
 Cu.import('resource://gre/modules/XPCOMUtils.jsm');
 
 XPCOMUtils.defineLazyModuleGetter(this, "gDevTools",
@@ -202,6 +203,12 @@ Toolbox.prototype = {
       .bind(this), true);
     }
 
+    let remoteButton = doc.getElementById("toolbox-remote");
+    remoteButton.addEventListener("command", this._promptRemote.bind(this),
+                                  true);
+    let chromeButton = doc.getElementById("toolbox-chrome");
+    chromeButton.addEventListener("command", this._promptChrome.bind(this),
+                                  true);
     let closeButton = doc.getElementById("toolbox-close");
     closeButton.addEventListener("command", this.destroy, true);
 
@@ -211,6 +218,44 @@ Toolbox.prototype = {
     this.selectTool(this._defaultToolId);
 
     this.emit("load");
+  },
+
+  _promptChrome: function TBOX_promptChrome() {
+    // todo: switch to a chrome target
+  },
+
+  /**
+   * Open a prompt to switch to debugging a remote target
+   */
+  _promptRemote: function TBOX_promptRemote() {
+    let win = this.frame.contentWindow.openDialog(
+                "chrome://browser/content/devtools/framework/remote-prompt.xul",
+                "", "all,dialog=yes,resizable=no, centerscreen");
+
+    win.addEventListener("DOMContentLoaded", function() {
+      let connectButton = win.document.getElementById("remote-connect");
+      connectButton.addEventListener("command", function() {
+        let host = win.document.getElementById("remote-host").value;
+        let port = win.document.getElementById("remote-port").value;
+        this._switchToRemote(host, port);
+        win.close();
+      }.bind(this));
+
+      let cancelButton = win.document.getElementById("remote-cancel");
+      cancelButton.addEventListener("command", function() {
+        win.close()
+      });
+    }.bind(this))
+  },
+
+  /**
+   * Switch to debugging a remote target
+   *
+   * @param string host
+   * @param number port
+   */
+  _switchToRemote: function TBOX_debugRemote(host, port) {
+    dump("switching to" + host + port + "\n");
   },
 
   /**

@@ -20,6 +20,8 @@
       </radiogroup>
       <hbox flex="1" pack="end">
         <hbox id="toolbox-buttons"/>
+        <toolbarbutton id="toolbox-remote" label="Remote"/>
+        <toolbarbutton id="toolbox-chrome" label="Chrome"/>
         <toolbarbutton checked="true" id="toolbox-dock-bottom" class="toolbox-dock-button"
                        data-position="bottom"></toolbarbutton>
         <toolbarbutton id="toolbox-dock-side" class="toolbox-dock-button"
