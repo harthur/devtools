@@ -9,9 +9,6 @@ const EXPORTED_SYMBOLS = [ "gDevTools", "DevTools" ];
 const Cu = Components.utils;
 const Ci = Components.interfaces;
 
-const PREF_LAST_HOST = "devtools.toolbox.host";
-const PREF_LAST_TOOL = "devtools.toolbox.selectedTool";
-
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource:///modules/devtools/EventEmitter.jsm");
 Cu.import("resource:///modules/devtools/ToolDefinitions.jsm");
@@ -35,7 +32,7 @@ function DevTools() {
  * Each toolbox has a |target| that indicates what is being debugged/inspected.
  * A target is an object with this shape:
  * {
- *   type: TargetType.[TAB|REMOTE|CHROME],
+ *   type: DevTools.TargetType.[TAB|REMOTE|CHROME],
  *   value: ...
  * }
  *
@@ -58,7 +55,7 @@ DevTools.TargetType = {
  *
  * A Toolbox host is an object with this shape:
  * {
- *   type: HostType.[BOTTOM|TAB],
+ *   type: DevTools.HostType.[BOTTOM|TAB],
  *   element: ...
  * }
  *
@@ -179,17 +176,35 @@ DevTools.prototype = {
   },
 
   /**
+   * FIXME: There is probably a better way of doing this
+   */
+  openDefaultToolbox: function DT_openDefaultToolbox(tab, tool) {
+    let target = {
+      type: DevTools.TargetType.TAB,
+      value: tab
+    };
+    gDevTools.openToolbox(target, undefined, tool);
+  },
+
+  /**
+   * FIXME: There is probably a better way of doing this
+   */
+  closeToolbox: function DT_openDefaultToolbox(tab) {
+    let toolbox = this._toolboxes.get(tab);
+    if (toolbox == null) {
+      throw new Error('No toolbox for tab');
+    }
+    toolbox.destroy();
+  },
+
+  /**
    * Toggle a toolbox for the given browser tab
    */
-  toggleToolboxForTab: function DT_openForTab(tab) {
-    if (this._toolboxes.has(tab)) {
+  toggleToolboxForTab: function DT_openForTab(tab, tool) {
+    if (this._toolboxes.has(tab) /* FIXME: && tool is showing */ ) {
       this._toolboxes.get(tab).destroy();
     } else {
-      let target = {
-        type: gDevTools.TargetType.TAB,
-        value: tab
-      }
-      this.openToolbox(target);
+      this.openDefaultToolbox(tab, tool);
     }
   },
 
@@ -207,10 +222,17 @@ DevTools.prototype = {
   },
 
   /**
+   * Return the toolbox for a given target.
+   */
+  getToolboxForTarget: function(targetValue) {
+    return this.getToolBoxes().get(targetValue);
+  },
+
+  /**
    * Return a tool panel for a target.
    */
   getPanelForTarget: function(toolName, targetValue) {
-    let toolbox = this.getToolBoxes().get(targetValue);
+    let toolbox = this.getToolboxForTarget(targetValue);
     if (!toolbox) {
       return undefined;
     }
