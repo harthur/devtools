@@ -23,6 +23,11 @@ MOCHITEST_BROWSER_FILES = \
   browser_bug705707_is_content_stylesheet.js \
   browser_bug722196_rule_view_media_queries.js \
   browser_bug_592743_specificity.js \
+  browser_bug683672.js \
+  browser_bug589375_keybindings.js \
+  browser_bug_692400_element_style.js \
+  browser_bug722196_property_view_media_queries.js \
+  browser_computedview_bug_703643_context_menu_copy.js \
   head.js \
   $(NULL)
 
@@ -41,11 +46,6 @@ MOCHITEST_BROWSER_FILES += \
 include $(topsrcdir)/config/rules.mk
 
 # FIXME: BROKEN TESTS
-#browser_bug683672.js \
-#browser_bug589375_keybindings.js \
-#browser_bug_692400_element_style.js \
-#browser_bug722196_property_view_media_queries.js \
-#browser_computedview_bug_703643_context_menu_copy.js \
 #browser_computedview_734259_style_editor_link.js \
 #browser_ruleview_focus.js \
 #browser_ruleview_bug_703643_context_menu_copy.js \

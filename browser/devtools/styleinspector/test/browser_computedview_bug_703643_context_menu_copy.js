@@ -5,8 +5,8 @@
 // Tests that the style inspector works properly
 
 let doc;
-let stylePanel;
-let cssHtmlTree;
+let iframe;
+let computedView;
 
 XPCOMUtils.defineLazyGetter(this, "osString", function() {
   return Cc["@mozilla.org/xre/app-info;1"].getService(Ci.nsIXULRuntime).OS;
@@ -32,28 +32,39 @@ function createDocument()
     '</div>';
   doc.title = "Computed view context menu test";
 
+  openInspector(selectNode)
+}
+
+function selectNode(aInspector)
+{
   let span = doc.querySelector("span");
   ok(span, "captain, we have the span");
 
-  stylePanel = new ComputedViewPanel(window);
-  Services.obs.addObserver(runStyleInspectorTests, "StyleInspector-populated", false);
-  stylePanel.createPanel(span);
+  aInspector.selection.setNode(span);
+
+  aInspector.sidebar.once("computedview-ready", function() {
+    aInspector.sidebar.select("computedview");
+
+    iframe = aInspector._toolbox.frame;
+    computedView = getComputedView(aInspector);
+
+    Services.obs.addObserver(runStyleInspectorTests, "StyleInspector-populated", false);
+  });
 }
+
 
 function runStyleInspectorTests()
 {
   Services.obs.removeObserver(runStyleInspectorTests, "StyleInspector-populated", false);
 
-  cssHtmlTree = stylePanel.cssHtmlTree;
-
-  let contentDocument = stylePanel.iframe.contentDocument;
+  let contentDocument = iframe.contentDocument;
   let prop = contentDocument.querySelector(".property-view");
   ok(prop, "captain, we have the property-view node");
 
   // We need the context menu to open in the correct place in order for
   // popupNode to be propertly set.
   EventUtils.synthesizeMouse(prop, 1, 1, { type: "contextmenu", button: 2 },
-    stylePanel.iframe.contentWindow);
+    iframe.contentWindow);
 
   checkCopyProperty()
 }
@@ -67,7 +78,7 @@ function checkCopyProperty()
   SimpleTest.waitForClipboard(function CS_boundCopyPropCheck() {
       return checkClipboardData(expectedPattern);
     },
-    cssHtmlTree.siBoundCopyDeclaration,
+    computedView.siBoundCopyDeclaration,
     checkCopyPropertyName, function() {
       failedClipboard(expectedPattern, checkCopyPropertyName);
     });
@@ -82,7 +93,7 @@ function checkCopyPropertyName()
   SimpleTest.waitForClipboard(function CS_boundCopyPropNameCheck() {
       return checkClipboardData(expectedPattern);
     },
-    cssHtmlTree.siBoundCopyProperty,
+    computedView.siBoundCopyProperty,
     checkCopyPropertyValue, function() {
       failedClipboard(expectedPattern, checkCopyPropertyValue);
     });
@@ -97,7 +108,7 @@ function checkCopyPropertyValue()
   SimpleTest.waitForClipboard(function CS_boundCopyPropValueCheck() {
       return checkClipboardData(expectedPattern);
     },
-    cssHtmlTree.siBoundCopyPropertyValue,
+    computedView.siBoundCopyPropertyValue,
     checkCopySelection, function() {
       failedClipboard(expectedPattern, checkCopySelection);
     });
@@ -105,8 +116,8 @@ function checkCopyPropertyValue()
 
 function checkCopySelection()
 {
-  let contentDocument = stylePanel.iframe.contentDocument;
-  let contentWindow = stylePanel.iframe.contentWindow;
+  let contentDocument = iframe.contentDocument;
+  let contentWindow = iframe.contentWindow;
   let props = contentDocument.querySelectorAll(".property-view");
   ok(props, "captain, we have the property-view nodes");
 
@@ -126,7 +137,7 @@ function checkCopySelection()
   SimpleTest.waitForClipboard(function CS_boundCopyCheck() {
       return checkClipboardData(expectedPattern);
     },
-    cssHtmlTree.siBoundCopy, closeStyleInspector, function() {
+    computedView.siBoundCopy, closeStyleInspector, function() {
       failedClipboard(expectedPattern, closeStyleInspector);
     });
 }
@@ -168,7 +179,7 @@ function closeStyleInspector()
 
 function finishUp()
 {
-  doc = stylePanel = cssHtmlTree = null;
+  doc = iframe = computedView = null;
   gBrowser.removeCurrentTab();
   finish();
 }
