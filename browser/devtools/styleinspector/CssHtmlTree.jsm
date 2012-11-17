@@ -588,9 +588,11 @@ CssHtmlTree.prototype = {
    */
   computedViewCopyDeclaration: function si_computedViewCopyDeclaration(aEvent)
   {
+    dump("IN COPY DECLARATION" + "\n");
     let outerDoc = this.styleInspector.outerIFrame.ownerDocument;
     let node = outerDoc.popupNode;
     if (!node) {
+      dump("NO NODE" + "\n");
       return;
     }
 

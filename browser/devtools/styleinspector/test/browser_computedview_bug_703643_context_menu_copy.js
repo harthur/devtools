@@ -5,7 +5,6 @@
 // Tests that the style inspector works properly
 
 let doc;
-let iframe;
 let computedView;
 
 XPCOMUtils.defineLazyGetter(this, "osString", function() {
@@ -45,7 +44,6 @@ function selectNode(aInspector)
   aInspector.sidebar.once("computedview-ready", function() {
     aInspector.sidebar.select("computedview");
 
-    iframe = aInspector._toolbox.frame;
     computedView = getComputedView(aInspector);
 
     Services.obs.addObserver(runStyleInspectorTests, "StyleInspector-populated", false);
@@ -57,14 +55,14 @@ function runStyleInspectorTests()
 {
   Services.obs.removeObserver(runStyleInspectorTests, "StyleInspector-populated", false);
 
-  let contentDocument = iframe.contentDocument;
+  let contentDocument = computedView.styleDocument;
   let prop = contentDocument.querySelector(".property-view");
   ok(prop, "captain, we have the property-view node");
 
   // We need the context menu to open in the correct place in order for
   // popupNode to be propertly set.
   EventUtils.synthesizeMouse(prop, 1, 1, { type: "contextmenu", button: 2 },
-    iframe.contentWindow);
+    computedView.styleWindow);
 
   checkCopyProperty()
 }
@@ -116,8 +114,8 @@ function checkCopyPropertyValue()
 
 function checkCopySelection()
 {
-  let contentDocument = iframe.contentDocument;
-  let contentWindow = iframe.contentWindow;
+  let contentDocument = computedView.styleDocument;
+  let contentWindow = computedView.styleWindow;
   let props = contentDocument.querySelectorAll(".property-view");
   ok(props, "captain, we have the property-view nodes");
 
@@ -173,13 +171,12 @@ function failedClipboard(aExpectedPattern, aCallback)
 
 function closeStyleInspector()
 {
-  stylePanel.destroy();
   finishUp();
 }
 
 function finishUp()
 {
-  doc = iframe = computedView = null;
+  doc = computedView = null;
   gBrowser.removeCurrentTab();
   finish();
 }
