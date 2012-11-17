@@ -28,6 +28,7 @@ MOCHITEST_BROWSER_FILES = \
   browser_bug_692400_element_style.js \
   browser_bug722196_property_view_media_queries.js \
   browser_styleinspector.js \
+  browser_styleinspector_bug_689759_no_results_placeholder.js \
   head.js \
   $(NULL)
 
@@ -53,4 +54,3 @@ include $(topsrcdir)/config/rules.mk
 #browser_ruleview_734259_style_editor_link.js \
 #browser_styleinspector_bug_672746_default_styles.js \
 #browser_styleinspector_bug_672744_search_filter.js \
-#browser_styleinspector_bug_689759_no_results_placeholder.js \
