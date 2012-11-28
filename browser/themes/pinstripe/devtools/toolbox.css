@@ -2,6 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+window {
+  color: hsl(0,0%,10%);
+}
+
 #toolbox-tabs {
   margin: 0;
 }
@@ -71,29 +75,49 @@
 
 .devtools-tabbar {
   -moz-appearance: none;
-  background-image: url(background-noise-toolbar.png), linear-gradient(to bottom, hsl(210,11%,36%), hsl(210,11%,18%));
+  background-image: url(background-noise-toolbar.png),
+                    linear-gradient(#303840, #2d3640);
   color: hsl(210,30%,85%);
-  padding: 4px 3px 3px;
-  box-shadow: 0 -3px 0 0 rgb(20,20,20) inset, 0 -4px 0 0 rgba(0,0,0,0.8) inset;
+  border-top: 1px solid #060a0d;
+  box-shadow: 0 1px 0 hsla(204,45%,98%,.05) inset,
+              0 -1px 0 hsla(206,37%,4%,.1) inset;
+  height: 32px;
+  padding: 0;
 }
+
 
 .devtools-tab {
   -moz-appearance: none;
-  min-width: 78px;
-  min-height: 22px;
-  text-shadow: 0 -1px 0 hsla(210,8%,5%,.45);
-  border-radius: @toolbarbuttonCornerRadius@ @toolbarbuttonCornerRadius@ 0 0;
-  color: inherit;
-  border-style: solid;
-  border-color: transparent;
-  border-width: 1px 1px 0;
-  margin: 0 5px;
-  padding: 0 10px 1px;
+  width: 104px;
+  justify-content: center;
+  min-width: 104px;
+  height: 32px;
+  color: #b6babf;
+  font-size: 11px;
+  line-height: 32px;
+  -moz-user-select: none;
+  margin: 0;
+}
+
+.devtools-tab:hover {
+  background-image: -moz-linear-gradient(hsla(206,37%,4%,.1), hsla(206,37%,4%,.2));
+  color: #ced3d9;
+}
+.devtools-tab:hover:active {
+  background-color: hsla(206,37%,4%,.2);
+  color: #f5f7fa;
 }
 
 .devtools-tab[selected=true] {
-  border-color: hsla(210,8%,5%,.6);
-  background-color: rgb(20,20,20);
-  text-shadow: none;
-  color: white;
+  color: #f5f7fa;
+  background-image: -moz-radial-gradient(center top, ellipse farthest-corner, #9fdfff, hsla(200,100%,70%,.3)),
+                    -moz-radial-gradient(center top, ellipse farthest-side, hsla(200,100%,70%,.4), hsla(200,100%,70%,0)),
+                    -moz-linear-gradient(hsla(206,37%,4%,.2), hsla(206,37%,4%,.3));
+  background-size: 100% 1px,
+                   100% 5px,
+                   100%;
+  background-repeat: no-repeat,
+                     no-repeat,
+                     repeat-x;
+  box-shadow: 1px -1px 0 hsla(206,37%,4%,.2) inset;
 }

@@ -8,3 +8,8 @@
   display: none;
 }
 
+.devtools-tab > .radio-label-box {
+  -moz-box-flex: 1;
+  text-align:  center;
+}
+
