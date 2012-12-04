@@ -35,7 +35,7 @@ this.DebuggerDefinition = {
   modifiers: osString == "Darwin" ? "accel,alt" : "accel,shift",
   ordinal: 1,
   killswitch: "devtools.debugger.enabled",
-  icon: "chrome://browser/skin/devtools/tools-icons-small.png",
+  icon: "chrome://browser/skin/devtools/tool-debugger.png",
   url: "chrome://browser/content/debugger.xul",
   label: l10n("ToolboxDebugger.label"),
 

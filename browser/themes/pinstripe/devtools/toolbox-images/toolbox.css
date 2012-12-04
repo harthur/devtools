@@ -8,16 +8,14 @@
   display: none;
 }
 
+.devtools-tab > .radio-label-box {
+
+}
+
+.devtools-tab .radio-label {
+
+}
+
 .devtools-tab .radio-icon {
   -moz-margin-end: 6px;
-  opacity: 0.6;
-}
-
-.devtools-tab:hover .radio-icon {
-  opacity: 0.8;
-}
-
-.devtools-tab:active .radio-icon,
-.devtools-tab[selected=true] .radio-icon {
-  opacity: 1;
 }

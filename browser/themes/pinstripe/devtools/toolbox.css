@@ -10,6 +10,18 @@ window {
   margin: 0;
 }
 
+#toolbox-controls {
+  margin: 0 4px;
+}
+
+#toolbox-controls toolbarbutton:not(:last-child) {
+  margin: 0 4px;
+}
+
+#toolbox-controls toolbarbutton > .toolbarbutton-text {
+  display: none;
+}
+
 #toolbox-dock-bottom {
   list-style-image: url("chrome://browser/skin/devtools/dock-bottom.png");
 }
@@ -19,15 +31,46 @@ window {
 }
 
 #toolbox-dock-window {
-  list-style-image: url("chrome://browser/skin/devtools/dock-window.png");
+  list-style-image: url("chrome://browser/skin/devtools/undock.png");
 }
 
+#toolbox-dock-window,
+#toolbox-dock-bottom,
+#toolbox-dock-side,
+#toolbox-close {
+  opacity: 0.6;
+}
+
+#toolbox-dock-window:hover,
+#toolbox-dock-bottom:hover,
+#toolbox-dock-side:hover,
+#toolbox-close:hover {
+  opacity: 1;
+}
+
+/* Command buttons */
+
 .command-button {
-  margin: 0 10px;
+  padding: 0 10px;
+  margin: 0;
   width: 16px;
   height: 32px;
   background-repeat: no-repeat;
-  background-position: center center;
+  background-position: center;
+}
+
+.command-button:hover {
+  background-color: hsla(206,37%,4%,.2);
+}
+
+.command-button:hover:active {
+  background-color: hsla(206,37%,4%,.4);
+}
+.command-button.active {
+  color: #f5f7fa;
+}
+.command-button.toggled {
+  background-color: hsla(206,37%,4%,.4);
 }
 
 #command-button-responsive {
@@ -88,15 +131,17 @@ window {
 
 .devtools-tab {
   -moz-appearance: none;
-  width: 104px;
-  justify-content: center;
-  min-width: 104px;
+  min-width: 88px;
   height: 32px;
   color: #b6babf;
   font-size: 11px;
   line-height: 32px;
   -moz-user-select: none;
   margin: 0;
+}
+
+.devtools-tab > .radio-label-box {
+  padding: 0 16px;
 }
 
 .devtools-tab:hover {
@@ -108,7 +153,7 @@ window {
   color: #f5f7fa;
 }
 
-.devtools-tab[selected=true] {
+.devtools-tab[selected=true] > .radio-label-box {
   color: #f5f7fa;
   background-image: -moz-radial-gradient(center top, ellipse farthest-corner, #9fdfff, hsla(200,100%,70%,.3)),
                     -moz-radial-gradient(center top, ellipse farthest-side, hsla(200,100%,70%,.4), hsla(200,100%,70%,0)),
@@ -120,4 +165,34 @@ window {
                      no-repeat,
                      repeat-x;
   box-shadow: 1px -1px 0 hsla(206,37%,4%,.2) inset;
+}
+
+.devtools-tab {
+  border-color: hsla(210,37%,4%,.6);
+  border-style: solid;
+  border-width: 0;
+  -moz-border-end-width: 1px;
+}
+
+#toolbox-tabs {
+  border-color: hsla(210,37%,4%,.6);
+  border-style: solid;
+  border-width: 0;
+  -moz-border-start-width: 1px;
+}
+
+.devtools-tab::before,
+#toolbox-tabs::after {
+  content:"";
+  display: block;
+  margin: 0 -2px;
+  width: 3px;
+  min-width: 3px;
+  height: 32px;
+  background-image: -moz-linear-gradient(hsla(204,45%,98%,.05), hsla(204,45%,98%,.1)),
+                    -moz-linear-gradient(hsla(206,37%,4%,.3), hsla(206,37%,4%,.6)),
+                    -moz-linear-gradient(hsla(204,45%,98%,.05), hsla(204,45%,98%,.1));
+  background-size: 1px 32px;
+  background-repeat: no-repeat;
+  background-position: 0, 1px, 2px;
 }

@@ -29,6 +29,7 @@ this.StyleEditorDefinition = {
   accesskey: l10n("open.accesskey"),
   modifiers: "shift",
   label: l10n("ToolboxStyleEditor.label"),
+  icon: "chrome://browser/skin/devtools/tool-styleeditor.png",
   url: "chrome://browser/content/styleeditor.xul",
 
   isTargetSupported: function(target) {
