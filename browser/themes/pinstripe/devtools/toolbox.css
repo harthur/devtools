@@ -48,6 +48,7 @@ window {
   opacity: 1;
 }
 
+
 /* Command buttons */
 
 .command-button {
@@ -128,7 +129,6 @@ window {
   padding: 0;
 }
 
-
 .devtools-tab {
   -moz-appearance: none;
   min-width: 88px;
@@ -136,12 +136,9 @@ window {
   color: #b6babf;
   font-size: 11px;
   line-height: 32px;
+  text-shadow: 0 -1px 0 hsla(206, 37%, 4%, 0.5);
   -moz-user-select: none;
   margin: 0;
-}
-
-.devtools-tab > .radio-label-box {
-  padding: 0 16px;
 }
 
 .devtools-tab:hover {
@@ -151,6 +148,10 @@ window {
 .devtools-tab:hover:active {
   background-color: hsla(206,37%,4%,.2);
   color: #f5f7fa;
+}
+
+.devtools-tab > .radio-label-box {
+  padding: 0 16px;
 }
 
 .devtools-tab[selected=true] > .radio-label-box {
@@ -167,19 +168,22 @@ window {
   box-shadow: 1px -1px 0 hsla(206,37%,4%,.2) inset;
 }
 
-.devtools-tab {
-  border-color: hsla(210,37%,4%,.6);
-  border-style: solid;
-  border-width: 0;
-  -moz-border-end-width: 1px;
+.devtools-tab[selected=true]::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 130px;
+  margin-bottom: -2px;
+  width: 16px;
+  height: 16px;
+  background-image: url(devtools-tab-indicator.png);
+  -moz-transition-duration: 200ms;
+  -moz-transition-timing-function: ease;
 }
 
-#toolbox-tabs {
-  border-color: hsla(210,37%,4%,.6);
-  border-style: solid;
-  border-width: 0;
-  -moz-border-start-width: 1px;
 }
+
+/* Separators */
 
 .devtools-tab::before,
 #toolbox-tabs::after {

@@ -253,6 +253,7 @@ browser.jar:
   skin/classic/browser/devtools/tab-border.png              (devtools/toolbox-images/tab-border.png)
   skin/classic/browser/devtools/close.png                   (devtools/toolbox-images/close.png)
   skin/classic/browser/devtools/undock.png                  (devtools/toolbox-images/undock.png)
+  skin/classic/browser/devtools/devtools-tab-indicator.png  (devtools/toolbox-images/devtools-tab-indicator.png)
 
 
 #ifdef MOZ_SERVICES_SYNC

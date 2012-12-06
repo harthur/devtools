@@ -9,10 +9,17 @@
 
 .devtools-toolbar {
   -moz-appearance: none;
-  padding: 4px 3px;
-  box-shadow: 0 1px 0 0 hsla(210, 16%, 76%, .2) inset;
-  background-image: url(background-noise-toolbar.png), -moz-linear-gradient(top, hsl(210,11%,36%), hsl(210,11%,18%));
-  color: hsl(210,30%,85%);
+  height: 26px;
+  line-height: 26px;
+  background-image: url(background-noise-toolbar.png),
+                    -moz-linear-gradient(#3e4750, #3e4750);
+  border-bottom: 1px solid #060a0d;
+  box-shadow: 0 1px 0 hsla(204,45%,98%,.05) inset,
+              -1px 0 0 hsla(204,45%,98%,.05) inset,
+              0 -1px 0 hsla(204,45%,98%,.05) inset;
+  color: #b6babf;
+  -moz-user-select: none;
+  cursor: default;
 }
 
 .devtools-menulist,
@@ -200,6 +207,8 @@
 .devtools-sidebar-tabs {
   -moz-appearance: none;
   margin: 0;
+  font-size: 11px;
+  color: hsl(0,0%,10%);
 }
 
 .devtools-sidebar-tabs > tabpanels {
@@ -209,9 +218,6 @@
 .devtools-sidebar-tabs > tabs {
   -moz-appearance: none;
   position: static;
-  box-shadow: 0 1px 0 0 hsla(210, 16%, 76%, .2) inset;
-  background-image: url(background-noise-toolbar.png), linear-gradient(to bottom, hsl(210,11%,36%), hsl(210,11%,18%));
-  color: hsl(210,30%,85%);
   margin-bottom: 0;
   padding: 0;
 }
@@ -225,8 +231,9 @@
   -moz-appearance: none;
   padding: 0;
   min-width: 78px;
-  min-height: 22px;
-  text-shadow: 0 -1px 0 hsla(210,8%,5%,.45);
+  min-height: 26px;
+  font-size: 11px;
+  text-shadow: 0 -1px 0 hsla(206, 37%, 4%, 0.5);
   text-align: center;
   color: inherit;
   -moz-box-flex: 1;
@@ -234,6 +241,14 @@
   -moz-border-end-width: 1px;
   border-color: hsla(210,8%,5%,.6);
   border-style: solid;
+}
+
+.devtools-sidebar-tabs > tabs > tab:hover {
+  background-color: hsla(206,37%,4%,.2);
+}
+
+.devtools-sidebar-tabs > tabs > tab:hover:active {
+  background-color: hsla(206,37%,4%,.4);
 }
 
 .devtools-sidebar-tabs > tabs > tab:-moz-focusring {
@@ -245,8 +260,25 @@
 }
 
 .devtools-sidebar-tabs > tabs > tab[selected=true] {
-  background-image: url(background-noise-toolbar.png), linear-gradient(to bottom, hsl(201,45%,34%), hsl(205,44%,22%));
-  color: white !important;
+  background-image: url(background-noise-toolbar.png), linear-gradient(#2f607b, #294d68);
+  box-shadow: 0 1px 0 hsla(0,0%,100%,.1) inset,
+              0 -2px 0 hsla(206,37%,4%,.05) inset,
+              0 -1px 1px hsla(206,37%,4%,.1) inset;
+  color: #f5f7fa;
+}
+
+.devtools-sidebar-tabs > tabs > tab[selected=true]:hover {
+  background-image: url(background-noise-toolbar.png), linear-gradient(#274f64, #224056);
+  box-shadow: 0 1px 0 hsla(0,0%,100%,.05) inset,
+              0 -2px 0 hsla(206,37%,4%,.05) inset,
+              0 -1px 1px hsla(206,37%,4%,.1) inset;
+}
+
+.devtools-sidebar-tabs > tabs > tab[selected=true]:hover:active {
+  background-image: url(background-noise-toolbar.png), linear-gradient(#1f3e4f, #1b3243);
+  box-shadow: 0 1px 0 hsla(0,0%,100%,.05) inset,
+              0 -2px 0 hsla(206,37%,4%,.05) inset,
+              0 -1px 1px hsla(206,37%,4%,.1) inset;
 }
 
 /* Theme */
