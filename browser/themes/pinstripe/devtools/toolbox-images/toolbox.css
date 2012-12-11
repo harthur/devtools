@@ -8,7 +8,14 @@
   display: none;
 }
 
-#toolbox-controls toolbarbutton > .toolbarbutton-text,
-.command-button > .toolbarbutton-text {
-  display: none;
+.devtools-tab > .radio-label-box {
+
+}
+
+.devtools-tab .radio-label {
+
+}
+
+.devtools-tab .radio-icon {
+  -moz-margin-end: 6px;
 }

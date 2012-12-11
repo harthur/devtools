@@ -223,7 +223,7 @@ browser.jar:
   skin/classic/browser/devtools/itemToggle.png              (devtools/itemToggle.png)
   skin/classic/browser/devtools/itemArrow-rtl.png           (devtools/itemArrow-rtl.png)
   skin/classic/browser/devtools/itemArrow-ltr.png           (devtools/itemArrow-ltr.png)
-  skin/classic/browser/devtools/background-noise-toolbar.png (devtools/background-noise-toolbar.png)
+  skin/classic/browser/devtools/background-noise-toolbar.png (devtools/toolbox-images/background-noise-toolbar.png)
   skin/classic/browser/devtools/inspect-button.png          (devtools/inspect-button.png)
   skin/classic/browser/devtools/dropmarker.png              (devtools/dropmarker.png)
   skin/classic/browser/devtools/layout-background-grid.png  (devtools/layout-background-grid.png)
@@ -245,6 +245,16 @@ browser.jar:
   skin/classic/browser/devtools/floating-scrollbars.css     (devtools/floating-scrollbars.css)
 * skin/classic/browser/devtools/inspector.css               (devtools/inspector.css)
 * skin/classic/browser/devtools/toolbox.css                 (devtools/toolbox.css)
+  skin/classic/browser/devtools/tab-devTools-indicator.png  (devtools/toolbox-images/tab-devTools-indicator.png)
+  skin/classic/browser/devtools/tool-webconsole.png         (devtools/toolbox-images/tool-webconsole.png)
+  skin/classic/browser/devtools/tool-debugger.png           (devtools/toolbox-images/tool-debugger.png)
+  skin/classic/browser/devtools/tool-inspector.png          (devtools/toolbox-images/tool-inspector.png)
+  skin/classic/browser/devtools/tool-styleeditor.png        (devtools/toolbox-images/tool-styleeditor.png)
+  skin/classic/browser/devtools/tab-border.png              (devtools/toolbox-images/tab-border.png)
+  skin/classic/browser/devtools/close.png                   (devtools/toolbox-images/close.png)
+  skin/classic/browser/devtools/undock.png                  (devtools/toolbox-images/undock.png)
+
+
 #ifdef MOZ_SERVICES_SYNC
   skin/classic/browser/sync-throbber.png
   skin/classic/browser/sync-16.png
