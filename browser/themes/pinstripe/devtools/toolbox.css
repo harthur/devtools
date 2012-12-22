@@ -126,6 +126,7 @@
   min-height: 32px;
   color: #b6babf;
   margin: 0;
+  padding: 0;
   background-image: linear-gradient(hsla(204,45%,98%,.05), hsla(204,45%,98%,.1)),
                     linear-gradient(hsla(204,45%,98%,.05), hsla(204,45%,98%,.1));
   background-size: 1px 100%;
