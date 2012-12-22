@@ -124,7 +124,7 @@
   -moz-appearance: none;
   background-image: url(background-noise-toolbar.png),
                     linear-gradient(#303840, #2d3640);
-  border-top: 1px solid #060a0d;
+  border: none;
   box-shadow: 0 1px 0 hsla(204,45%,98%,.05) inset,
               0 -1px 0 hsla(206,37%,4%,.1) inset;
   min-height: 32px;
@@ -147,6 +147,7 @@
   background-size: 1px 100%;
   background-repeat: no-repeat;
   background-position: left, right;
+  border-top: 1px solid #060a0d;
   border-right: 1px solid hsla(206,37%,4%,.45);
 }
 
@@ -194,7 +195,7 @@
                     linear-gradient(hsla(204,45%,98%,.05), hsla(204,45%,98%,.1)),
                     linear-gradient(hsla(204,45%,98%,.02), hsla(204,45%,98%,.04)),
                     linear-gradient(hsla(206,37%,4%,.2), hsla(206,37%,4%,.3));
-  background-size: 100% 2px,
+  background-size: 100% 1px,
                    100% 5px,
                    1px 100%,
                    1px 100%,
