@@ -127,6 +127,7 @@ window {
 .devtools-tab {
   -moz-appearance: none;
   min-width: 88px;
+  min-height: 32px;
   color: #b6babf;
   margin: 0;
   background-image: linear-gradient(hsla(204,45%,98%,.05), hsla(204,45%,98%,.1)),
