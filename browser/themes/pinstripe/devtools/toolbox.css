@@ -2,11 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#toolbox-tabs {
-  margin: 0;
-  border-right: 1px solid hsla(206,37%,4%,.45);
-}
-
 #toolbox-controls {
   margin: 0 4px;
 }
@@ -120,6 +115,11 @@
   padding: 0;
 }
 
+#toolbox-tabs {
+  margin: 0;
+  border-left: 1px solid hsla(206,37%,4%,.45);
+}
+
 .devtools-tab {
   -moz-appearance: none;
   min-width: 88px;
@@ -131,7 +131,7 @@
   background-size: 1px 100%;
   background-repeat: no-repeat;
   background-position: left, right;
-  border-left: 1px solid hsla(206,37%,4%,.45);
+  border-right: 1px solid hsla(206,37%,4%,.45);
 }
 
 .devtools-tab > .radio-label-box {
