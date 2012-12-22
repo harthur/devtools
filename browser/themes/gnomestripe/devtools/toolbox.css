@@ -153,6 +153,7 @@ window {
 
 .devtools-tab > .radio-label-center-box > .radio-label-box {
   -moz-appearance: none;
+  border: none;
   padding: 0 16px;
 }
 
