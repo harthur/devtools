@@ -38,7 +38,11 @@ StyleEditorPanel.prototype = {
    * open is effectively an asynchronous constructor
    */
   open: function StyleEditor_open() {
+    dump(this._toolbox.target.isRemote + "\n");
+    dump(this._toolbox.target.client + "\n");
+    dump("HEATHER: " + this._toolbox.target + "\n");
     let contentWin = this._toolbox.target.window;
+    dump("HEATHER: " + contentWin + "\n");
     this.setPage(contentWin);
     this.isReady = true;
 
