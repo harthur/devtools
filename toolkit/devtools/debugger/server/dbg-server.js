@@ -193,6 +193,9 @@ var DebuggerServer = {
 #endif
     if ("nsIProfiler" in Ci)
       this.addActors("chrome://global/content/devtools/dbg-profiler-actors.js");
+
+    this.addActors("chrome://global/content/devtools/dbg-styleeditor-actors.js");
+    this.addTabActor(this.StyleEditorActor, "styleEditorActor");
   },
 
   /**
@@ -648,6 +651,7 @@ DebuggerServerConnection.prototype = {
     var ret = null;
 
     // Dispatch the request to the actor.
+    dump(JSON.stringify(actor.requestTypes) + " \n\n" + aPacket.type + "\n");
     if (actor.requestTypes && actor.requestTypes[aPacket.type]) {
       try {
         ret = actor.requestTypes[aPacket.type].bind(actor)(aPacket);

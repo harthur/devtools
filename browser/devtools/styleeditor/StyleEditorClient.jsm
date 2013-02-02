@@ -4,6 +4,8 @@
 
 "use strict";
 
+this.EXPORTED_SYMBOLS = ["StyleEditorClient"];
+
 const Cc = Components.classes;
 const Ci = Components.interfaces;
 const Cu = Components.utils;
@@ -15,14 +17,12 @@ Cu.import("resource://gre/modules/devtools/dbg-server.jsm");
 Cu.import("resource://gre/modules/devtools/dbg-client.jsm");
 
 
-let StyleEditorController = function(panel) {
+let StyleEditorClient = function(target) {
   EventEmitter.decorate(this);
-
-  this._panel = panel;
-  this._target = panel.target;
+  this._target = target;
 }
 
-StyleEditorController.prototype = {
+StyleEditorClient.prototype = {
   connect: function() {
     if (this._target.client) {
       this.client = this._target.client;
@@ -36,9 +36,12 @@ StyleEditorController.prototype = {
       let transport = DebuggerServer.connectPipe();
       this.client = new DebuggerClient(transport);
     }
+
+    this._styleEditorActor = this._target.form.styleEditorActor;
   },
 
-  getStyleSheets: function() {
-
-  },
+  getStyleSheets: function(callback) {
+    var message = { to: this._styleEditorActor, type: "getStyleSheets" };
+    this.client.request(message, callback);
+  }
 }

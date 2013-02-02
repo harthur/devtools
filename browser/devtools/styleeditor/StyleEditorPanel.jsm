@@ -11,6 +11,8 @@ this.EXPORTED_SYMBOLS = ["StyleEditorPanel"];
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 Cu.import("resource://gre/modules/commonjs/promise/core.js");
 Cu.import("resource:///modules/devtools/EventEmitter.jsm");
+Cu.import("resource:///modules/devtools/StyleEditorClient.jsm");
+
 
 XPCOMUtils.defineLazyModuleGetter(this, "StyleEditorChrome",
                         "resource:///modules/devtools/StyleEditorChrome.jsm");
@@ -43,8 +45,17 @@ StyleEditorPanel.prototype = {
     dump("HEATHER: " + this._toolbox.target + "\n");
     let contentWin = this._toolbox.target.window;
     dump("HEATHER: " + contentWin + "\n");
-    this.setPage(contentWin);
+    //this.setPage(contentWin);
     this.isReady = true;
+
+    var client = new StyleEditorClient(this._toolbox.target);
+    client.connect();
+
+    dump("HEATHER: about to get getStyleSheets" + "\n");
+    client.getStyleSheets(function(arg, arg2) {
+      dump("HEATHER getStyleSheets:" + JSON.stringify(arg) + "\n");
+      dump("HEATHER arg 2: " + arg2 + "\n");
+    });
 
     return Promise.resolve(this);
   },
