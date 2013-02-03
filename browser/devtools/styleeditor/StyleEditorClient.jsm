@@ -23,9 +23,11 @@ let StyleEditorClient = function(target) {
 }
 
 StyleEditorClient.prototype = {
-  connect: function() {
+  connect: function(callback) {
     if (this._target.client) {
       this.client = this._target.client;
+      this._actor = this._target.form.styleEditorActor;
+      callback();
     }
     else {
       if (!DebuggerServer.initialized) {
@@ -35,13 +37,19 @@ StyleEditorClient.prototype = {
 
       let transport = DebuggerServer.connectPipe();
       this.client = new DebuggerClient(transport);
-    }
 
-    this._styleEditorActor = this._target.form.styleEditorActor;
+      this.client.connect(function(type, traits) {
+        this.client.listTabs(function (response) {
+          let tab = response.tabs[response.selected];
+          this._actor = tab.styleEditorActor;
+          callback();
+        }.bind(this));
+      }.bind(this))
+    }
   },
 
   getStyleSheets: function(callback) {
-    var message = { to: this._styleEditorActor, type: "getStyleSheets" };
+    var message = { to: this._actor, type: "getStyleSheets" };
     this.client.request(message, callback);
   }
 }

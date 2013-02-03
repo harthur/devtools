@@ -40,24 +40,20 @@ StyleEditorPanel.prototype = {
    * open is effectively an asynchronous constructor
    */
   open: function StyleEditor_open() {
-    dump(this._toolbox.target.isRemote + "\n");
-    dump(this._toolbox.target.client + "\n");
-    dump("HEATHER: " + this._toolbox.target + "\n");
+    let deferred = Promise.defer();
+
     let contentWin = this._toolbox.target.window;
-    dump("HEATHER: " + contentWin + "\n");
-    //this.setPage(contentWin);
-    this.isReady = true;
 
     var client = new StyleEditorClient(this._toolbox.target);
-    client.connect();
-
-    dump("HEATHER: about to get getStyleSheets" + "\n");
-    client.getStyleSheets(function(arg, arg2) {
-      dump("HEATHER getStyleSheets:" + JSON.stringify(arg) + "\n");
-      dump("HEATHER arg 2: " + arg2 + "\n");
+    client.connect(function () {
+      client.getStyleSheets(function(arg, arg2) {
+        this.isReady = true;
+        deferred.resolve(this);
+      });
     });
 
-    return Promise.resolve(this);
+    //this.setPage(contentWin);
+    return deferred.promise;
   },
 
   /**
