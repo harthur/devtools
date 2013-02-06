@@ -24,7 +24,6 @@ this.StyleEditorPanel = function StyleEditorPanel(panelWin, toolbox) {
   this._toolbox = toolbox;
   this._target = toolbox.target;
 
-  this._panelWin = panelWin;
   this._panelDoc = panelWin.document;
 }
 
@@ -46,11 +45,13 @@ StyleEditorPanel.prototype = {
           dump("HEATHER: sheet " + disabled + "\n");
         })
       }
-      this._styleEditorUI = new StyleEditorUI(debuggee, this._panelWin);
+      dump("HEATHER: panelDoc" + this._panelDoc + "\n");
+      this._styleEditorUI = new StyleEditorUI(debuggee, this._panelDoc);
+      this._styleEditorUI.initialize();
 
       this.isReady = true;
       deferred.resolve(this);
-    });
+    }.bind(this));
 
     //this.setPage(contentWin);
     return deferred.promise;

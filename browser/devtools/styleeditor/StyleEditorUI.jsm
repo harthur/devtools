@@ -22,25 +22,21 @@ Cu.import("resource:///modules/devtools/SplitView.jsm");
 const STYLE_EDITOR_TEMPLATE = "stylesheet";
 
 function StyleEditorUI(debuggee, panelDoc) {
-  this.debuggee = debuggee;
+  this._debuggee = debuggee;
   this._panelDoc = panelDoc;
   this._sheets = [];
 }
 
 StyleEditorUI.prototype = {
-
   initialize: function(callback) {
-    this.debuggee.getStyleSheets(function(stylesheets) {
-      for (let sheet in stylesheets) {
-        this._sheets.push(new StyleSheetEditor(sheet));
-      }
-      callback();
-    }.bind(this));
+    this.createUI();
   },
 
-  createUI: function {
+  createUI: function() {
     let rootElem = this._panelDoc.getElementById("style-editor-chrome");
     this._view = new SplitView(rootElem);
+
+    dump("HEATHER: view " + this._view + "\n");
 
     // wire "New" button
     // wire "Import" button
@@ -48,29 +44,9 @@ StyleEditorUI.prototype = {
     // create StylesheetEditor objects
     // load editors, after loading add items to UI for them
 
+  },
+
+  populateStyleSheets: function() {
+
   }
 }
-
-function StyleEditor(debuggee) {
-  EventEmitter.decorate(this);
-
-  this._debuggee = debuggee;
-}
-
-StyleEditor.prototype = {
-  initialize: function() {
-    this.debuggee.getStyleSheets(function(stylesheets) {
-      this.stylesheets = stylesheets;
-      this.emit("ready");
-    }.bind(this));
-  }
-}
-
-function StyleSheetEditor(sheet) {
-  this._styleSheet = sheet;
-}
-
-StyleSheetEditor.prototype = {
-
-}
-

@@ -31,12 +31,12 @@ StyleEditorDebuggee.prototype = {
   styleSheets: null, /* list of StyleSheet objects for this target */
 
   initialize: function(callback) {
-    this.connect(function() {
+    this._connect(function() {
       this.reset(callback);
     }.bind(this));
   },
 
-  connect: function(callback) {
+  _connect: function(callback) {
     if (this._target.client) {
       this._client = this._target.client;
       this._actor = this._target.form.styleEditorActor;
@@ -65,12 +65,12 @@ StyleEditorDebuggee.prototype = {
     this.styleSheets = [];
 
     this.emit("stylesheets-changed");
-  }
+  },
 
   reset: function(callback) {
     this._fetchStyleSheets(function(forms) {
       this.styleSheets = [];
-      for (let form of styleSheetForms) {
+      for (let form of forms) {
         var sheet = new StyleSheet(form, this._client);
         this.styleSheets.push(sheet);
       }
