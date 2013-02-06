@@ -492,6 +492,7 @@ StyleEditorChrome.prototype = {
    */
   onLoad: function SEAL_onLoad(aEditor)
   {
+    dump("HEATHER editor load:" + aEditor + "\n");
     let item = this._view.appendTemplatedItem(STYLE_EDITOR_TEMPLATE, {
       data: {
         editor: aEditor

@@ -46,7 +46,14 @@ StyleEditorPanel.prototype = {
 
     var client = new StyleEditorClient(this._toolbox.target);
     client.connect(function () {
-      client.getStyleSheets(function(arg, arg2) {
+      client.getStyleSheets(function(aResponse) {
+        let stylesheets = aResponse.styleSheets;
+        for (let form of stylesheets) {
+          var sheet = new StyleSheet(form, client.client);
+          sheet.getDisabled(function(disabled) {
+            dump("HEATHER: disabled " + disabled + "\n");
+          });
+        }
         this.isReady = true;
         deferred.resolve(this);
       });

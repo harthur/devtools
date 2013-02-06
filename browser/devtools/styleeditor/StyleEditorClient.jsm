@@ -4,7 +4,7 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = ["StyleEditorClient"];
+this.EXPORTED_SYMBOLS = ["StyleEditorClient", "StyleSheet"];
 
 const Cc = Components.classes;
 const Ci = Components.interfaces;
@@ -51,5 +51,26 @@ StyleEditorClient.prototype = {
   getStyleSheets: function(callback) {
     var message = { to: this._actor, type: "getStyleSheets" };
     this.client.request(message, callback);
+  }
+}
+
+let StyleSheet = function(form, client) {
+  dump("HEATHER: client " + "\n");
+  this._client = client;
+  this._actor = form.actor;
+  dump("HEATHER: " + JSON.stringify(form) + "\n");
+}
+
+StyleSheet.prototype = {
+  getDisabled : function(callback) {
+    dump("HEATHER: client " + this._client.request + "\n");
+    dump("HEATHER: actor " + this._actor + "\n");
+    var message = { to: this._actor, type: "getDisabled" };
+    this._client.request(message, function(aResponse) {
+      callback(aResponse.disabled);
+    });
+  },
+
+  update: function(sheetText, callback) {
   }
 }

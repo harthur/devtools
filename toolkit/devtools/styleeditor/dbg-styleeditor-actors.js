@@ -37,21 +37,16 @@ function StyleEditorActor(aConnection, aParentActor)
 StyleEditorActor.prototype = {
   /**
    * Actor pool for all of the actors we send to the client.
-   * @private
-   * @type object
-   * @see ActorPool
    */
   _actorPool: null,
 
   /**
    * The debugger server connection instance.
-   * @type object
    */
   conn: null,
 
   /**
    * The content window we work with.
-   * @type nsIDOMWindow
    */
   get window() this._window,
 
@@ -82,17 +77,24 @@ StyleEditorActor.prototype = {
   },
 
   onGetStyleSheets: function SEA_onGetStyleSheets() {
-    let stylesheets = [];
+    let styleSheets = [];
 
     let doc = this._window.document;
     for (let i = 0; i < doc.styleSheets.length; ++i) {
       let styleSheet = doc.styleSheets[i];
-      stylesheets.push({
-        href: styleSheet.href
-      });
+      let actor = this.createStyleSheetActor(styleSheet);
+
+      styleSheets.push(actor.form());
     }
-    return {"stylesheets": stylesheets};
-  }
+    return { "styleSheets": styleSheets };
+  },
+
+  createStyleSheetActor: function SEA_createStyleSheetActor(aStyleSheet)
+  {
+    let actor = new StyleSheetActor(aStyleSheet, this);
+    this._actorPool.addActor(actor);
+    return actor;
+  },
 };
 
 /**
@@ -101,3 +103,55 @@ StyleEditorActor.prototype = {
 StyleEditorActor.prototype.requestTypes = {
   "getStyleSheets": StyleEditorActor.prototype.onGetStyleSheets
 };
+
+
+function StyleSheetActor(aStyleSheet, aParentActor) {
+  this.styleSheet = aStyleSheet;
+  this.parentActor = aParentActor;
+}
+
+StyleSheetActor.prototype = {
+  actorPrefix: "stylesheet",
+
+  form: function SSA_form() {
+    // actorID is set when this actor is added to a pool
+    let form = {
+      actor: this.actorID,
+      href: this.styleSheet.href,
+      disabled: this.styleSheet.disabled
+    }
+
+    return form;
+  },
+
+  toString: function SSA_toString() {
+    return "[StyleSheetActor " + this.actorID + "]";
+  },
+
+  disconnect: function SSA_disconnect() {
+    this.parentActor.releaseActor(this);
+  },
+
+  onGetDisabled: function(aRequest) {
+    return { disabled: this.styleSheet.disabled };
+  },
+
+  onSetDisabled: function(aRequest) {
+    this.styleSheet.disabled = aRequest.disabled;
+  },
+
+  onUpdate: function(aRequest) {
+    DOMUtils.parseStyleSheet(this.styleSheet, aRequest.text);
+  }
+}
+
+StyleSheetActor.prototype.requestTypes = {
+  "getDisabled": StyleSheetActor.prototype.onGetDisabled,
+  "setDisabled": StyleSheetActor.prototype.onSetDisabled,
+  "update": StyleSheetActor.prototype.onUpdate
+};
+
+
+XPCOMUtils.defineLazyGetter(this, "DOMUtils", function () {
+  return Cc["@mozilla.org/inspector/dom-utils;1"].getService(Ci.inIDOMUtils);
+});
