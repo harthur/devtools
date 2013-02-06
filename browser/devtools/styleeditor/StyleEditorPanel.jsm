@@ -44,19 +44,17 @@ StyleEditorPanel.prototype = {
 
     let contentWin = this._toolbox.target.window;
 
-    var client = new StyleEditorClient(this._toolbox.target);
-    client.connect(function () {
-      client.getStyleSheets(function(aResponse) {
-        let stylesheets = aResponse.styleSheets;
-        for (let form of stylesheets) {
-          var sheet = new StyleSheet(form, client.client);
-          sheet.getDisabled(function(disabled) {
-            dump("HEATHER: disabled " + disabled + "\n");
-          });
-        }
-        this.isReady = true;
-        deferred.resolve(this);
-      });
+    var debuggee = new StyleEditorClient(this._toolbox.target);
+    debuggee.initialize(function() {
+      let sheets = debuggee.styleSheets;
+      dump("HEATHER: sheets " + sheets + "\n");
+      for (sheet of sheets) {
+        sheet.getDisabled(function(disabled) {
+          dump("HEATHER: sheet " + disabled + "\n");
+        })
+      }
+      this.isReady = true;
+      deferred.resolve(this);
     });
 
     //this.setPage(contentWin);

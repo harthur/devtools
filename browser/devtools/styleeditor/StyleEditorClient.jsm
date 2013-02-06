@@ -15,6 +15,7 @@ Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 Cu.import("resource:///modules/devtools/EventEmitter.jsm");
 Cu.import("resource://gre/modules/devtools/dbg-server.jsm");
 Cu.import("resource://gre/modules/devtools/dbg-client.jsm");
+Cu.import("resource:///modules/devtools/StyleSheet.jsm");
 
 
 let StyleEditorClient = function(target) {
@@ -23,9 +24,24 @@ let StyleEditorClient = function(target) {
 }
 
 StyleEditorClient.prototype = {
+  styleSheets: null, /* list of StyleSheet objects for this target */
+
+  initialize: function(callback) {
+    this.connect(function() {
+      this.reset(callback);
+    }.bind(this));
+  },
+
+  reset: function(callback) {
+    this.fetchStyleSheets(function(forms) {
+      this.setStyleSheets(forms);
+      callback();
+    }.bind(this));
+  },
+
   connect: function(callback) {
     if (this._target.client) {
-      this.client = this._target.client;
+      this._client = this._target.client;
       this._actor = this._target.form.styleEditorActor;
       callback();
     }
@@ -36,10 +52,10 @@ StyleEditorClient.prototype = {
       }
 
       let transport = DebuggerServer.connectPipe();
-      this.client = new DebuggerClient(transport);
+      this._client = new DebuggerClient(transport);
 
-      this.client.connect(function(type, traits) {
-        this.client.listTabs(function (response) {
+      this._client.connect(function(type, traits) {
+        this._client.listTabs(function (response) {
           let tab = response.tabs[response.selected];
           this._actor = tab.styleEditorActor;
           callback();
@@ -48,29 +64,18 @@ StyleEditorClient.prototype = {
     }
   },
 
-  getStyleSheets: function(callback) {
+  fetchStyleSheets: function(callback) {
     var message = { to: this._actor, type: "getStyleSheets" };
-    this.client.request(message, callback);
-  }
-}
-
-let StyleSheet = function(form, client) {
-  dump("HEATHER: client " + "\n");
-  this._client = client;
-  this._actor = form.actor;
-  dump("HEATHER: " + JSON.stringify(form) + "\n");
-}
-
-StyleSheet.prototype = {
-  getDisabled : function(callback) {
-    dump("HEATHER: client " + this._client.request + "\n");
-    dump("HEATHER: actor " + this._actor + "\n");
-    var message = { to: this._actor, type: "getDisabled" };
-    this._client.request(message, function(aResponse) {
-      callback(aResponse.disabled);
+    this._client.request(message, function(response) {
+      callback(response.styleSheets);
     });
   },
 
-  update: function(sheetText, callback) {
+  setStyleSheets: function(styleSheetForms) {
+    this.styleSheets = [];
+    for (let form of styleSheetForms) {
+      var sheet = new StyleSheet(form, this._client);
+      this.styleSheets.push(sheet);
+    }
   }
 }
