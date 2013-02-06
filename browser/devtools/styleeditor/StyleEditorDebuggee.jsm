@@ -4,7 +4,7 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = ["StyleEditorClient", "StyleSheet"];
+this.EXPORTED_SYMBOLS = ["StyleEditorDebuggee"];
 
 const Cc = Components.classes;
 const Ci = Components.interfaces;
@@ -18,24 +18,21 @@ Cu.import("resource://gre/modules/devtools/dbg-client.jsm");
 Cu.import("resource:///modules/devtools/StyleSheet.jsm");
 
 
-let StyleEditorClient = function(target) {
+let StyleEditorDebuggee = function(target) {
   EventEmitter.decorate(this);
+
   this._target = target;
+
+  this._target.on("will-navigate", this.clear);
+  this._target.on("navigate", this.reset);
 }
 
-StyleEditorClient.prototype = {
+StyleEditorDebuggee.prototype = {
   styleSheets: null, /* list of StyleSheet objects for this target */
 
   initialize: function(callback) {
     this.connect(function() {
       this.reset(callback);
-    }.bind(this));
-  },
-
-  reset: function(callback) {
-    this.fetchStyleSheets(function(forms) {
-      this.setStyleSheets(forms);
-      callback();
     }.bind(this));
   },
 
@@ -64,18 +61,31 @@ StyleEditorClient.prototype = {
     }
   },
 
-  fetchStyleSheets: function(callback) {
+  clear: function(callback) {
+    this.styleSheets = [];
+
+    this.emit("stylesheets-changed");
+  }
+
+  reset: function(callback) {
+    this._fetchStyleSheets(function(forms) {
+      this.styleSheets = [];
+      for (let form of styleSheetForms) {
+        var sheet = new StyleSheet(form, this._client);
+        this.styleSheets.push(sheet);
+      }
+
+      if (callback) {
+        callback();
+      }
+      this.emit("stylesheets-changed");
+    }.bind(this));
+  },
+
+  _fetchStyleSheets: function(callback) {
     var message = { to: this._actor, type: "getStyleSheets" };
     this._client.request(message, function(response) {
       callback(response.styleSheets);
     });
-  },
-
-  setStyleSheets: function(styleSheetForms) {
-    this.styleSheets = [];
-    for (let form of styleSheetForms) {
-      var sheet = new StyleSheet(form, this._client);
-      this.styleSheets.push(sheet);
-    }
   }
 }

@@ -5,7 +5,7 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = ["StyleEditor"];
+this.EXPORTED_SYMBOLS = ["StyleEditorUI"];
 
 const Cc = Components.classes;
 const Ci = Components.interfaces;

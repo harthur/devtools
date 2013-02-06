@@ -11,7 +11,8 @@ this.EXPORTED_SYMBOLS = ["StyleEditorPanel"];
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 Cu.import("resource://gre/modules/commonjs/promise/core.js");
 Cu.import("resource:///modules/devtools/EventEmitter.jsm");
-Cu.import("resource:///modules/devtools/StyleEditorClient.jsm");
+Cu.import("resource:///modules/devtools/StyleEditorDebuggee.jsm");
+Cu.import("resource:///modules/devtools/StyleEditorUI.jsm");
 
 
 XPCOMUtils.defineLazyModuleGetter(this, "StyleEditorChrome",
@@ -22,14 +23,6 @@ this.StyleEditorPanel = function StyleEditorPanel(panelWin, toolbox) {
 
   this._toolbox = toolbox;
   this._target = toolbox.target;
-
-  this.reset = this.reset.bind(this);
-  this.newPage = this.newPage.bind(this);
-  this.destroy = this.destroy.bind(this);
-
-  this._target.on("will-navigate", this.reset);
-  this._target.on("navigate", this.newPage);
-  this._target.on("close", this.destroy);
 
   this._panelWin = panelWin;
   this._panelDoc = panelWin.document;
@@ -44,7 +37,7 @@ StyleEditorPanel.prototype = {
 
     let contentWin = this._toolbox.target.window;
 
-    var debuggee = new StyleEditorClient(this._toolbox.target);
+    var debuggee = new StyleEditorDebuggee(this._toolbox.target);
     debuggee.initialize(function() {
       let sheets = debuggee.styleSheets;
       dump("HEATHER: sheets " + sheets + "\n");
@@ -53,6 +46,8 @@ StyleEditorPanel.prototype = {
           dump("HEATHER: sheet " + disabled + "\n");
         })
       }
+      this._styleEditorUI = new StyleEditorUI(debuggee, this._panelWin);
+
       this.isReady = true;
       deferred.resolve(this);
     });
@@ -62,22 +57,7 @@ StyleEditorPanel.prototype = {
   },
 
   /**
-   * Target getter.
-   */
-  get target() this._target,
-
-  /**
-   * Panel window getter.
-   */
-  get panelWindow() this._panelWin,
-
-  /**
-   * StyleEditorChrome instance getter.
-   */
-  get styleEditorChrome() this._panelWin.styleEditorChrome,
-
-  /**
-   * Set the page to target.
+   * Set the page to target. XXXOLD
    */
   setPage: function StyleEditor_setPage(contentWindow) {
     if (this._panelWin.styleEditorChrome) {
@@ -91,28 +71,14 @@ StyleEditorPanel.prototype = {
   },
 
   /**
-   * Navigated to a new page.
-   */
-  newPage: function StyleEditor_newPage(event, window) {
-    this.setPage(window);
-  },
-
-  /**
-   * No window available anymore.
-   */
-  reset: function StyleEditor_reset() {
-    this._panelWin.styleEditorChrome.resetChrome();
-  },
-
-  /**
-   * Select a stylesheet.
+   * Select a stylesheet. XXXOLD - MUST IMPLEMENT
    */
   selectStyleSheet: function StyleEditor_selectStyleSheet(stylesheet, line, col) {
     this._panelWin.styleEditorChrome.selectStyleSheet(stylesheet, line, col);
   },
 
   /**
-   * Destroy StyleEditor
+   * Destroy StyleEditor. XXXOLD - MUST IMPLEMENT
    */
   destroy: function StyleEditor_destroy() {
     if (!this._destroyed) {
