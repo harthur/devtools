@@ -9,7 +9,7 @@ const { classes: Cc, interfaces: Ci, utils: Cu } = Components;
 this.EXPORTED_SYMBOLS = ["StyleEditorPanel"];
 
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
-Cu.import("resource://gre/modules/commonjs/promise/core.js");
+Cu.import("resource://gre/modules/commonjs/sdk/core/promise.js");
 Cu.import("resource:///modules/devtools/EventEmitter.jsm");
 Cu.import("resource:///modules/devtools/StyleEditorDebuggee.jsm");
 Cu.import("resource:///modules/devtools/StyleEditorUI.jsm");
@@ -63,12 +63,16 @@ StyleEditorPanel.prototype = {
   setPage: function StyleEditor_setPage(contentWindow) {
     if (this._panelWin.styleEditorChrome) {
       this._panelWin.styleEditorChrome.contentWindow = contentWindow;
+      this.selectStyleSheet(null, null, null);
     } else {
       let chromeRoot = this._panelDoc.getElementById("style-editor-chrome");
       let chrome = new StyleEditorChrome(chromeRoot, contentWindow);
+      let promise = chrome.open();
+
       this._panelWin.styleEditorChrome = chrome;
+      this.selectStyleSheet(null, null, null);
+      return promise;
     }
-    this.selectStyleSheet(null, null, null);
   },
 
   /**
