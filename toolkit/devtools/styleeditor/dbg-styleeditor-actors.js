@@ -92,7 +92,7 @@ StyleEditorActor.prototype = {
 
     for (let i = 0; i < this.doc.styleSheets.length; ++i) {
       let styleSheet = this.doc.styleSheets[i];
-      let actor = this.createStyleSheetActor(styleSheet);
+      let actor = this._createStyleSheetActor(styleSheet);
 
       styleSheets.push(actor.form());
     }
@@ -101,7 +101,7 @@ StyleEditorActor.prototype = {
     return { "styleSheets": styleSheets };
   },
 
-  createStyleSheetActor: function SEA_createStyleSheetActor(aStyleSheet)
+  _createStyleSheetActor: function SEA_createStyleSheetActor(aStyleSheet)
   {
     let actor = new StyleSheetActor(aStyleSheet, this);
     this._actorPool.addActor(actor);
@@ -118,35 +118,31 @@ StyleEditorActor.prototype = {
     dump("HEATHER: attached _observer" + "\n");
   },
 
-  _onMutations: function DWA_onMutations(event, mutations)
+  _onMutations: function DWA_onMutations(mutations)
   {
-    dump("HEATHER: on mutations fired " + "\n");
-
-    let toSend = [];
+    let styleSheets = [];
     for (let mutation of mutations) {
       if (mutation.type != "childList") {
-        return;
+        continue;
       }
-      dump("HEATHER: on mutation " +  + "\n");
-
       let target = mutation.target;
-      for (let node in target.nodesAdded) {
-        if (node.localName == "link" &&
-            node.rel == "stylesheet") {
-          dump("HEATHER: link added" + node.href + "\n");
-          toSend.push({
-            stylesheet: node,
-            type: "added",
-          });
+      for (let node of mutation.addedNodes) {
+        if (node.localName == "style" ||
+            (node.localName == "link" &&
+             node.rel == "stylesheet")) {
+          let actor = this._createStyleSheetActor(node.sheet);
+          styleSheets.push(actor.form());
         }
       }
     }
-/*
-    this.conn.send({
-      from: this.actorID,
-      type: "mutations",
-      mutations: toSend
-    }); */
+
+    if (styleSheets.length) {
+      this.conn.send({
+        from: this.actorID,
+        type: "styleSheetAdded",
+        styleSheets: styleSheets
+      });
+    }
   }
 };
 

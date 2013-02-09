@@ -21,6 +21,10 @@ Cu.import("resource:///modules/devtools/StyleSheet.jsm");
 let StyleEditorDebuggee = function(target) {
   EventEmitter.decorate(this);
 
+  this.clear = this.clear.bind(this);
+  this.reset = this.reset.bind(this);
+  this._onStyleSheetAdded = this._onStyleSheetAdded.bind(this);
+
   this._target = target;
 
   this._target.on("will-navigate", this.clear);
@@ -32,8 +36,14 @@ StyleEditorDebuggee.prototype = {
 
   initialize: function(callback) {
     this._connect(function() {
+      this._client.addListener("styleSheetAdded", this._onStyleSheetAdded);
+
       this.reset(callback);
     }.bind(this));
+  },
+
+  _onStyleSheetAdded: function(type, request) {
+    dump("HEATHER: type" + type + " request: " + JSON.stringify(request) + "\n");
   },
 
   _connect: function(callback) {
