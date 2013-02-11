@@ -41,11 +41,6 @@ StyleEditorDebuggee.prototype = {
       this.reset(callback);
     }.bind(this));
   },
-
-  _onStyleSheetAdded: function(type, request) {
-    dump("HEATHER: type" + type + " request: " + JSON.stringify(request) + "\n");
-  },
-
   _connect: function(callback) {
     if (this._target.client) {
       this._client = this._target.client;
@@ -81,8 +76,7 @@ StyleEditorDebuggee.prototype = {
     this._fetchStyleSheets(function(forms) {
       this.styleSheets = [];
       for (let form of forms) {
-        var sheet = new StyleSheet(form, this._client);
-        this.styleSheets.push(sheet);
+        this._addStyleSheet(form);
       }
 
       if (callback) {
@@ -90,6 +84,20 @@ StyleEditorDebuggee.prototype = {
       }
       this.emit("stylesheets-changed");
     }.bind(this));
+  },
+
+  _onStyleSheetsAdded: function(type, request) {
+    dump("HEATHER: type " + type + " request: " + JSON.stringify(request) + "\n");
+    for (let form of request.styleSheets) {
+      let sheet = this._addStyleSheet(form);
+      this.emit("stylesheet-added", sheet);
+    }
+  },
+
+  _addStyleSheet: function(form) {
+    var sheet = new StyleSheet(form, this._client);
+    this.styleSheets.push(sheet);
+    return sheet;
   },
 
   _fetchStyleSheets: function(callback) {
