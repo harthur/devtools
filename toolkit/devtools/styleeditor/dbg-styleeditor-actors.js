@@ -167,7 +167,13 @@ StyleSheetActor.prototype = {
     let form = {
       actor: this.actorID,
       href: this.styleSheet.href,
-      disabled: this.styleSheet.disabled
+      disabled: this.styleSheet.disabled,
+      title: this.styleSheet.title
+    }
+
+    let rules = this.styleSheet.cssRules;
+    for (let i = 0; i < rules.length; i++) {
+      let rule = rules[i];
     }
 
     return form;

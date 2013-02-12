@@ -23,7 +23,7 @@ let StyleEditorDebuggee = function(target) {
 
   this.clear = this.clear.bind(this);
   this.reset = this.reset.bind(this);
-  this._onStyleSheetAdded = this._onStyleSheetAdded.bind(this);
+  this._onStyleSheetsAdded = this._onStyleSheetsAdded.bind(this);
 
   this._target = target;
 
@@ -36,7 +36,7 @@ StyleEditorDebuggee.prototype = {
 
   initialize: function(callback) {
     this._connect(function() {
-      this._client.addListener("styleSheetAdded", this._onStyleSheetAdded);
+      this._client.addListener("styleSheetAdded", this._onStyleSheetsAdded);
 
       this.reset(callback);
     }.bind(this));
