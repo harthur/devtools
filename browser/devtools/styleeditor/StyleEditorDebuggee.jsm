@@ -87,7 +87,7 @@ StyleEditorDebuggee.prototype = {
   },
 
   _onStyleSheetsAdded: function(type, request) {
-    dump("HEATHER: type " + type + " request: " + JSON.stringify(request) + "\n");
+    dump("HEATHER: styleSheetsAdded\n");
     for (let form of request.styleSheets) {
       let sheet = this._addStyleSheet(form);
       this.emit("stylesheet-added", sheet);

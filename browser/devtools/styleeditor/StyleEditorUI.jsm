@@ -24,6 +24,7 @@ const STYLE_EDITOR_TEMPLATE = "stylesheet";
 function StyleEditorUI(debuggee, panelDoc) {
   this._debuggee = debuggee;
   this._panelDoc = panelDoc;
+  this._window = this._panelDoc.defaultView;
   this._editors = [];
 }
 
@@ -36,8 +37,6 @@ StyleEditorUI.prototype = {
     let rootElem = this._panelDoc.getElementById("style-editor-chrome");
     this._view = new SplitView(rootElem);
 
-    dump("HEATHER: view " + this._view + "\n");
-
     // wire "New" button
     // wire "Import" button
 
@@ -45,14 +44,19 @@ StyleEditorUI.prototype = {
     // load editors, after loading add items to UI for them
 
     for (let styleSheet of this._debuggee.styleSheets) {
-      this._addSheetEditor(styleSheet);
+      let editor = new StyleSheetEditor(styleSheet);
+      editor.on("source-load", this._sourceLoaded.bind(this, editor));
+      this._editors.push(editor);
     }
+
+    // Queue editors loading. This helps responsivity during loading when
+    // there are many heavy stylesheets.
+    this._editors.forEach(function (editor) {
+      this._window.setTimeout(editor.fetchSource.bind(editor), 0);
+    }, this);
   },
 
-  _addSheetEditor: function(styleSheet) {
-    let editor = new StyleSheetEditor(styleSheet);
-    this._editors.push(editor);
-
+  _sourceLoaded: function(editor) {
     // add new sidebar item and editor to the UI
     this._view.appendTemplatedItem(STYLE_EDITOR_TEMPLATE, {
       data: {
@@ -76,9 +80,10 @@ StyleEditorUI.prototype = {
 
           editor.saveToFile(editor.savedFile);
         });
-
-        this._updateSummaryForEditor(editor, aSummary);
         */
+
+
+        this._updateSummaryForEditor(editor, summary);
 
         summary.addEventListener("focus", function onSummaryFocus(event) {
           if (event.target == summary) {
@@ -120,9 +125,9 @@ StyleEditorUI.prototype = {
    *         Item's summary element or null if not found.
    * @see SplitView
    */
-  getSummaryElementForEditor: function SEC_getSummaryElementForEditor(aEditor)
+  getSummaryElementForEditor: function SEC_getSummaryElementForEditor(editor)
   {
-    return this._view.getSummaryElementByOrdinal(aEditor.styleSheetIndex);
+    return this._view.getSummaryElementByOrdinal(editor.styleSheetIndex);
   },
 
   /**
@@ -153,9 +158,20 @@ StyleEditorUI.prototype = {
 Cu.import("resource:///modules/source-editor.jsm");
 
 function StyleSheetEditor(styleSheet, inputElement) {
+  EventEmitter.decorate(this);
+
   this._styleSheet = styleSheet;
   this._inputElement = inputElement;
   this._sourceEditor = null;
+
+  this._state = {   // state to use when inputElement attaches
+    text: "",
+    selection: {start: 0, end: 0},
+    readOnly: false,
+    topIndex: 0,              // the first visible line
+  };
+
+  this._onSourceLoad = this._onSourceLoad.bind(this);
 }
 
 StyleSheetEditor.prototype = {
@@ -167,12 +183,26 @@ StyleSheetEditor.prototype = {
     return this._styleSheet;
   },
 
+  getFriendlyName: function() {
+    return this._styleSheet.href;
+  },
+
+  fetchSource: function() {
+    this._styleSheet.once("source-load", this._onSourceLoad);
+    this._styleSheet.fetchSource();
+  },
+
+  _onSourceLoad: function(event, source) {
+    this._state.text = source;
+    this.emit("source-load");
+  },
+
   load: function(inputElement) {
     this._inputElement = inputElement;
 
     let sourceEditor = new SourceEditor();
     let config = {
-      initialText: this._styleSheet.text,
+      initialText: this._state.text,
       showLineNumbers: true,
       mode: SourceEditor.MODES.CSS /*
       readOnly: this._state.readOnly,

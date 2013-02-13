@@ -9,6 +9,9 @@ let Ci = Components.interfaces;
 let Cu = Components.utils;
 
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
+Cu.import("resource://gre/modules/Services.jsm");
+Cu.import("resource://gre/modules/NetUtil.jsm");
+Cu.import("resource://gre/modules/FileUtils.jsm");
 
 /**
  * Creates a StyleEditorActor. StyleEditorActor provides remote access to the
@@ -157,10 +160,16 @@ StyleEditorActor.prototype.requestTypes = {
 function StyleSheetActor(aStyleSheet, aParentActor) {
   this.styleSheet = aStyleSheet;
   this.parentActor = aParentActor;
+
+  this._onSourceLoad = this._onSourceLoad.bind(this);
 }
 
 StyleSheetActor.prototype = {
   actorPrefix: "stylesheet",
+
+  get window() {
+    return this.parentActor._window;
+  },
 
   form: function SSA_form() {
     // actorID is set when this actor is added to a pool
@@ -171,9 +180,15 @@ StyleSheetActor.prototype = {
       title: this.styleSheet.title
     }
 
+    // send a shallow copy of the sheet's cssRules
+    form.cssRules = [];
     let rules = this.styleSheet.cssRules;
     for (let i = 0; i < rules.length; i++) {
       let rule = rules[i];
+      form.cssRules.push({
+        cssText: rule.cssText,
+        type: rule.type
+      });
     }
 
     return form;
@@ -185,6 +200,104 @@ StyleSheetActor.prototype = {
 
   disconnect: function SSA_disconnect() {
     this.parentActor.releaseActor(this);
+  },
+
+  _onSourceLoad: function SSA_onSourceLoad(source)
+  {
+    this.text = source;
+
+    this.conn.send({
+      from: this.actorID,
+      type: "sourceLoad",
+      source: source
+    });
+  },
+
+  onFetchSource: function() {
+    if (!this.styleSheet.href) {
+      // this is an inline <style> sheet
+      let source = this.styleSheet.ownerNode.textContent;
+      this._onSourceLoad(source);
+    }
+
+    let scheme = Services.io.extractScheme(this.styleSheet.href);
+    switch (scheme) {
+      case "file":
+        this._styleSheetFilePath = this.styleSheet.href;
+      case "chrome":
+      case "resource":
+        this._loadSourceFromFile(this.styleSheet.href);
+        break;
+      default:
+        this._loadSourceFromCache(this.styleSheet.href);
+        break;
+    }
+  },
+
+  /**
+   * Load source from a file or file-like resource.
+   *
+   * @param string href
+   *        URL for the stylesheet.
+   */
+  _loadSourceFromFile: function SEA_loadSourceFromFile(href)
+  {
+    try {
+      NetUtil.asyncFetch(href, function onFetch(stream, status) {
+        if (!Components.isSuccessCode(status)) {
+          return this._signalError(LOAD_ERROR);
+        }
+        let source = NetUtil.readInputStreamToString(stream, stream.available());
+        aStream.close();
+        this._onSourceLoad(source);
+      }.bind(this));
+    } catch (ex) {
+      // TODO: implement error stuff
+    }
+  },
+
+  /**
+   * Load source from the HTTP cache.
+   *
+   * @param string href
+   *        URL for the stylesheet.
+   */
+  _loadSourceFromCache: function SEA_loadSourceFromCache(href)
+  {
+    let channel = Services.io.newChannel(href, null, null);
+    let chunks = [];
+    let channelCharset = "";
+    let streamListener = { // nsIStreamListener inherits nsIRequestObserver
+      onStartRequest: function (aRequest, aContext, aStatusCode) {
+        if (!Components.isSuccessCode(aStatusCode)) {
+          return this._signalError(LOAD_ERROR);
+        }
+      }.bind(this),
+      onDataAvailable: function (aRequest, aContext, aStream, aOffset, aCount) {
+        let channel = aRequest.QueryInterface(Ci.nsIChannel);
+        if (!channelCharset) {
+          channelCharset = channel.contentCharset;
+        }
+        chunks.push(NetUtil.readInputStreamToString(aStream, aCount));
+      },
+      onStopRequest: function (aRequest, aContext, aStatusCode) {
+        if (!Components.isSuccessCode(aStatusCode)) {
+          // TODO: implement error stuff
+        }
+        let source = chunks.join("");
+        this._onSourceLoad(source, channelCharset);
+      }.bind(this)
+    };
+
+    if (channel instanceof Ci.nsIPrivateBrowsingChannel) {
+      let contentWin = this.window;
+      let loadContext = contentWin.QueryInterface(Ci.nsIInterfaceRequestor)
+                          .getInterface(Ci.nsIWebNavigation)
+                          .QueryInterface(Ci.nsILoadContext);
+      channel.setPrivate(loadContext.usePrivateBrowsing);
+    }
+    channel.loadFlags = channel.LOAD_FROM_CACHE;
+    channel.asyncOpen(streamListener, null);
   },
 
   onGetDisabled: function(aRequest) {
@@ -203,6 +316,7 @@ StyleSheetActor.prototype = {
 StyleSheetActor.prototype.requestTypes = {
   "getDisabled": StyleSheetActor.prototype.onGetDisabled,
   "setDisabled": StyleSheetActor.prototype.onSetDisabled,
+  "fetchSource": StyleSheetActor.prototype.onFetchSource,
   "update": StyleSheetActor.prototype.onUpdate
 };
 
