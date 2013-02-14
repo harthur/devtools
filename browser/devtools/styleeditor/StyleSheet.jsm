@@ -22,7 +22,7 @@ let StyleSheet = function(form, client) {
 
   this._onSourceLoad = this._onSourceLoad.bind(this);
 
-  this._client.addListener("sourceLoad", this._onSourceLoad);
+  this._client.addListener("sourceLoad-" + this._actor, this._onSourceLoad);
 
   // include everything from the form like href, title
   for (var attr in form) {
@@ -32,20 +32,35 @@ let StyleSheet = function(form, client) {
 
 StyleSheet.prototype = {
   getDisabled : function(callback) {
-    var message = { to: this._actor, type: "getDisabled" };
-    this._client.request(message, function(response) {
+    let message = { type: "getDisabled" };
+    this._sendRequest(message, function(response) {
       callback(response.disabled);
     });
   },
 
   fetchSource: function() {
-    var message = { to: this._actor, type: "fetchSource" };
-    this._client.request(message, function(response) {
+    let message = { type: "fetchSource" };
+    this._sendRequest(message, function(response) {
       // TODO: err handling
     })
   },
 
-  update: function(sheetText, callback) {
+  update: function(sheetText) {
+    dump("HEATHER: update from StyleSheet.jsm: " + sheetText.length + "\n");
+   /* let message = { type: "update", text: sheetText };
+    this._sendRequest(message, function(response) {
+      dump("HEATHER: response: " + response + "\n");
+    });
+*/
+    let message = { to: this._actor, type: "update", text: sheetText};
+    this._client.request(message, function() {
+      dump("HEATHER: response" + "\n");
+    });
+  },
+
+  _sendRequest: function(message, callback) {
+    message.to = this._actor;
+    this._client.request(message, callback);
   },
 
   _onSourceLoad: function(type, request) {

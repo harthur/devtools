@@ -18,6 +18,9 @@ Cu.import("resource:///modules/devtools/StyleEditor.jsm");
 Cu.import("resource:///modules/devtools/StyleEditorUtil.jsm");
 Cu.import("resource:///modules/devtools/SplitView.jsm");
 
+// max update frequency in ms (avoid potential typing lag and/or flicker)
+// @see StyleEditor.updateStylesheet
+const UPDATE_STYLESHEET_THROTTLE_DELAY = 500;
 
 const STYLE_EDITOR_TEMPLATE = "stylesheet";
 
@@ -44,7 +47,7 @@ StyleEditorUI.prototype = {
     // load editors, after loading add items to UI for them
 
     for (let styleSheet of this._debuggee.styleSheets) {
-      let editor = new StyleSheetEditor(styleSheet);
+      let editor = new StyleSheetEditor(styleSheet, this._window);
       editor.on("source-load", this._sourceLoaded.bind(this, editor));
       this._editors.push(editor);
     }
@@ -112,7 +115,6 @@ StyleEditorUI.prototype = {
           let inputElement = details.querySelector(".stylesheet-editor-input");
           editor.load(inputElement);
         }
-        editor.onShow();
       }
     });
   },
@@ -157,12 +159,13 @@ StyleEditorUI.prototype = {
 
 Cu.import("resource:///modules/source-editor.jsm");
 
-function StyleSheetEditor(styleSheet, inputElement) {
+function StyleSheetEditor(styleSheet, win) {
   EventEmitter.decorate(this);
 
   this._styleSheet = styleSheet;
-  this._inputElement = inputElement;
+  this._inputElement = null;
   this._sourceEditor = null;
+  this._window = win;
 
   this._state = {   // state to use when inputElement attaches
     text: "",
@@ -193,6 +196,7 @@ StyleSheetEditor.prototype = {
   },
 
   _onSourceLoad: function(event, source) {
+    dump("\nHEATHER: SOURCE LOAD " + source.slice(0, 200) + "\n\n");
     this._state.text = source;
     this.emit("source-load");
   },
@@ -210,14 +214,11 @@ StyleSheetEditor.prototype = {
     };
 
     sourceEditor.init(inputElement, config, function onSourceEditorReady() {
-      /*
-      setupBracketCompletion(sourceEditor);
-
+      //setupBracketCompletion(sourceEditor);
       sourceEditor.addEventListener(SourceEditor.EVENTS.TEXT_CHANGED,
                                     function onTextChanged(aEvent) {
         this.updateStyleSheet();
       }.bind(this));
-      */
 
       this._sourceEditor = sourceEditor;
 
@@ -232,5 +233,62 @@ StyleSheetEditor.prototype = {
                                 this._state.selection.end);
       */
     }.bind(this));
+  },
+
+  /**
+   * Queue a throttled task to update the live style sheet.
+   *
+   * @param boolean aImmediate
+   *        Optional. If true the update is performed immediately.
+   */
+  updateStyleSheet: function SE_updateStyleSheet(aImmediate)
+  {
+    dump("HEATHER: updateStyleSheet " + "\n");
+    if (this._updateTask) {
+      // cancel previous queued task not executed within throttle delay
+      this._window.clearTimeout(this._updateTask);
+    }
+
+    if (aImmediate) {
+      this._updateStyleSheet();
+    } else {
+      this._updateTask = this._window.setTimeout(this._updateStyleSheet.bind(this),
+                                           UPDATE_STYLESHEET_THROTTLE_DELAY);
+    }
+  },
+
+  /**
+   * Update live style sheet according to modifications.
+   */
+  _updateStyleSheet: function SE__updateStyleSheet()
+  {
+    // TODO: this.setFlag(StyleEditorFlags.UNSAVED);
+    dump("HEATHER: _updateStyleSheet" + "\n");
+    if (this.styleSheet.disabled) {
+      return;  // TODO: do we want to do this?
+    }
+
+    this._updateTask = null; // reset only if we actually perform an update
+                             // (stylesheet is enabled) so that 'missed' updates
+                             // while the stylesheet is disabled can be performed
+                             // when it is enabled back. @see enableStylesheet
+
+    if (this.sourceEditor) {
+      this._state.text = this.sourceEditor.getText();
+    }
+
+    this.styleSheet.update(this._state.text);
+
+    //this._persistExpando();
+
+    //if (!TRANSITIONS_ENABLED) {
+    //  this._triggerAction("Update");
+    //  this._triggerAction("Commit");
+    //  return;
+    //}
+
+    // TODO: add transitions
+
+    //this._triggerAction("Update");
   }
 }

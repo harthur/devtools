@@ -13,6 +13,17 @@ Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/NetUtil.jsm");
 Cu.import("resource://gre/modules/FileUtils.jsm");
 
+const TRANSITION_CLASS = "moz-styleeditor-transitioning";
+const TRANSITION_DURATION_MS = 500;
+const TRANSITION_RULE = "\
+:root.moz-styleeditor-transitioning, :root.moz-styleeditor-transitioning * {\
+transition-duration: " + TRANSITION_DURATION_MS + "ms !important; \
+transition-delay: 0ms !important;\
+transition-timing-function: ease-out !important;\
+transition-property: all !important;\
+}";
+
+
 /**
  * Creates a StyleEditorActor. StyleEditorActor provides remote access to the
  * built-in style editor module.
@@ -208,7 +219,7 @@ StyleSheetActor.prototype = {
 
     this.conn.send({
       from: this.actorID,
-      type: "sourceLoad",
+      type: "sourceLoad-" + this.actorID,
       source: source
     });
   },
@@ -309,7 +320,28 @@ StyleSheetActor.prototype = {
   },
 
   onUpdate: function(aRequest) {
+    dump("HEATHER: update from Actor " + aRequest.text.length + "\n");
     DOMUtils.parseStyleSheet(this.styleSheet, aRequest.text);
+  },
+
+  insertTransistion: function(aRequest) {
+    let content = this.contentDocument;
+
+    // Insert the global transition rule
+    // Use a ref count to make sure we do not add it multiple times.. and remove
+    // it only when all pending StyleEditor-generated transitions ended.
+    if (!this._transitionRefCount) {
+      this.styleSheet.insertRule(TRANSITION_RULE, this.styleSheet.cssRules.length);
+      content.documentElement.classList.add(TRANSITION_CLASS);
+    }
+
+    this._transitionRefCount++;
+
+    // Set up clean up and commit after transition duration (+10% buffer)
+    // @see _onTransitionEnd
+    content.defaultView.setTimeout(this._onTransitionEnd.bind(this),
+                                   Math.floor(TRANSITION_DURATION_MS * 1.1));
+
   }
 }
 
