@@ -46,15 +46,8 @@ StyleSheet.prototype = {
   },
 
   update: function(sheetText) {
-    dump("HEATHER: update from StyleSheet.jsm: " + sheetText.length + "\n");
-   /* let message = { type: "update", text: sheetText };
+    let message = { type: "update", text: sheetText, transition: true };
     this._sendRequest(message, function(response) {
-      dump("HEATHER: response: " + response + "\n");
-    });
-*/
-    let message = { to: this._actor, type: "update", text: sheetText};
-    this._client.request(message, function() {
-      dump("HEATHER: response" + "\n");
     });
   },
 

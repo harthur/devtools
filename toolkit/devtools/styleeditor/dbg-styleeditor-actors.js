@@ -320,28 +320,43 @@ StyleSheetActor.prototype = {
   },
 
   onUpdate: function(aRequest) {
-    dump("HEATHER: update from Actor " + aRequest.text.length + "\n");
     DOMUtils.parseStyleSheet(this.styleSheet, aRequest.text);
+    if (aRequest.transition) {
+      this._insertTransistion();
+    }
+    return {};
   },
 
-  insertTransistion: function(aRequest) {
-    let content = this.contentDocument;
+  _insertTransistion: function(aRequest) {
+    let doc = this.window.document;
 
     // Insert the global transition rule
     // Use a ref count to make sure we do not add it multiple times.. and remove
     // it only when all pending StyleEditor-generated transitions ended.
     if (!this._transitionRefCount) {
       this.styleSheet.insertRule(TRANSITION_RULE, this.styleSheet.cssRules.length);
-      content.documentElement.classList.add(TRANSITION_CLASS);
+      doc.documentElement.classList.add(TRANSITION_CLASS);
     }
 
     this._transitionRefCount++;
 
     // Set up clean up and commit after transition duration (+10% buffer)
     // @see _onTransitionEnd
-    content.defaultView.setTimeout(this._onTransitionEnd.bind(this),
-                                   Math.floor(TRANSITION_DURATION_MS * 1.1));
+    this.window.setTimeout(this._onTransitionEnd.bind(this),
+                           Math.floor(TRANSITION_DURATION_MS * 1.1));
 
+  },
+
+  /**
+    * This cleans up class and rule added for transition effect and then trigger
+    * Commit as the changes have been completed.
+    */
+  _onTransitionEnd: function SE__onTransitionEnd()
+  {
+    if (--this._transitionRefCount == 0) {
+      this.window.document.documentElement.classList.remove(TRANSITION_CLASS);
+      this.styleSheet.deleteRule(this.styleSheet.cssRules.length - 1);
+    }
   }
 }
 
