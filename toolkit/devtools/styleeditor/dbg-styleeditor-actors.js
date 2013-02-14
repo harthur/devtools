@@ -107,7 +107,6 @@ StyleEditorActor.prototype = {
     for (let i = 0; i < this.doc.styleSheets.length; ++i) {
       let styleSheet = this.doc.styleSheets[i];
       let actor = this._createStyleSheetActor(styleSheet);
-
       styleSheets.push(actor.form());
     }
     this._attachMutationObserver();
@@ -157,6 +156,20 @@ StyleEditorActor.prototype = {
         styleSheets: styleSheets
       });
     }
+  },
+
+  onNewStyleSheet: function SEA_newStyleSheet(request) {
+    let parent = this.doc.documentElement;
+    let style = this.doc.createElementNS("http://www.w3.org/1999/xhtml", "style");
+    style.setAttribute("type", "text/css");
+    if (request.text) {
+      style.appendChild(document.createTextNode(request.text));
+      // flags.IMPORTED
+    }  // else flags.NEW flags.UNSAVED
+    parent.appendChild(style);
+
+    let actor = this._createStyleSheetActor(style.sheet);
+    return { "styleSheet": actor.form() };
   }
 };
 
@@ -164,7 +177,8 @@ StyleEditorActor.prototype = {
  * The request types this actor can handle.
  */
 StyleEditorActor.prototype.requestTypes = {
-  "getStyleSheets": StyleEditorActor.prototype.onGetStyleSheets
+  "getStyleSheets": StyleEditorActor.prototype.onGetStyleSheets,
+  "newStyleSheet": StyleEditorActor.prototype.onNewStyleSheet
 };
 
 
@@ -188,7 +202,9 @@ StyleSheetActor.prototype = {
       actor: this.actorID,
       href: this.styleSheet.href,
       disabled: this.styleSheet.disabled,
-      title: this.styleSheet.title
+      title: this.styleSheet.title,
+      inline: this.inline,
+      friendlyName: this._getFriendlyName()
     }
 
     // send a shallow copy of the sheet's cssRules
@@ -227,6 +243,7 @@ StyleSheetActor.prototype = {
   onFetchSource: function() {
     if (!this.styleSheet.href) {
       // this is an inline <style> sheet
+      this.inline = true;
       let source = this.styleSheet.ownerNode.textContent;
       this._onSourceLoad(source);
     }
@@ -251,7 +268,7 @@ StyleSheetActor.prototype = {
    * @param string href
    *        URL for the stylesheet.
    */
-  _loadSourceFromFile: function SEA_loadSourceFromFile(href)
+  _loadSourceFromFile: function SSA_loadSourceFromFile(href)
   {
     try {
       NetUtil.asyncFetch(href, function onFetch(stream, status) {
@@ -273,7 +290,7 @@ StyleSheetActor.prototype = {
    * @param string href
    *        URL for the stylesheet.
    */
-  _loadSourceFromCache: function SEA_loadSourceFromCache(href)
+  _loadSourceFromCache: function SSA_loadSourceFromCache(href)
   {
     let channel = Services.io.newChannel(href, null, null);
     let chunks = [];
@@ -351,12 +368,59 @@ StyleSheetActor.prototype = {
     * This cleans up class and rule added for transition effect and then trigger
     * Commit as the changes have been completed.
     */
-  _onTransitionEnd: function SE__onTransitionEnd()
+  _onTransitionEnd: function SAA_onTransitionEnd()
   {
     if (--this._transitionRefCount == 0) {
       this.window.document.documentElement.classList.remove(TRANSITION_CLASS);
       this.styleSheet.deleteRule(this.styleSheet.cssRules.length - 1);
     }
+  },
+
+  /**
+   * Get a user-friendly name for the style sheet.
+   *
+   * @return string
+   */
+  _getFriendlyName: function SSA_getFriendlyName()
+  {
+    /*
+    if (this.savedFile) { // reuse the saved filename if any
+      return this.savedFile.leafName;
+    }
+
+    if (this.hasFlag(StyleEditorFlags.NEW)) {
+      let index = this.styleSheetIndex + 1; // 0-indexing only works for devs
+      return _("newStyleSheet", index);
+    }
+
+    if (this.hasFlag(StyleEditorFlags.INLINE)) {
+      let index = this.styleSheetIndex + 1; // 0-indexing only works for devs
+      return _("inlineStyleSheet", index);
+    }
+    */
+    if (!this._friendlyName) {
+      let sheetURI = this.styleSheet.href;
+      let contentURI = this.window.document.baseURIObject;
+      let contentURIScheme = contentURI.scheme;
+      let contentURILeafIndex = contentURI.specIgnoringRef.lastIndexOf("/");
+      contentURI = contentURI.specIgnoringRef;
+
+      // get content base URI without leaf name (if any)
+      if (contentURILeafIndex > contentURIScheme.length) {
+        contentURI = contentURI.substring(0, contentURILeafIndex + 1);
+      }
+
+      // avoid verbose repetition of absolute URI when the style sheet URI
+      // is relative to the content URI
+      this._friendlyName = (sheetURI.indexOf(contentURI) == 0)
+                           ? sheetURI.substring(contentURI.length)
+                           : sheetURI;
+      try {
+        this._friendlyName = decodeURI(this._friendlyName);
+      } catch (ex) {
+      }
+    }
+    return this._friendlyName;
   }
 }
 

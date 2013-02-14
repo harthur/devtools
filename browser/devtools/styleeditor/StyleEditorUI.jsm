@@ -40,6 +40,14 @@ StyleEditorUI.prototype = {
     let rootElem = this._panelDoc.getElementById("style-editor-chrome");
     this._view = new SplitView(rootElem);
 
+    // wire up UI elements
+    wire(this._view.rootElement, ".style-editor-newButton", function onNewButton() {
+      let editor = new StyleEditor(this.contentDocument);
+      this._editors.push(editor);
+      editor.addActionListener(this);
+      editor.load();
+    }.bind(this));
+
     // wire "New" button
     // wire "Import" button
 
@@ -57,6 +65,10 @@ StyleEditorUI.prototype = {
     this._editors.forEach(function (editor) {
       this._window.setTimeout(editor.fetchSource.bind(editor), 0);
     }, this);
+  },
+
+  _newStyleSheet: function() {
+    this.debuggee.newStyleSheet();
   },
 
   _sourceLoaded: function(editor) {
@@ -187,7 +199,7 @@ StyleSheetEditor.prototype = {
   },
 
   getFriendlyName: function() {
-    return this._styleSheet.href;
+    return this._styleSheet.friendlyName;
   },
 
   fetchSource: function() {
@@ -243,7 +255,6 @@ StyleSheetEditor.prototype = {
    */
   updateStyleSheet: function SE_updateStyleSheet(aImmediate)
   {
-    dump("HEATHER: updateStyleSheet " + "\n");
     if (this._updateTask) {
       // cancel previous queued task not executed within throttle delay
       this._window.clearTimeout(this._updateTask);
@@ -263,7 +274,6 @@ StyleSheetEditor.prototype = {
   _updateStyleSheet: function SE__updateStyleSheet()
   {
     // TODO: this.setFlag(StyleEditorFlags.UNSAVED);
-    dump("HEATHER: _updateStyleSheet" + "\n");
     if (this.styleSheet.disabled) {
       return;  // TODO: do we want to do this?
     }
