@@ -69,12 +69,13 @@ StyleEditorDebuggee.prototype = {
   clear: function(callback) {
     this.styleSheets = [];
 
-    this.emit("stylesheets-changed");
+    this.emit("stylesheets-cleared");
   },
 
   reset: function(callback) {
+    this.clear();
+
     this._fetchStyleSheets(function(forms) {
-      this.styleSheets = [];
       for (let form of forms) {
         this._addStyleSheet(form);
       }
@@ -82,22 +83,28 @@ StyleEditorDebuggee.prototype = {
       if (callback) {
         callback();
       }
-      this.emit("stylesheets-changed");
+      this.emit("stylesheets-reset");
     }.bind(this));
   },
 
   _onStyleSheetsAdded: function(type, request) {
-    dump("HEATHER: styleSheetsAdded\n");
     for (let form of request.styleSheets) {
-      let sheet = this._addStyleSheet(form);
-      this.emit("stylesheet-added", sheet);
+      this._addStyleSheet(form);
     }
   },
 
   _addStyleSheet: function(form) {
     var sheet = new StyleSheet(form, this._client);
     this.styleSheets.push(sheet);
-    return sheet;
+    this.emit("stylesheet-added", sheet);
+  },
+
+  createStyleSheet: function(text) {
+    var message = { to: this._actor, type: "newStyleSheet", text: text }
+    this._client.request(message, function(response) {
+      let form = response.styleSheet;
+      this._addStyleSheet(form);
+    }.bind(this));
   },
 
   _fetchStyleSheets: function(callback) {

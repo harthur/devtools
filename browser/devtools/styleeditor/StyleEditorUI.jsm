@@ -28,7 +28,17 @@ function StyleEditorUI(debuggee, panelDoc) {
   this._debuggee = debuggee;
   this._panelDoc = panelDoc;
   this._window = this._panelDoc.defaultView;
+  this._root = this._panelDoc.getElementById("style-editor-chrome");
+
   this._editors = [];
+
+  this._onStyleSheetAdded = this._onStyleSheetAdded.bind(this);
+  this._onStyleSheetsCleared = this._onStyleSheetsCleared.bind(this);
+  this._onStyleSheetsReset = this._onStyleSheetsReset.bind(this);
+
+  debuggee.on("stylesheet-added", this._onStyleSheetAdded);
+  debuggee.on("stylesheets-cleared", this._onStyleSheetsCleared);
+  debuggee.on("stylesheets-reset", this._onStyleSheetsReset);
 }
 
 StyleEditorUI.prototype = {
@@ -37,38 +47,60 @@ StyleEditorUI.prototype = {
   },
 
   createUI: function() {
-    let rootElem = this._panelDoc.getElementById("style-editor-chrome");
-    this._view = new SplitView(rootElem);
+    let viewRoot = this._root.parentNode.querySelector(".splitview-root");
 
-    // wire up UI elements
+    this._view = new SplitView(viewRoot);
+
     wire(this._view.rootElement, ".style-editor-newButton", function onNewButton() {
-      let editor = new StyleEditor(this.contentDocument);
-      this._editors.push(editor);
-      editor.addActionListener(this);
-      editor.load();
+      this._debuggee.createStyleSheet();
+    }.bind(this));
+
+    wire(this._view.rootElement, ".style-editor-importButton", function onImportButton() {
+      editor.importFromFile(this._mockImportFile || null, this._window);
+      this._debuggee.createStyleSheet();
     }.bind(this));
 
     // wire "New" button
     // wire "Import" button
 
-    // create StylesheetEditor objects
-    // load editors, after loading add items to UI for them
-
-    for (let styleSheet of this._debuggee.styleSheets) {
-      let editor = new StyleSheetEditor(styleSheet, this._window);
-      editor.on("source-load", this._sourceLoaded.bind(this, editor));
-      this._editors.push(editor);
-    }
-
-    // Queue editors loading. This helps responsivity during loading when
-    // there are many heavy stylesheets.
-    this._editors.forEach(function (editor) {
-      this._window.setTimeout(editor.fetchSource.bind(editor), 0);
-    }, this);
+    this.resetEditors();
   },
 
-  _newStyleSheet: function() {
-    this.debuggee.newStyleSheet();
+  resetEditors: function() {
+    for (let sheet of this._debuggee.styleSheets) {
+      this._addStyleSheetEditor(sheet);
+    }
+  },
+
+  _onStyleSheetsCleared: function() {
+    this._editors = [];
+    this._view.removeAll();
+
+    let matches = this._root.querySelectorAll("toolbarbutton,input,select");
+    for (let i = 0; i < matches.length; i++) {
+      matches[i].removeAttribute("disabled");
+    }
+
+    this._root.classList.add("loading");
+  },
+
+  _onStyleSheetsReset: function() {
+    this._root.classList.remove("loading");
+    this.resetEditors();
+  },
+
+  _addStyleSheetEditor: function(sheet) {
+    let editor = new StyleSheetEditor(sheet, this._window);
+    editor.once("source-load", this._sourceLoaded.bind(this, editor));
+    this._editors.push(editor);
+
+    // Queue editor loading. This helps responsivity during loading when
+    // there are many heavy stylesheets.
+    this._window.setTimeout(editor.fetchSource.bind(editor), 0);
+  },
+
+  _onStyleSheetAdded: function(event, sheet) {
+    this._addStyleSheetEditor(sheet);
   },
 
   _sourceLoaded: function(editor) {
@@ -208,7 +240,6 @@ StyleSheetEditor.prototype = {
   },
 
   _onSourceLoad: function(event, source) {
-    dump("\nHEATHER: SOURCE LOAD " + source.slice(0, 200) + "\n\n");
     this._state.text = source;
     this.emit("source-load");
   },
@@ -290,15 +321,5 @@ StyleSheetEditor.prototype = {
     this.styleSheet.update(this._state.text);
 
     //this._persistExpando();
-
-    //if (!TRANSITIONS_ENABLED) {
-    //  this._triggerAction("Update");
-    //  this._triggerAction("Commit");
-    //  return;
-    //}
-
-    // TODO: add transitions
-
-    //this._triggerAction("Update");
   }
 }

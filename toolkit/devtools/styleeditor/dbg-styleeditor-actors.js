@@ -12,6 +12,7 @@ Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/NetUtil.jsm");
 Cu.import("resource://gre/modules/FileUtils.jsm");
+Cu.import("resource:///modules/devtools/StyleEditorUtil.jsm");
 
 const TRANSITION_CLASS = "moz-styleeditor-transitioning";
 const TRANSITION_DURATION_MS = 500;
@@ -114,9 +115,9 @@ StyleEditorActor.prototype = {
     return { "styleSheets": styleSheets };
   },
 
-  _createStyleSheetActor: function SEA_createStyleSheetActor(aStyleSheet)
+  _createStyleSheetActor: function SEA_createStyleSheetActor(aStyleSheet, isNew)
   {
-    let actor = new StyleSheetActor(aStyleSheet, this);
+    let actor = new StyleSheetActor(aStyleSheet, this, isNew);
     this._actorPool.addActor(actor);
     return actor;
   },
@@ -131,7 +132,7 @@ StyleEditorActor.prototype = {
     dump("HEATHER: attached _observer" + "\n");
   },
 
-  _onMutations: function DWA_onMutations(mutations)
+  _onMutations: function SEA_onMutations(mutations)
   {
     let styleSheets = [];
     for (let mutation of mutations) {
@@ -168,7 +169,7 @@ StyleEditorActor.prototype = {
     }  // else flags.NEW flags.UNSAVED
     parent.appendChild(style);
 
-    let actor = this._createStyleSheetActor(style.sheet);
+    let actor = this._createStyleSheetActor(style.sheet, true);
     return { "styleSheet": actor.form() };
   }
 };
@@ -182,9 +183,10 @@ StyleEditorActor.prototype.requestTypes = {
 };
 
 
-function StyleSheetActor(aStyleSheet, aParentActor) {
+function StyleSheetActor(aStyleSheet, aParentActor, isNew) {
   this.styleSheet = aStyleSheet;
   this.parentActor = aParentActor;
+  this._isNew = isNew;
 
   this._onSourceLoad = this._onSourceLoad.bind(this);
 }
@@ -196,6 +198,14 @@ StyleSheetActor.prototype = {
     return this.parentActor._window;
   },
 
+  get isInline() {
+    return !this.styleSheet.href;
+  },
+
+  get isNew() {
+    return !!this._isNew;
+  },
+
   form: function SSA_form() {
     // actorID is set when this actor is added to a pool
     let form = {
@@ -203,7 +213,8 @@ StyleSheetActor.prototype = {
       href: this.styleSheet.href,
       disabled: this.styleSheet.disabled,
       title: this.styleSheet.title,
-      inline: this.inline,
+      isInline: this.isInline,
+      isNew: this.isNew,
       friendlyName: this._getFriendlyName()
     }
 
@@ -243,7 +254,6 @@ StyleSheetActor.prototype = {
   onFetchSource: function() {
     if (!this.styleSheet.href) {
       // this is an inline <style> sheet
-      this.inline = true;
       let source = this.styleSheet.ownerNode.textContent;
       this._onSourceLoad(source);
     }
@@ -383,21 +393,16 @@ StyleSheetActor.prototype = {
    */
   _getFriendlyName: function SSA_getFriendlyName()
   {
-    /*
-    if (this.savedFile) { // reuse the saved filename if any
-      return this.savedFile.leafName;
-    }
-
-    if (this.hasFlag(StyleEditorFlags.NEW)) {
+    if (this.isNew) {
       let index = this.styleSheetIndex + 1; // 0-indexing only works for devs
       return _("newStyleSheet", index);
     }
 
-    if (this.hasFlag(StyleEditorFlags.INLINE)) {
+    if (this.isInline) {
       let index = this.styleSheetIndex + 1; // 0-indexing only works for devs
       return _("inlineStyleSheet", index);
     }
-    */
+
     if (!this._friendlyName) {
       let sheetURI = this.styleSheet.href;
       let contentURI = this.window.document.baseURIObject;
