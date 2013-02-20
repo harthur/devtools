@@ -56,20 +56,10 @@ StyleEditorUI.prototype = {
     }.bind(this));
 
     wire(this._view.rootElement, ".style-editor-importButton", function onImportButton() {
+      // TODO: implement file import
       editor.importFromFile(this._mockImportFile || null, this._window);
       this._debuggee.createStyleSheet();
     }.bind(this));
-
-    // wire "New" button
-    // wire "Import" button
-
-    this.resetEditors();
-  },
-
-  resetEditors: function() {
-    for (let sheet of this._debuggee.styleSheets) {
-      this._addStyleSheetEditor(sheet);
-    }
   },
 
   _onStyleSheetsCleared: function() {
@@ -89,6 +79,16 @@ StyleEditorUI.prototype = {
     this.resetEditors();
   },
 
+  resetEditors: function() {
+    for (let sheet of this._debuggee.styleSheets) {
+      this._addStyleSheetEditor(sheet);
+    }
+  },
+
+  _onStyleSheetAdded: function(event, sheet) {
+    this._addStyleSheetEditor(sheet);
+  },
+
   _addStyleSheetEditor: function(sheet) {
     let editor = new StyleSheetEditor(sheet, this._window);
     editor.once("source-load", this._sourceLoaded.bind(this, editor));
@@ -97,10 +97,6 @@ StyleEditorUI.prototype = {
     // Queue editor loading. This helps responsivity during loading when
     // there are many heavy stylesheets.
     this._window.setTimeout(editor.fetchSource.bind(editor), 0);
-  },
-
-  _onStyleSheetAdded: function(event, sheet) {
-    this._addStyleSheetEditor(sheet);
   },
 
   _sourceLoaded: function(editor) {
@@ -251,13 +247,13 @@ StyleSheetEditor.prototype = {
     let config = {
       initialText: this._state.text,
       showLineNumbers: true,
-      mode: SourceEditor.MODES.CSS /*
-      readOnly: this._state.readOnly,
-      keys: this._getKeyBindings() */
+      mode: SourceEditor.MODES.CSS
+      readOnly: this._state.readOnly, /*
+      keys: this._getKeyBindings() TODO: keybindings */
     };
 
     sourceEditor.init(inputElement, config, function onSourceEditorReady() {
-      //setupBracketCompletion(sourceEditor);
+      //setupBracketCompletion(sourceEditor); TODO
       sourceEditor.addEventListener(SourceEditor.EVENTS.TEXT_CHANGED,
                                     function onTextChanged(aEvent) {
         this.updateStyleSheet();
@@ -320,6 +316,6 @@ StyleSheetEditor.prototype = {
 
     this.styleSheet.update(this._state.text);
 
-    //this._persistExpando();
+    //this._persistExpando(); TODO
   }
 }

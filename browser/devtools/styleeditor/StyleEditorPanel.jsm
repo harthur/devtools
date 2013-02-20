@@ -38,14 +38,6 @@ StyleEditorPanel.prototype = {
 
     var debuggee = new StyleEditorDebuggee(this._toolbox.target);
     debuggee.initialize(function() {
-      let sheets = debuggee.styleSheets;
-      dump("HEATHER: sheets " + sheets + "\n");
-      for (sheet of sheets) {
-        sheet.getDisabled(function(disabled) {
-          dump("HEATHER: sheet " + disabled + "\n");
-        })
-      }
-      dump("HEATHER: panelDoc" + this._panelDoc + "\n");
       this._styleEditorUI = new StyleEditorUI(debuggee, this._panelDoc);
       this._styleEditorUI.initialize();
 

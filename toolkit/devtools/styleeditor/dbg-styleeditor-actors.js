@@ -32,6 +32,7 @@ transition-property: all !important;\
 function StyleEditorActor(aConnection, aParentActor)
 {
   this.conn = aConnection;
+  this._onDocumentLoaded = this._onDocumentLoaded.bind(this);
   this._onMutations = this._onMutations.bind(this);
 
   if (aParentActor instanceof BrowserTabActor &&
@@ -102,7 +103,20 @@ StyleEditorActor.prototype = {
     }
   },
 
-  onGetStyleSheets: function SEA_onGetStyleSheets() {
+  onAddStyleSheetsListener: function SEA_onLoadListen()
+  {
+    // Note: listening for load won't be necessary once
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=839103 is fixed
+    if (this.doc.readyState == "complete") {
+      this._onDocumentLoaded();
+    }
+    else {
+      this.window.addEventListener("load", this._onDocumentLoaded, false);
+    }
+  },
+
+  onGetStyleSheets: function SEA_onGetStyleSheets()
+  {
     let styleSheets = [];
 
     for (let i = 0; i < this.doc.styleSheets.length; ++i) {
@@ -110,10 +124,33 @@ StyleEditorActor.prototype = {
       let actor = this._createStyleSheetActor(styleSheet);
       styleSheets.push(actor.form());
     }
-    this._attachMutationObserver();
 
     return { "styleSheets": styleSheets };
   },
+
+  _onDocumentLoaded: function SEA_onDocumentLoaded(aEvent)
+  {
+    if (aEvent) {
+      this.window.removeEventListener("load", this._onDocumentLoaded, false);
+    }
+    let styleSheets = [];
+
+    for (let i = 0; i < this.doc.styleSheets.length; ++i) {
+      let styleSheet = this.doc.styleSheets[i];
+      let actor = this._createStyleSheetActor(styleSheet);
+      styleSheets.push(actor.form());
+    }
+
+    this._attachMutationObserver();
+
+    if (styleSheets.length) {
+      this.conn.send({
+        from: this.actorID,
+        type: "styleSheetsLoaded",
+        styleSheets: styleSheets
+      });
+    }
+  }
 
   _createStyleSheetActor: function SEA_createStyleSheetActor(aStyleSheet, isNew)
   {
@@ -123,13 +160,12 @@ StyleEditorActor.prototype = {
   },
 
   _attachMutationObserver: function SEA_attachMutationObserver() {
-    dump("HEATHER: attaching _observer" +  + "\n");
     this._observer = new this.window.MutationObserver(this._onMutations);
     this._observer.observe(this.window.document.getElementsByTagName("head")[0], {
       childList: true
     });
 
-    dump("HEATHER: attached _observer" + "\n");
+    dump("HEATHER: attached new mutation observer" + "\n");
   },
 
   _onMutations: function SEA_onMutations(mutations)

@@ -73,10 +73,13 @@ StyleEditorDebuggee.prototype = {
   },
 
   reset: function(callback) {
+    dump("HEATHER: reset" + "\n");
     this.clear();
 
     this._fetchStyleSheets(function(forms) {
+      dump("HEATHER: reset forms " + forms.length + "\n");
       for (let form of forms) {
+        dump("HEATHER: reset form " + form.href + "\n");
         this._addStyleSheet(form);
       }
 
@@ -89,6 +92,7 @@ StyleEditorDebuggee.prototype = {
 
   _onStyleSheetsAdded: function(type, request) {
     for (let form of request.styleSheets) {
+      dump("HEATHER: stylesheet added " + form.href + "\n");
       this._addStyleSheet(form);
     }
   },
