@@ -25,6 +25,7 @@ const UPDATE_STYLESHEET_THROTTLE_DELAY = 500;
 const STYLE_EDITOR_TEMPLATE = "stylesheet";
 
 function StyleEditorUI(debuggee, panelDoc) {
+  dump("HEATHER: new StyleEditorUI created" +  + "\n");
   this._debuggee = debuggee;
   this._panelDoc = panelDoc;
   this._window = this._panelDoc.defaultView;
@@ -36,6 +37,7 @@ function StyleEditorUI(debuggee, panelDoc) {
   this._onStyleSheetsCleared = this._onStyleSheetsCleared.bind(this);
   this._onStyleSheetsReset = this._onStyleSheetsReset.bind(this);
 
+  dump("HEATHER: adding stylesheet-added listener in UI" + "\n");
   debuggee.on("stylesheet-added", this._onStyleSheetAdded);
   debuggee.on("stylesheets-cleared", this._onStyleSheetsCleared);
   debuggee.on("stylesheets-reset", this._onStyleSheetsReset);
@@ -80,12 +82,16 @@ StyleEditorUI.prototype = {
   },
 
   resetEditors: function() {
+    this._root.classList.remove("loading");
     for (let sheet of this._debuggee.styleSheets) {
       this._addStyleSheetEditor(sheet);
     }
   },
 
   _onStyleSheetAdded: function(event, sheet) {
+    dump("HEATHER: onstylesheetadded in UI" +  + "\n");
+    // this might be the first stylesheet, so remove loading indicator
+    this._root.classList.remove("loading");
     this._addStyleSheetEditor(sheet);
   },
 
@@ -247,9 +253,9 @@ StyleSheetEditor.prototype = {
     let config = {
       initialText: this._state.text,
       showLineNumbers: true,
-      mode: SourceEditor.MODES.CSS
-      readOnly: this._state.readOnly, /*
-      keys: this._getKeyBindings() TODO: keybindings */
+      mode: SourceEditor.MODES.CSS,
+      readOnly: this._state.readOnly
+      // keys: this._getKeyBindings() TODO: keybindings
     };
 
     sourceEditor.init(inputElement, config, function onSourceEditorReady() {

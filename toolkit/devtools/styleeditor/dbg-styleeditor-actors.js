@@ -103,16 +103,19 @@ StyleEditorActor.prototype = {
     }
   },
 
-  onAddStyleSheetsListener: function SEA_onLoadListen()
+  onAddLoadListener: function SEA_onAddLoadListen()
   {
     // Note: listening for load won't be necessary once
     // https://bugzilla.mozilla.org/show_bug.cgi?id=839103 is fixed
     if (this.doc.readyState == "complete") {
+      dump("HEATHER: already loaded" +  + "\n");
       this._onDocumentLoaded();
     }
     else {
+      dump("HEATHER: waiting for load" +  + "\n");
       this.window.addEventListener("load", this._onDocumentLoaded, false);
     }
+    return {};
   },
 
   onGetStyleSheets: function SEA_onGetStyleSheets()
@@ -130,6 +133,7 @@ StyleEditorActor.prototype = {
 
   _onDocumentLoaded: function SEA_onDocumentLoaded(aEvent)
   {
+    dump("HEATHER: on document load " + "\n");
     if (aEvent) {
       this.window.removeEventListener("load", this._onDocumentLoaded, false);
     }
@@ -141,18 +145,25 @@ StyleEditorActor.prototype = {
       styleSheets.push(actor.form());
     }
 
+    // We need to attach mutation listeners right after fetching initial
+    // sheets so that we don't miss any stylesheets being added.
     this._attachMutationObserver();
 
     if (styleSheets.length) {
-      this.conn.send({
-        from: this.actorID,
-        type: "styleSheetsLoaded",
-        styleSheets: styleSheets
-      });
+      this._notifyStyleSheetsAdded(styleSheets);
     }
-  }
+  },
 
-  _createStyleSheetActor: function SEA_createStyleSheetActor(aStyleSheet, isNew)
+  _notifyStyleSheetsAdded: function(styleSheets)
+  {
+    this.conn.send({
+      from: this.actorID,
+      type: "styleSheetsAdded",
+      styleSheets: styleSheets
+    });
+  },
+
+  _createStyleSheetActor: function(aStyleSheet, isNew)
   {
     let actor = new StyleSheetActor(aStyleSheet, this, isNew);
     this._actorPool.addActor(actor);
@@ -161,6 +172,7 @@ StyleEditorActor.prototype = {
 
   _attachMutationObserver: function SEA_attachMutationObserver() {
     this._observer = new this.window.MutationObserver(this._onMutations);
+    // TODO: documentElement not head
     this._observer.observe(this.window.document.getElementsByTagName("head")[0], {
       childList: true
     });
@@ -187,11 +199,7 @@ StyleEditorActor.prototype = {
     }
 
     if (styleSheets.length) {
-      this.conn.send({
-        from: this.actorID,
-        type: "styleSheetAdded",
-        styleSheets: styleSheets
-      });
+      this._notifyStyleSheetsAdded(styleSheets);
     }
   },
 
@@ -215,7 +223,8 @@ StyleEditorActor.prototype = {
  */
 StyleEditorActor.prototype.requestTypes = {
   "getStyleSheets": StyleEditorActor.prototype.onGetStyleSheets,
-  "newStyleSheet": StyleEditorActor.prototype.onNewStyleSheet
+  "newStyleSheet": StyleEditorActor.prototype.onNewStyleSheet,
+  "addLoadListener": StyleEditorActor.prototype.onAddLoadListener
 };
 
 

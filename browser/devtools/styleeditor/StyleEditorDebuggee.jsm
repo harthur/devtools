@@ -36,9 +36,10 @@ StyleEditorDebuggee.prototype = {
 
   initialize: function(callback) {
     this._connect(function() {
-      this._client.addListener("styleSheetAdded", this._onStyleSheetsAdded);
+      this._client.addListener("styleSheetsAdded", this._onStyleSheetsAdded);
 
-      this.reset(callback);
+      this.reset();
+      callback();
     }.bind(this));
   },
   _connect: function(callback) {
@@ -73,9 +74,11 @@ StyleEditorDebuggee.prototype = {
   },
 
   reset: function(callback) {
+    this._addLoadListener();
     dump("HEATHER: reset" + "\n");
     this.clear();
 
+/*
     this._fetchStyleSheets(function(forms) {
       dump("HEATHER: reset forms " + forms.length + "\n");
       for (let form of forms) {
@@ -87,7 +90,7 @@ StyleEditorDebuggee.prototype = {
         callback();
       }
       this.emit("stylesheets-reset");
-    }.bind(this));
+    }.bind(this)); */
   },
 
   _onStyleSheetsAdded: function(type, request) {
@@ -98,6 +101,7 @@ StyleEditorDebuggee.prototype = {
   },
 
   _addStyleSheet: function(form) {
+    dump("HEATHER: addstylesheet in debuggee"  + "\n");
     var sheet = new StyleSheet(form, this._client);
     this.styleSheets.push(sheet);
     this.emit("stylesheet-added", sheet);
@@ -109,6 +113,13 @@ StyleEditorDebuggee.prototype = {
       let form = response.styleSheet;
       this._addStyleSheet(form);
     }.bind(this));
+  },
+
+  _addLoadListener: function() {
+    var message = { to: this._actor, type: "addLoadListener" };
+    this._client.request(message, function(response) {
+      dump("HEATHER: added load listener" + response + "\n");
+    });
   },
 
   _fetchStyleSheets: function(callback) {
