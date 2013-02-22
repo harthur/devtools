@@ -34,6 +34,7 @@ function StyleEditorActor(aConnection, aParentActor)
   this.conn = aConnection;
   this._onDocumentLoaded = this._onDocumentLoaded.bind(this);
   this._onMutations = this._onMutations.bind(this);
+  this._onLinkLoaded = this._onLinkLoaded.bind(this);
 
   if (aParentActor instanceof BrowserTabActor &&
       aParentActor.browser instanceof Ci.nsIDOMWindow) {
@@ -65,7 +66,7 @@ StyleEditorActor.prototype = {
   /**
    * The content window we work with.
    */
-  get window() this._window,
+  get win() this._window,
 
   /**
    * The current content document of the window we work with.
@@ -108,12 +109,10 @@ StyleEditorActor.prototype = {
     // Note: listening for load won't be necessary once
     // https://bugzilla.mozilla.org/show_bug.cgi?id=839103 is fixed
     if (this.doc.readyState == "complete") {
-      dump("HEATHER: already loaded" +  + "\n");
       this._onDocumentLoaded();
     }
     else {
-      dump("HEATHER: waiting for load" +  + "\n");
-      this.window.addEventListener("load", this._onDocumentLoaded, false);
+      this.win.addEventListener("load", this._onDocumentLoaded, false);
     }
     return {};
   },
@@ -133,9 +132,8 @@ StyleEditorActor.prototype = {
 
   _onDocumentLoaded: function SEA_onDocumentLoaded(aEvent)
   {
-    dump("HEATHER: on document load " + "\n");
     if (aEvent) {
-      this.window.removeEventListener("load", this._onDocumentLoaded, false);
+      this.win.removeEventListener("load", this._onDocumentLoaded, false);
     }
     let styleSheets = [];
 
@@ -171,13 +169,11 @@ StyleEditorActor.prototype = {
   },
 
   _attachMutationObserver: function SEA_attachMutationObserver() {
-    this._observer = new this.window.MutationObserver(this._onMutations);
-    // TODO: documentElement not head
-    this._observer.observe(this.window.document.getElementsByTagName("head")[0], {
-      childList: true
+    this._observer = new this.win.MutationObserver(this._onMutations);
+    this._observer.observe(this.win.document.documentElement, {
+      childList: true,
+      subtree: true
     });
-
-    dump("HEATHER: attached new mutation observer" + "\n");
   },
 
   _onMutations: function SEA_onMutations(mutations)
@@ -189,11 +185,13 @@ StyleEditorActor.prototype = {
       }
       let target = mutation.target;
       for (let node of mutation.addedNodes) {
-        if (node.localName == "style" ||
-            (node.localName == "link" &&
-             node.rel == "stylesheet")) {
+        if (node.localName == "style") {
           let actor = this._createStyleSheetActor(node.sheet);
           styleSheets.push(actor.form());
+        }
+        if (node.localName == "link" &&
+            node.rel == "stylesheet") {
+          node.addEventListener("load", this._onLinkLoaded, false);
         }
       }
     }
@@ -201,6 +199,14 @@ StyleEditorActor.prototype = {
     if (styleSheets.length) {
       this._notifyStyleSheetsAdded(styleSheets);
     }
+  },
+
+  _onLinkLoaded: function(event) {
+    let link = event.target;
+    link.removeEventListener("load", this._onLinkLoaded, false);
+
+    let actor = this._createStyleSheetActor(link.sheet);
+    this._notifyStyleSheetsAdded([actor.form()]);    
   },
 
   onNewStyleSheet: function SEA_newStyleSheet(request) {
@@ -233,14 +239,22 @@ function StyleSheetActor(aStyleSheet, aParentActor, isNew) {
   this.parentActor = aParentActor;
   this._isNew = isNew;
 
+  // text and index are unknown until source load
+  this.text = null;
+  this._styleSheetIndex = -1;
+
   this._onSourceLoad = this._onSourceLoad.bind(this);
 }
 
 StyleSheetActor.prototype = {
   actorPrefix: "stylesheet",
 
-  get window() {
+  get win() {
     return this.parentActor._window;
+  },
+
+  get doc() {
+    return this.win.document;
   },
 
   get isInline() {
@@ -249,6 +263,24 @@ StyleSheetActor.prototype = {
 
   get isNew() {
     return !!this._isNew;
+  },
+
+  /**
+   * Retrieve the index (order) of stylesheet in the document.
+   *
+   * @return number
+   */
+  get styleSheetIndex()
+  {
+    if (this._styleSheetIndex == -1) {
+      for (let i = 0; i < this.doc.styleSheets.length; i++) {
+        if (this.doc.styleSheets[i] == this.styleSheet) {
+          this._styleSheetIndex = i;
+          break;
+        }
+      }
+    }
+    return this._styleSheetIndex;
   },
 
   form: function SSA_form() {
@@ -260,7 +292,9 @@ StyleSheetActor.prototype = {
       title: this.styleSheet.title,
       isInline: this.isInline,
       isNew: this.isNew,
-      friendlyName: this._getFriendlyName()
+      friendlyName: this._getFriendlyName(),
+      text: this.text,
+      styleSheetIndex: this.styleSheetIndex
     }
 
     // send a shallow copy of the sheet's cssRules
@@ -294,6 +328,17 @@ StyleSheetActor.prototype = {
       type: "sourceLoad-" + this.actorID,
       source: source
     });
+
+    this._notifyFormChange();
+  },
+
+  _notifyFormChange: function()
+  {
+    this.conn.send({
+      from: this.actorID,
+      type: "formChange-" + this.actorID,
+      form: this.form()
+    })
   },
 
   onFetchSource: function() {
@@ -373,8 +418,7 @@ StyleSheetActor.prototype = {
     };
 
     if (channel instanceof Ci.nsIPrivateBrowsingChannel) {
-      let contentWin = this.window;
-      let loadContext = contentWin.QueryInterface(Ci.nsIInterfaceRequestor)
+      let loadContext = this.win.QueryInterface(Ci.nsIInterfaceRequestor)
                           .getInterface(Ci.nsIWebNavigation)
                           .QueryInterface(Ci.nsILoadContext);
       channel.setPrivate(loadContext.usePrivateBrowsing);
@@ -400,21 +444,19 @@ StyleSheetActor.prototype = {
   },
 
   _insertTransistion: function(aRequest) {
-    let doc = this.window.document;
-
     // Insert the global transition rule
     // Use a ref count to make sure we do not add it multiple times.. and remove
     // it only when all pending StyleEditor-generated transitions ended.
     if (!this._transitionRefCount) {
       this.styleSheet.insertRule(TRANSITION_RULE, this.styleSheet.cssRules.length);
-      doc.documentElement.classList.add(TRANSITION_CLASS);
+      this.doc.documentElement.classList.add(TRANSITION_CLASS);
     }
 
     this._transitionRefCount++;
 
     // Set up clean up and commit after transition duration (+10% buffer)
     // @see _onTransitionEnd
-    this.window.setTimeout(this._onTransitionEnd.bind(this),
+    this.win.setTimeout(this._onTransitionEnd.bind(this),
                            Math.floor(TRANSITION_DURATION_MS * 1.1));
 
   },
@@ -426,7 +468,7 @@ StyleSheetActor.prototype = {
   _onTransitionEnd: function SAA_onTransitionEnd()
   {
     if (--this._transitionRefCount == 0) {
-      this.window.document.documentElement.classList.remove(TRANSITION_CLASS);
+      this.doc.documentElement.classList.remove(TRANSITION_CLASS);
       this.styleSheet.deleteRule(this.styleSheet.cssRules.length - 1);
     }
   },
@@ -450,7 +492,7 @@ StyleSheetActor.prototype = {
 
     if (!this._friendlyName) {
       let sheetURI = this.styleSheet.href;
-      let contentURI = this.window.document.baseURIObject;
+      let contentURI = this.doc.baseURIObject;
       let contentURIScheme = contentURI.scheme;
       let contentURILeafIndex = contentURI.specIgnoringRef.lastIndexOf("/");
       contentURI = contentURI.specIgnoringRef;

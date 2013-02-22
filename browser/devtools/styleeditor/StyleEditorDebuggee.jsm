@@ -75,7 +75,6 @@ StyleEditorDebuggee.prototype = {
 
   reset: function(callback) {
     this._addLoadListener();
-    dump("HEATHER: reset" + "\n");
     this.clear();
 
 /*
@@ -95,13 +94,11 @@ StyleEditorDebuggee.prototype = {
 
   _onStyleSheetsAdded: function(type, request) {
     for (let form of request.styleSheets) {
-      dump("HEATHER: stylesheet added " + form.href + "\n");
       this._addStyleSheet(form);
     }
   },
 
   _addStyleSheet: function(form) {
-    dump("HEATHER: addstylesheet in debuggee"  + "\n");
     var sheet = new StyleSheet(form, this._client);
     this.styleSheets.push(sheet);
     this.emit("stylesheet-added", sheet);
@@ -118,7 +115,6 @@ StyleEditorDebuggee.prototype = {
   _addLoadListener: function() {
     var message = { to: this._actor, type: "addLoadListener" };
     this._client.request(message, function(response) {
-      dump("HEATHER: added load listener" + response + "\n");
     });
   },
 

@@ -25,7 +25,6 @@ const UPDATE_STYLESHEET_THROTTLE_DELAY = 500;
 const STYLE_EDITOR_TEMPLATE = "stylesheet";
 
 function StyleEditorUI(debuggee, panelDoc) {
-  dump("HEATHER: new StyleEditorUI created" +  + "\n");
   this._debuggee = debuggee;
   this._panelDoc = panelDoc;
   this._window = this._panelDoc.defaultView;
@@ -37,7 +36,6 @@ function StyleEditorUI(debuggee, panelDoc) {
   this._onStyleSheetsCleared = this._onStyleSheetsCleared.bind(this);
   this._onStyleSheetsReset = this._onStyleSheetsReset.bind(this);
 
-  dump("HEATHER: adding stylesheet-added listener in UI" + "\n");
   debuggee.on("stylesheet-added", this._onStyleSheetAdded);
   debuggee.on("stylesheets-cleared", this._onStyleSheetsCleared);
   debuggee.on("stylesheets-reset", this._onStyleSheetsReset);
@@ -89,7 +87,6 @@ StyleEditorUI.prototype = {
   },
 
   _onStyleSheetAdded: function(event, sheet) {
-    dump("HEATHER: onstylesheetadded in UI" +  + "\n");
     // this might be the first stylesheet, so remove loading indicator
     this._root.classList.remove("loading");
     this._addStyleSheetEditor(sheet);
@@ -98,6 +95,7 @@ StyleEditorUI.prototype = {
   _addStyleSheetEditor: function(sheet) {
     let editor = new StyleSheetEditor(sheet, this._window);
     editor.once("source-load", this._sourceLoaded.bind(this, editor));
+    editor.on("summary-changed", this._summaryChanged.bind(this, editor));
     this._editors.push(editor);
 
     // Queue editor loading. This helps responsivity during loading when
@@ -112,7 +110,7 @@ StyleEditorUI.prototype = {
         editor: editor
       },
       disableAnimations: this._alwaysDisableAnimations,
-      ordinal: editor.styleSheetIndex,
+      ordinal: editor.styleSheet.styleSheetIndex,
       onCreate: function onItemCreate(summary, details, data) {
         /*
         let editor = aData.editor;
@@ -165,36 +163,27 @@ StyleEditorUI.prototype = {
     });
   },
 
-  /**
-   * Retrieve the summary element for a given editor.
-   *
-   * @param StyleEditor aEditor
-   * @return DOMElement
-   *         Item's summary element or null if not found.
-   * @see SplitView
-   */
-  getSummaryElementForEditor: function SEC_getSummaryElementForEditor(editor)
-  {
-    return this._view.getSummaryElementByOrdinal(editor.styleSheetIndex);
+  _summaryChanged: function(editor) {
+    this._updateSummaryForEditor(editor);
   },
 
   /**
    * Update split view summary of given StyleEditor instance.
    *
-   * @param StyleEditor aEditor
+   * @param StyleEditor editor
    * @param DOMElement aSummary
    *        Optional item's summary element to update. If none, item corresponding
-   *        to passed aEditor is used.
+   *        to passed editor is used.
    */
-  _updateSummaryForEditor: function SEUI_updateSummaryForEditor(editor, summary)
-  {
-    let summary = summary || this.getSummaryElementForEditor(editor);
+  _updateSummaryForEditor: function(editor, summary) {
+    let index = editor.styleSheet.styleSheetIndex;
+    summary = summary || this._view.getSummaryElementByOrdinal(index);
     let ruleCount = editor.styleSheet.cssRules.length;
 
     this._view.setItemClassName(summary, editor.flags);
 
     let label = summary.querySelector(".stylesheet-name > label");
-    label.setAttribute("value", editor.getFriendlyName());
+    label.setAttribute("value", editor.friendlyName);
 
     text(summary, ".stylesheet-title", editor.styleSheet.title || "");
     text(summary, ".stylesheet-rule-count",
@@ -221,6 +210,9 @@ function StyleSheetEditor(styleSheet, win) {
   };
 
   this._onSourceLoad = this._onSourceLoad.bind(this);
+  this._onSummaryChanged = this._onSummaryChanged.bind(this);
+
+  this._styleSheet.on("summary-changed", this._onSummaryChanged);
 }
 
 StyleSheetEditor.prototype = {
@@ -232,7 +224,7 @@ StyleSheetEditor.prototype = {
     return this._styleSheet;
   },
 
-  getFriendlyName: function() {
+  get friendlyName() {
     return this._styleSheet.friendlyName;
   },
 
@@ -244,6 +236,10 @@ StyleSheetEditor.prototype = {
   _onSourceLoad: function(event, source) {
     this._state.text = source;
     this.emit("source-load");
+  },
+
+  _onSummaryChanged: function(event) {
+    this.emit("summary-changed");
   },
 
   load: function(inputElement) {

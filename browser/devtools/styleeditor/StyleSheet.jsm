@@ -21,16 +21,21 @@ let StyleSheet = function(form, client) {
   this._actor = form.actor;
 
   this._onSourceLoad = this._onSourceLoad.bind(this);
+  this._onFormChange = this._onFormChange.bind(this);
 
   this._client.addListener("sourceLoad-" + this._actor, this._onSourceLoad);
+  this._client.addListener("formChange-" + this._actor, this._onFormChange);
 
-  // include everything from the form like href, title
-  for (var attr in form) {
-    this[attr] = form[attr];
-  }
+  this.importFromForm(form);
 }
 
 StyleSheet.prototype = {
+  importFromForm: function(form) {
+    for (var attr in form) {
+      this[attr] = form[attr];
+    }
+  },
+
   getDisabled : function(callback) {
     let message = { type: "getDisabled" };
     this._sendRequest(message, function(response) {
@@ -58,5 +63,10 @@ StyleSheet.prototype = {
 
   _onSourceLoad: function(type, request) {
     this.emit("source-load", request.source);
+  },
+
+  _onFormChange: function(type, request) {
+    this.importFromForm(request.form)
+    this.emit("summary-changed");
   }
 }
