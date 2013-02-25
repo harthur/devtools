@@ -71,7 +71,7 @@ StyleEditorPanel.prototype = {
    * Select a stylesheet. XXXOLD - MUST IMPLEMENT
    */
   selectStyleSheet: function StyleEditor_selectStyleSheet(stylesheet, line, col) {
-    this._panelWin.styleEditorChrome.selectStyleSheet(stylesheet, line, col);
+    this._styleEditorUI.selectStyleSheet(stylesheet, line, col);
   },
 
   /**

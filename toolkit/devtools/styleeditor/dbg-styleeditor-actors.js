@@ -145,7 +145,7 @@ StyleEditorActor.prototype = {
 
     // We need to attach mutation listeners right after fetching initial
     // sheets so that we don't miss any stylesheets being added.
-    this._attachMutationObserver();
+    // this._attachMutationObserver();   // TODO: prevent duplicate with new/import
 
     if (styleSheets.length) {
       this._notifyStyleSheetsAdded(styleSheets);
@@ -215,8 +215,7 @@ StyleEditorActor.prototype = {
     style.setAttribute("type", "text/css");
     if (request.text) {
       style.appendChild(document.createTextNode(request.text));
-      // flags.IMPORTED
-    }  // else flags.NEW flags.UNSAVED
+    }
     parent.appendChild(style);
 
     let actor = this._createStyleSheetActor(style.sheet, true);

@@ -79,6 +79,97 @@ StyleEditorUI.prototype = {
     this.resetEditors();
   },
 
+  /** TODO: fit to new remoting
+   * selects a stylesheet and optionally moves the cursor to a selected line
+   *
+   * @param {CSSStyleSheet} [aSheet]
+   *        Stylesheet that should be selected. If a stylesheet is not passed
+   *        and the editor is not initialized we focus the first stylesheet. If
+   *        a stylesheet is not passed and the editor is initialized we ignore
+   *        the call.
+   * @param {Number} [aLine]
+   *        Line to which the caret should be moved (one-indexed).
+   * @param {Number} [aCol]
+   *        Column to which the caret should be moved (one-indexed).
+   */
+  selectStyleSheet: function SEC_selectSheet(aSheet, aLine, aCol)
+  {
+    let alreadyCalled = !!this._styleSheetToSelect;
+
+    this._styleSheetToSelect = {
+      sheet: aSheet,
+      line: aLine,
+      col: aCol,
+    };
+
+    if (alreadyCalled) {
+      return;
+    }
+
+    let select = function DEC_select(aEditor) {
+      let sheet = this._styleSheetToSelect.sheet;
+      let line = this._styleSheetToSelect.line || 1;
+      let col = this._styleSheetToSelect.col || 1;
+
+      if (!aEditor.sourceEditor) {
+        let onAttach = function SEC_selectSheet_onAttach() {
+          aEditor.removeActionListener(this);
+          this.selectedStyleSheetIndex = aEditor.styleSheetIndex;
+          aEditor.sourceEditor.setCaretPosition(line - 1, col - 1);
+
+          let newSheet = this._styleSheetToSelect.sheet;
+          let newLine = this._styleSheetToSelect.line;
+          let newCol = this._styleSheetToSelect.col;
+          this._styleSheetToSelect = null;
+          if (newSheet != sheet) {
+              this.selectStyleSheet.bind(this, newSheet, newLine, newCol);
+          }
+        }.bind(this);
+
+        aEditor.addActionListener({
+          onAttach: onAttach
+        });
+      } else {
+        // If a line or column was specified we move the caret appropriately.
+        aEditor.sourceEditor.setCaretPosition(line - 1, col - 1);
+        this._styleSheetToSelect = null;
+      }
+
+        let summary = sheet ? this.getSummaryElementForEditor(aEditor)
+                            : this._view.getSummaryElementByOrdinal(0);
+        this._view.activeSummary = summary;
+      this.selectedStyleSheetIndex = aEditor.styleSheetIndex;
+    }.bind(this);
+
+    if (!this.editors.length) {
+      // We are in the main initialization phase so we wait for the editor
+      // containing the target stylesheet to be added and select the target
+      // stylesheet, optionally moving the cursor to a selected line.
+      let self = this;
+      this.addChromeListener({
+        onEditorAdded: function SEC_selectSheet_onEditorAdded(aChrome, aEditor) {
+          let sheet = self._styleSheetToSelect.sheet;
+          if ((sheet && aEditor.styleSheet == sheet) ||
+              (aEditor.styleSheetIndex == 0 && sheet == null)) {
+            aChrome.removeChromeListener(this);
+            aEditor.addActionListener(self);
+            select(aEditor);
+          }
+        }
+      });
+    } else if (aSheet) {
+      // We are already initialized and a stylesheet has been specified. Here
+      // we iterate through the editors and select the one containing the target
+      // stylesheet, optionally moving the cursor to a selected line.
+      for each (let editor in this.editors) {
+        if (editor.styleSheet == aSheet) {
+          select(editor);
+          break;
+        }
+      }
+    }
+  },
+
   resetEditors: function() {
     this._root.classList.remove("loading");
     for (let sheet of this._debuggee.styleSheets) {
@@ -303,6 +394,7 @@ StyleSheetEditor.prototype = {
   _updateStyleSheet: function SE__updateStyleSheet()
   {
     // TODO: this.setFlag(StyleEditorFlags.UNSAVED);
+    this.unSaved = true;
     if (this.styleSheet.disabled) {
       return;  // TODO: do we want to do this?
     }
