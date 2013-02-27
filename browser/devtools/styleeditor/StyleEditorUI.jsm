@@ -13,6 +13,7 @@ const Cu = Components.utils;
 
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/PluralForm.jsm");
+Cu.import("resource://gre/modules/commonjs/sdk/core/promise.js");
 Cu.import("resource:///modules/devtools/EventEmitter.jsm");
 Cu.import("resource:///modules/devtools/StyleEditor.jsm");
 Cu.import("resource:///modules/devtools/StyleEditorUtil.jsm");
@@ -31,14 +32,13 @@ function StyleEditorUI(debuggee, panelDoc) {
   this._root = this._panelDoc.getElementById("style-editor-chrome");
 
   this._editors = [];
+  this._selectedStyleSheetIndex = -1;
 
   this._onStyleSheetAdded = this._onStyleSheetAdded.bind(this);
   this._onStyleSheetsCleared = this._onStyleSheetsCleared.bind(this);
-  this._onStyleSheetsReset = this._onStyleSheetsReset.bind(this);
 
   debuggee.on("stylesheet-added", this._onStyleSheetAdded);
   debuggee.on("stylesheets-cleared", this._onStyleSheetsCleared);
-  debuggee.on("stylesheets-reset", this._onStyleSheetsReset);
 }
 
 StyleEditorUI.prototype = {
@@ -65,116 +65,9 @@ StyleEditorUI.prototype = {
   _onStyleSheetsCleared: function() {
     this._editors = [];
     this._view.removeAll();
-
-    let matches = this._root.querySelectorAll("toolbarbutton,input,select");
-    for (let i = 0; i < matches.length; i++) {
-      matches[i].removeAttribute("disabled");
-    }
+    this._selectedStyleSheetIndex = -1;
 
     this._root.classList.add("loading");
-  },
-
-  _onStyleSheetsReset: function() {
-    this._root.classList.remove("loading");
-    this.resetEditors();
-  },
-
-  /** TODO: fit to new remoting
-   * selects a stylesheet and optionally moves the cursor to a selected line
-   *
-   * @param {CSSStyleSheet} [aSheet]
-   *        Stylesheet that should be selected. If a stylesheet is not passed
-   *        and the editor is not initialized we focus the first stylesheet. If
-   *        a stylesheet is not passed and the editor is initialized we ignore
-   *        the call.
-   * @param {Number} [aLine]
-   *        Line to which the caret should be moved (one-indexed).
-   * @param {Number} [aCol]
-   *        Column to which the caret should be moved (one-indexed).
-   */
-  selectStyleSheet: function SEC_selectSheet(aSheet, aLine, aCol)
-  {
-    let alreadyCalled = !!this._styleSheetToSelect;
-
-    this._styleSheetToSelect = {
-      sheet: aSheet,
-      line: aLine,
-      col: aCol,
-    };
-
-    if (alreadyCalled) {
-      return;
-    }
-
-    let select = function DEC_select(aEditor) {
-      let sheet = this._styleSheetToSelect.sheet;
-      let line = this._styleSheetToSelect.line || 1;
-      let col = this._styleSheetToSelect.col || 1;
-
-      if (!aEditor.sourceEditor) {
-        let onAttach = function SEC_selectSheet_onAttach() {
-          aEditor.removeActionListener(this);
-          this.selectedStyleSheetIndex = aEditor.styleSheetIndex;
-          aEditor.sourceEditor.setCaretPosition(line - 1, col - 1);
-
-          let newSheet = this._styleSheetToSelect.sheet;
-          let newLine = this._styleSheetToSelect.line;
-          let newCol = this._styleSheetToSelect.col;
-          this._styleSheetToSelect = null;
-          if (newSheet != sheet) {
-              this.selectStyleSheet.bind(this, newSheet, newLine, newCol);
-          }
-        }.bind(this);
-
-        aEditor.addActionListener({
-          onAttach: onAttach
-        });
-      } else {
-        // If a line or column was specified we move the caret appropriately.
-        aEditor.sourceEditor.setCaretPosition(line - 1, col - 1);
-        this._styleSheetToSelect = null;
-      }
-
-        let summary = sheet ? this.getSummaryElementForEditor(aEditor)
-                            : this._view.getSummaryElementByOrdinal(0);
-        this._view.activeSummary = summary;
-      this.selectedStyleSheetIndex = aEditor.styleSheetIndex;
-    }.bind(this);
-
-    if (!this.editors.length) {
-      // We are in the main initialization phase so we wait for the editor
-      // containing the target stylesheet to be added and select the target
-      // stylesheet, optionally moving the cursor to a selected line.
-      let self = this;
-      this.addChromeListener({
-        onEditorAdded: function SEC_selectSheet_onEditorAdded(aChrome, aEditor) {
-          let sheet = self._styleSheetToSelect.sheet;
-          if ((sheet && aEditor.styleSheet == sheet) ||
-              (aEditor.styleSheetIndex == 0 && sheet == null)) {
-            aChrome.removeChromeListener(this);
-            aEditor.addActionListener(self);
-            select(aEditor);
-          }
-        }
-      });
-    } else if (aSheet) {
-      // We are already initialized and a stylesheet has been specified. Here
-      // we iterate through the editors and select the one containing the target
-      // stylesheet, optionally moving the cursor to a selected line.
-      for each (let editor in this.editors) {
-        if (editor.styleSheet == aSheet) {
-          select(editor);
-          break;
-        }
-      }
-    }
-  },
-
-  resetEditors: function() {
-    this._root.classList.remove("loading");
-    for (let sheet of this._debuggee.styleSheets) {
-      this._addStyleSheetEditor(sheet);
-    }
   },
 
   _onStyleSheetAdded: function(event, sheet) {
@@ -195,6 +88,8 @@ StyleEditorUI.prototype = {
   },
 
   _sourceLoaded: function(editor) {
+    dump("HEATHER: index: " + editor.styleSheet.styleSheetIndex + "\n");
+
     // add new sidebar item and editor to the UI
     this._view.appendTemplatedItem(STYLE_EDITOR_TEMPLATE, {
       data: {
@@ -202,7 +97,7 @@ StyleEditorUI.prototype = {
       },
       disableAnimations: this._alwaysDisableAnimations,
       ordinal: editor.styleSheet.styleSheetIndex,
-      onCreate: function onItemCreate(summary, details, data) {
+      onCreate: function(summary, details, data) {
         /*
         let editor = aData.editor;
         wire(aSummary, ".stylesheet-enabled", function onToggleEnabled(aEvent) {
@@ -220,7 +115,6 @@ StyleEditorUI.prototype = {
         });
         */
 
-
         this._updateSummaryForEditor(editor, summary);
 
         summary.addEventListener("focus", function onSummaryFocus(event) {
@@ -230,20 +124,16 @@ StyleEditorUI.prototype = {
           }
         }, false);
 
-        /*
-        // autofocus new stylesheets
-        if (editor.hasFlag(StyleEditorFlags.NEW)) {
-          this._view.activeSummary = aSummary;
+        // autofocus new stylesheet
+        if (editor.styleSheet.isNew) {
+          this._selectEditor(editor);
         }
-        */
-
       }.bind(this),
 
-      onHide: function ASV_onItemShow(summary, details, data) {
+      onHide: function(summary, details, data) {
         // data.editor.onHide();
       },
-
-      onShow: function ASV_onItemShow(summary, details, data) {
+      onShow: function(summary, details, data) {
         let editor = data.editor;
         if (!editor.sourceEditor) {
           // only initialize source editor when we switch to this view
@@ -252,6 +142,80 @@ StyleEditorUI.prototype = {
         }
       }
     });
+
+    /* If this is the first stylesheet, select it */
+    if (this._selectedStyleSheetIndex == -1
+        && !this._styleSheetToSelect
+        && editor.styleSheet.styleSheetIndex == 0) {
+      this._selectEditor(editor);
+    }
+  },
+
+  /*
+  switchToSelectedSheet: function() {
+    if (this._styleSheetToSelect) {
+      let sheet = this._styleSheetToSelect.sheet;
+
+      if ((sheet && editor.styleSheet == sheet) ||
+          (editor.styleSheetIndex == 0 && sheet == null)) {
+        selectEditor(editor);
+      }
+    }
+  }, */
+
+  _selectEditor: function(editor, line, col) {
+    line = line || 1;
+    col = col || 1;
+
+    this._selectedStyleSheetIndex = editor.styleSheet.styleSheetIndex;
+
+    editor.getSourceEditor().then(function() {
+      editor.sourceEditor.setCaretPosition(line - 1, col - 1);
+    });
+
+    let summary = this._getSummaryElementForEditor(editor);
+    this._view.activeSummary = summary;
+  },
+
+  _getSummaryElementForEditor: function(editor) {
+    return this._view.getSummaryElementByOrdinal(editor.styleSheet.styleSheetIndex);
+  },
+
+  /** TODO: fit to new remoting
+   * selects a stylesheet and optionally moves the cursor to a selected line
+   *
+   * @param {CSSStyleSheet} [sheet]
+   *        Stylesheet that should be selected. If a stylesheet is not passed
+   *        and the editor is not initialized we focus the first stylesheet. If
+   *        a stylesheet is not passed and the editor is initialized we ignore
+   *        the call.
+   * @param {Number} [line]
+   *        Line to which the caret should be moved (one-indexed).
+   * @param {Number} [col]
+   *        Column to which the caret should be moved (one-indexed).
+   */
+  selectStyleSheet: function SEC_selectSheet(sheet, line, col)
+  {
+    let alreadyCalled = !!this._styleSheetToSelect;
+
+    this._styleSheetToSelect = {
+      sheet: sheet,
+      line: line,
+      col: col,
+    };
+
+    if (alreadyCalled) {
+      return;
+    }
+
+    /* Switch to the editor for this sheet, if it exists yet.
+       Otherwise each editor will be checked when it's created. */
+    for each (let editor in this._editors) {
+      if (editor.styleSheet == sheet) {
+        this._selectEditor(editor);
+        break;
+      }
+    }
   },
 
   _summaryChanged: function(editor) {
@@ -302,6 +266,8 @@ function StyleSheetEditor(styleSheet, win) {
 
   this._onSourceLoad = this._onSourceLoad.bind(this);
   this._onSummaryChanged = this._onSummaryChanged.bind(this);
+
+  this._focusOnSourceEditorReady = false;
 
   this._styleSheet.on("summary-changed", this._onSummaryChanged);
 }
@@ -354,7 +320,6 @@ StyleSheetEditor.prototype = {
 
       this._sourceEditor = sourceEditor;
 
-      /*
       if (this._focusOnSourceEditorReady) {
         this._focusOnSourceEditorReady = false;
         sourceEditor.focus();
@@ -363,8 +328,35 @@ StyleSheetEditor.prototype = {
       sourceEditor.setTopIndex(this._state.topIndex);
       sourceEditor.setSelection(this._state.selection.start,
                                 this._state.selection.end);
-      */
+
+      this.emit("source-editor-load");
     }.bind(this));
+  },
+
+  getSourceEditor: function() {
+    let deferred = Promise.defer();
+
+    if (this.sourceEditor) {
+      deferred.resolve();
+    }
+    else {
+      this.on("source-editor-load", function(event) {
+        deferred.resolve();
+      })
+    }
+    return deferred.promise;
+  },
+
+  /**
+   * Focus the Style Editor input.
+   */
+  focus: function()
+  {
+    if (this._sourceEditor) {
+      this._sourceEditor.focus();
+    } else {
+      this._focusOnSourceEditorReady = true;
+    }
   },
 
   /**

@@ -50,43 +50,20 @@ StyleEditorPanel.prototype = {
   },
 
   /**
-   * Set the page to target. XXXOLD
-   */
-  setPage: function StyleEditor_setPage(contentWindow) {
-    if (this._panelWin.styleEditorChrome) {
-      this._panelWin.styleEditorChrome.contentWindow = contentWindow;
-      this.selectStyleSheet(null, null, null);
-    } else {
-      let chromeRoot = this._panelDoc.getElementById("style-editor-chrome");
-      let chrome = new StyleEditorChrome(chromeRoot, contentWindow);
-      let promise = chrome.open();
-
-      this._panelWin.styleEditorChrome = chrome;
-      this.selectStyleSheet(null, null, null);
-      return promise;
-    }
-  },
-
-  /**
-   * Select a stylesheet. XXXOLD - MUST IMPLEMENT
+   * Select a stylesheet. TODO
    */
   selectStyleSheet: function StyleEditor_selectStyleSheet(stylesheet, line, col) {
     this._styleEditorUI.selectStyleSheet(stylesheet, line, col);
   },
 
   /**
-   * Destroy StyleEditor. XXXOLD - MUST IMPLEMENT
+   * Destroy StyleEditor. TODO
    */
   destroy: function StyleEditor_destroy() {
     if (!this._destroyed) {
       this._destroyed = true;
-
-      this._target.off("will-navigate", this.reset);
-      this._target.off("navigate", this.newPage);
-      this._target.off("close", this.destroy);
       this._target = null;
       this._toolbox = null;
-      this._panelWin = null;
       this._panelDoc = null;
     }
 

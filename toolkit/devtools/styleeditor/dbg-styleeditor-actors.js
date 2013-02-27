@@ -161,9 +161,9 @@ StyleEditorActor.prototype = {
     });
   },
 
-  _createStyleSheetActor: function(aStyleSheet, isNew)
+  _createStyleSheetActor: function(aStyleSheet, flags)
   {
-    let actor = new StyleSheetActor(aStyleSheet, this, isNew);
+    let actor = new StyleSheetActor(aStyleSheet, this, flags);
     this._actorPool.addActor(actor);
     return actor;
   },
@@ -206,19 +206,22 @@ StyleEditorActor.prototype = {
     link.removeEventListener("load", this._onLinkLoaded, false);
 
     let actor = this._createStyleSheetActor(link.sheet);
-    this._notifyStyleSheetsAdded([actor.form()]);    
+    this._notifyStyleSheetsAdded([actor.form()]);
   },
 
   onNewStyleSheet: function SEA_newStyleSheet(request) {
     let parent = this.doc.documentElement;
     let style = this.doc.createElementNS("http://www.w3.org/1999/xhtml", "style");
     style.setAttribute("type", "text/css");
+
+    let flags = ["new"];
     if (request.text) {
-      style.appendChild(document.createTextNode(request.text));
+      style.appendChild(this.doc.createTextNode(request.text));
+      flags.push("imported");
     }
     parent.appendChild(style);
 
-    let actor = this._createStyleSheetActor(style.sheet, true);
+    let actor = this._createStyleSheetActor(style.sheet, flags);
     return { "styleSheet": actor.form() };
   }
 };
@@ -233,10 +236,10 @@ StyleEditorActor.prototype.requestTypes = {
 };
 
 
-function StyleSheetActor(aStyleSheet, aParentActor, isNew) {
+function StyleSheetActor(aStyleSheet, aParentActor, flags) {
   this.styleSheet = aStyleSheet;
   this.parentActor = aParentActor;
-  this._isNew = isNew;
+  this._flags = flags || [];
 
   // text and index are unknown until source load
   this.text = null;
@@ -261,7 +264,7 @@ StyleSheetActor.prototype = {
   },
 
   get isNew() {
-    return !!this._isNew;
+    return this._flags.indexOf("new") >= 0;
   },
 
   /**
@@ -283,9 +286,8 @@ StyleSheetActor.prototype = {
   },
 
   form: function SSA_form() {
-    // actorID is set when this actor is added to a pool
     let form = {
-      actor: this.actorID,
+      actor: this.actorID,  // actorID is set when this actor is added to a pool
       href: this.styleSheet.href,
       disabled: this.styleSheet.disabled,
       title: this.styleSheet.title,
@@ -345,6 +347,7 @@ StyleSheetActor.prototype = {
       // this is an inline <style> sheet
       let source = this.styleSheet.ownerNode.textContent;
       this._onSourceLoad(source);
+      return;
     }
 
     let scheme = Services.io.extractScheme(this.styleSheet.href);

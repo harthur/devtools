@@ -4,7 +4,7 @@
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = ["StyleEditorDebuggee"];
+this.EXPORTED_SYMBOLS = ["StyleEditorDebuggee", "StyleSheet"];
 
 const Cc = Components.classes;
 const Ci = Components.interfaces;
@@ -15,11 +15,12 @@ Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 Cu.import("resource:///modules/devtools/EventEmitter.jsm");
 Cu.import("resource://gre/modules/devtools/dbg-server.jsm");
 Cu.import("resource://gre/modules/devtools/dbg-client.jsm");
-Cu.import("resource:///modules/devtools/StyleSheet.jsm");
 
 
 let StyleEditorDebuggee = function(target) {
   EventEmitter.decorate(this);
+
+  this.styleSheets = [];
 
   this.clear = this.clear.bind(this);
   this.reset = this.reset.bind(this);
@@ -75,21 +76,12 @@ StyleEditorDebuggee.prototype = {
 
   reset: function(callback) {
     this._addLoadListener();
-    this.clear();
+  },
 
-/*
-    this._fetchStyleSheets(function(forms) {
-      dump("HEATHER: reset forms " + forms.length + "\n");
-      for (let form of forms) {
-        dump("HEATHER: reset form " + form.href + "\n");
-        this._addStyleSheet(form);
-      }
-
-      if (callback) {
-        callback();
-      }
-      this.emit("stylesheets-reset");
-    }.bind(this)); */
+  _addLoadListener: function() {
+    var message = { to: this._actor, type: "addLoadListener" };
+    this._client.request(message, function(response) {
+    });
   },
 
   _onStyleSheetsAdded: function(type, request) {
@@ -112,16 +104,67 @@ StyleEditorDebuggee.prototype = {
     }.bind(this));
   },
 
-  _addLoadListener: function() {
-    var message = { to: this._actor, type: "addLoadListener" };
-    this._client.request(message, function(response) {
-    });
-  },
-
   _fetchStyleSheets: function(callback) {
     var message = { to: this._actor, type: "getStyleSheets" };
     this._client.request(message, function(response) {
       callback(response.styleSheets);
     });
+  }
+}
+
+let StyleSheet = function(form, client) {
+  EventEmitter.decorate(this);
+
+  this._client = client;
+  this._actor = form.actor;
+
+  this._onSourceLoad = this._onSourceLoad.bind(this);
+  this._onFormChange = this._onFormChange.bind(this);
+
+  this._client.addListener("sourceLoad-" + this._actor, this._onSourceLoad);
+  this._client.addListener("formChange-" + this._actor, this._onFormChange);
+
+  this.importFromForm(form);
+}
+
+StyleSheet.prototype = {
+  importFromForm: function(form) {
+    for (var attr in form) {
+      this[attr] = form[attr];
+    }
+  },
+
+  getDisabled : function(callback) {
+    let message = { type: "getDisabled" };
+    this._sendRequest(message, function(response) {
+      callback(response.disabled);
+    });
+  },
+
+  fetchSource: function() {
+    let message = { type: "fetchSource" };
+    this._sendRequest(message, function(response) {
+      // TODO: err handling
+    })
+  },
+
+  update: function(sheetText) {
+    let message = { type: "update", text: sheetText, transition: true };
+    this._sendRequest(message, function(response) {
+    });
+  },
+
+  _sendRequest: function(message, callback) {
+    message.to = this._actor;
+    this._client.request(message, callback);
+  },
+
+  _onSourceLoad: function(type, request) {
+    this.emit("source-load", request.source);
+  },
+
+  _onFormChange: function(type, request) {
+    this.importFromForm(request.form)
+    this.emit("summary-changed");
   }
 }
