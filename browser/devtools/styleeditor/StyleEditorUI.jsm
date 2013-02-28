@@ -13,6 +13,8 @@ const Cu = Components.utils;
 
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/PluralForm.jsm");
+Cu.import("resource://gre/modules/NetUtil.jsm");
+Cu.import("resource://gre/modules/FileUtils.jsm");
 Cu.import("resource://gre/modules/commonjs/sdk/core/promise.js");
 Cu.import("resource:///modules/devtools/EventEmitter.jsm");
 Cu.import("resource:///modules/devtools/StyleEditor.jsm");
@@ -51,15 +53,44 @@ StyleEditorUI.prototype = {
 
     this._view = new SplitView(viewRoot);
 
-    wire(this._view.rootElement, ".style-editor-newButton", function onNewButton() {
+    wire(this._view.rootElement, ".style-editor-newButton", function onNew() {
       this._debuggee.createStyleSheet();
     }.bind(this));
 
-    wire(this._view.rootElement, ".style-editor-importButton", function onImportButton() {
-      // TODO: implement file import
-      editor.importFromFile(this._mockImportFile || null, this._window);
-      this._debuggee.createStyleSheet();
+    wire(this._view.rootElement, ".style-editor-importButton", function onImport() {
+      this._importFromFile(this._mockImportFile || null, this._window);
     }.bind(this));
+  },
+
+  /**
+   * Import style sheet from file and load it into the editor asynchronously.
+   * "Load" action triggers when complete.
+   *
+   * @param mixed aFile
+   *        Optional nsIFile or filename string.
+   *        If not set a file picker will be shown.
+   * @param nsIWindow aParentWindow
+   *        Optional parent window for the file picker.
+   */
+  _importFromFile: function(file, parentWindow)
+  {
+    let onFileSelected = function(file) {
+      if (file) {
+        this._savedFile = file; // remember filename for next save if any
+
+        NetUtil.asyncFetch(file, function onAsyncFetch(stream, status) {
+          if (!Components.isSuccessCode(status)) {
+            // TODO: return this._signalError(LOAD_ERROR);
+          }
+          let source = NetUtil.readInputStreamToString(stream, stream.available());
+          stream.close();
+
+          this._debuggee.createStyleSheet(source);
+        }.bind(this));
+      }
+    }.bind(this);
+
+    this._showFilePicker(file, false, parentWindow, onFileSelected);
   },
 
   _onStyleSheetsCleared: function() {
@@ -79,7 +110,7 @@ StyleEditorUI.prototype = {
   _addStyleSheetEditor: function(sheet) {
     let editor = new StyleSheetEditor(sheet, this._window);
     editor.once("source-load", this._sourceLoaded.bind(this, editor));
-    editor.on("summary-changed", this._summaryChanged.bind(this, editor));
+    editor.on("property-change", this._summaryChange.bind(this, editor));
     this._editors.push(editor);
 
     // Queue editor loading. This helps responsivity during loading when
@@ -98,15 +129,14 @@ StyleEditorUI.prototype = {
       disableAnimations: this._alwaysDisableAnimations,
       ordinal: editor.styleSheet.styleSheetIndex,
       onCreate: function(summary, details, data) {
-        /*
-        let editor = aData.editor;
-        wire(aSummary, ".stylesheet-enabled", function onToggleEnabled(aEvent) {
-          aEvent.stopPropagation();
-          aEvent.target.blur();
-
-          editor.enableStyleSheet(editor.styleSheet.disabled);
+        let editor = data.editor;
+        wire(summary, ".stylesheet-enabled", function onToggleDisabled(event) {
+          event.stopPropagation();
+          event.target.blur();
+          editor.toggleDisabled();
         });
 
+        /*
         wire(aSummary, ".stylesheet-saveButton", function onSaveButton(aEvent) {
           aEvent.stopPropagation();
           aEvent.target.blur();
@@ -218,7 +248,7 @@ StyleEditorUI.prototype = {
     }
   },
 
-  _summaryChanged: function(editor) {
+  _summaryChange: function(editor) {
     this._updateSummaryForEditor(editor);
   },
 
@@ -244,6 +274,68 @@ StyleEditorUI.prototype = {
     text(summary, ".stylesheet-rule-count",
       PluralForm.get(ruleCount, _("ruleCount.label")).replace("#1", ruleCount));
     // text(summary, ".stylesheet-error-message", editor.errorMessage);
+  },
+
+  /**
+   * Show file picker and return the file user selected.
+   *
+   * @param mixed file
+   *        Optional nsIFile or string representing the filename to auto-select.
+   * @param boolean toSave
+   *        If true, the user is selecting a filename to save.
+   * @param nsIWindow parentWindow
+   *        Optional parent window. If null the parent window of the file picker
+   *        will be the window of the attached input element.
+   * @param callback
+   *        The callback method, which will be called passing in the selected
+   *        file or null if the user did not pick one.
+   */
+  _showFilePicker: function (path, toSave, parentWindow, callback)
+  {
+    if (typeof(path) == "string") {
+      try {
+        if (Services.io.extractScheme(path) == "file") {
+          let uri = Services.io.newURI(path, null, null);
+          let file = uri.QueryInterface(Ci.nsIFileURL).file;
+          callback(file);
+          return;
+        }
+      } catch (ex) {
+        // TODO
+      }
+      try {
+        let file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsILocalFile);
+        file.initWithPath(path);
+        callback(file);
+        return;
+      } catch (ex) {
+        // TODO: this._signalError(aSave ? SAVE_ERROR : LOAD_ERROR);
+        callback(null);
+        return;
+      }
+    }
+    if (path) { // "path" is an nsIFile
+      callback(path);
+      return;
+    }
+
+    let window = parentWindow ? parentWindow : this._window;
+    let fp = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
+    let mode = toSave ? fp.modeSave : fp.modeOpen;
+    let key = toSave ? "saveStyleSheet" : "importStyleSheet";
+    let fpCallback = function(result) {
+      if (result == Ci.nsIFilePicker.returnCancel) {
+        callback(null);
+      } else {
+        callback(fp.file);
+      }
+    };
+
+    fp.init(window, _(key + ".title"), mode);
+    fp.appendFilters(_(key + ".filter"), "*.css");
+    fp.appendFilters(fp.filterAll);
+    fp.open(fpCallback);
+    return;
   }
 }
 
@@ -265,11 +357,11 @@ function StyleSheetEditor(styleSheet, win) {
   };
 
   this._onSourceLoad = this._onSourceLoad.bind(this);
-  this._onSummaryChanged = this._onSummaryChanged.bind(this);
+  this._onPropertyChange = this._onPropertyChange.bind(this);
 
   this._focusOnSourceEditorReady = false;
 
-  this._styleSheet.on("summary-changed", this._onSummaryChanged);
+  this._styleSheet.on("property-change", this._onPropertyChange);
 }
 
 StyleSheetEditor.prototype = {
@@ -295,8 +387,8 @@ StyleSheetEditor.prototype = {
     this.emit("source-load");
   },
 
-  _onSummaryChanged: function(event) {
-    this.emit("summary-changed");
+  _onPropertyChange: function(event) {
+    this.emit("property-change");
   },
 
   load: function(inputElement) {
@@ -360,19 +452,26 @@ StyleSheetEditor.prototype = {
   },
 
   /**
+   * Toggled the disabled state of the stylesheet.
+   */
+  toggleDisabled: function() {
+    this.styleSheet.toggleDisabled();
+  },
+
+  /**
    * Queue a throttled task to update the live style sheet.
    *
-   * @param boolean aImmediate
+   * @param boolean immediate
    *        Optional. If true the update is performed immediately.
    */
-  updateStyleSheet: function SE_updateStyleSheet(aImmediate)
+  updateStyleSheet: function(immediate)
   {
     if (this._updateTask) {
       // cancel previous queued task not executed within throttle delay
       this._window.clearTimeout(this._updateTask);
     }
 
-    if (aImmediate) {
+    if (immediate) {
       this._updateStyleSheet();
     } else {
       this._updateTask = this._window.setTimeout(this._updateStyleSheet.bind(this),
@@ -383,7 +482,7 @@ StyleSheetEditor.prototype = {
   /**
    * Update live style sheet according to modifications.
    */
-  _updateStyleSheet: function SE__updateStyleSheet()
+  _updateStyleSheet: function()
   {
     // TODO: this.setFlag(StyleEditorFlags.UNSAVED);
     this.unSaved = true;

@@ -119,10 +119,10 @@ let StyleSheet = function(form, client) {
   this._actor = form.actor;
 
   this._onSourceLoad = this._onSourceLoad.bind(this);
-  this._onFormChange = this._onFormChange.bind(this);
+  this._onPropertyChange = this._onPropertyChange.bind(this);
 
   this._client.addListener("sourceLoad-" + this._actor, this._onSourceLoad);
-  this._client.addListener("formChange-" + this._actor, this._onFormChange);
+  this._client.addListener("propertyChange-" + this._actor, this._onPropertyChange);
 
   this.importFromForm(form);
 }
@@ -138,6 +138,13 @@ StyleSheet.prototype = {
     let message = { type: "getDisabled" };
     this._sendRequest(message, function(response) {
       callback(response.disabled);
+    });
+  },
+
+  toggleDisabled: function() {
+    let message = { type: "toggleDisabled" };
+    this._sendRequest(message, function(response) {
+      // TODO: err handling
     });
   },
 
@@ -163,8 +170,8 @@ StyleSheet.prototype = {
     this.emit("source-load", request.source);
   },
 
-  _onFormChange: function(type, request) {
+  _onPropertyChange: function(type, request) {
     this.importFromForm(request.form)
-    this.emit("summary-changed");
+    this.emit("property-change");
   }
 }

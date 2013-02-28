@@ -34,7 +34,7 @@ function StyleEditorActor(aConnection, aParentActor)
   this.conn = aConnection;
   this._onDocumentLoaded = this._onDocumentLoaded.bind(this);
   this._onMutations = this._onMutations.bind(this);
-  this._onLinkLoaded = this._onLinkLoaded.bind(this);
+  this._onSheetLoaded = this._onSheetLoaded.bind(this);
 
   if (aParentActor instanceof BrowserTabActor &&
       aParentActor.browser instanceof Ci.nsIDOMWindow) {
@@ -191,7 +191,7 @@ StyleEditorActor.prototype = {
         }
         if (node.localName == "link" &&
             node.rel == "stylesheet") {
-          node.addEventListener("load", this._onLinkLoaded, false);
+          node.addEventListener("load", this._onSheetLoaded, false);
         }
       }
     }
@@ -201,11 +201,11 @@ StyleEditorActor.prototype = {
     }
   },
 
-  _onLinkLoaded: function(event) {
-    let link = event.target;
-    link.removeEventListener("load", this._onLinkLoaded, false);
+  _onSheetLoaded: function(event) {
+    let style = event.target;
+    link.removeEventListener("load", this._onSheetLoaded, false);
 
-    let actor = this._createStyleSheetActor(link.sheet);
+    let actor = this._createStyleSheetActor(style.sheet);
     this._notifyStyleSheetsAdded([actor.form()]);
   },
 
@@ -214,15 +214,19 @@ StyleEditorActor.prototype = {
     let style = this.doc.createElementNS("http://www.w3.org/1999/xhtml", "style");
     style.setAttribute("type", "text/css");
 
+    style.addEventListener("load", this._onSheetLoaded, false);
+
     let flags = ["new"];
     if (request.text) {
+      dump("HEATHER: text " + request.text.length + "\n");
       style.appendChild(this.doc.createTextNode(request.text));
       flags.push("imported");
     }
     parent.appendChild(style);
 
-    let actor = this._createStyleSheetActor(style.sheet, flags);
-    return { "styleSheet": actor.form() };
+    dump("HEATHER: form " + style.sheet + "\n");
+//    let actor = this._createStyleSheetActor(style.sheet, flags);
+//    return { "styleSheet": actor.form() };
   }
 };
 
@@ -237,6 +241,7 @@ StyleEditorActor.prototype.requestTypes = {
 
 
 function StyleSheetActor(aStyleSheet, aParentActor, flags) {
+  dump("HEATHER: new actor " + aStyleSheet + "\n");
   this.styleSheet = aStyleSheet;
   this.parentActor = aParentActor;
   this._flags = flags || [];
@@ -250,6 +255,14 @@ function StyleSheetActor(aStyleSheet, aParentActor, flags) {
 
 StyleSheetActor.prototype = {
   actorPrefix: "stylesheet",
+
+  toString: function() {
+    return "[StyleSheetActor " + this.actorID + "]";
+  },
+
+  disconnect: function() {
+    this.parentActor.releaseActor(this);
+  },
 
   get win() {
     return this.parentActor._window;
@@ -312,12 +325,8 @@ StyleSheetActor.prototype = {
     return form;
   },
 
-  toString: function SSA_toString() {
-    return "[StyleSheetActor " + this.actorID + "]";
-  },
-
-  disconnect: function SSA_disconnect() {
-    this.parentActor.releaseActor(this);
+  onToggleDisabled: function(aRequest) {
+    this.styleSheet.disabled = !this.styleSheet.disabled;
   },
 
   _onSourceLoad: function SSA_onSourceLoad(source)
@@ -330,14 +339,14 @@ StyleSheetActor.prototype = {
       source: source
     });
 
-    this._notifyFormChange();
+    this._notifyPropertyChanged();
   },
 
-  _notifyFormChange: function()
+  _notifyPropertyChanged: function()
   {
     this.conn.send({
       from: this.actorID,
-      type: "formChange-" + this.actorID,
+      type: "propertyChange-" + this.actorID,
       form: this.form()
     })
   },
@@ -427,14 +436,6 @@ StyleSheetActor.prototype = {
     }
     channel.loadFlags = channel.LOAD_FROM_CACHE;
     channel.asyncOpen(streamListener, null);
-  },
-
-  onGetDisabled: function(aRequest) {
-    return { disabled: this.styleSheet.disabled };
-  },
-
-  onSetDisabled: function(aRequest) {
-    this.styleSheet.disabled = aRequest.disabled;
   },
 
   onUpdate: function(aRequest) {
