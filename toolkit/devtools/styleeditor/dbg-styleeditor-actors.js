@@ -203,7 +203,7 @@ StyleEditorActor.prototype = {
 
   _onSheetLoaded: function(event) {
     let style = event.target;
-    link.removeEventListener("load", this._onSheetLoaded, false);
+    style.removeEventListener("load", this._onSheetLoaded, false);
 
     let actor = this._createStyleSheetActor(style.sheet);
     this._notifyStyleSheetsAdded([actor.form()]);
@@ -214,19 +214,24 @@ StyleEditorActor.prototype = {
     let style = this.doc.createElementNS("http://www.w3.org/1999/xhtml", "style");
     style.setAttribute("type", "text/css");
 
-    style.addEventListener("load", this._onSheetLoaded, false);
-
     let flags = ["new"];
     if (request.text) {
-      dump("HEATHER: text " + request.text.length + "\n");
-      style.appendChild(this.doc.createTextNode(request.text));
       flags.push("imported");
     }
-    parent.appendChild(style);
+    let onSheetLoaded = function(event) {
+      style.removeEventListener("load", onSheetLoaded, false);
 
-    dump("HEATHER: form " + style.sheet + "\n");
-//    let actor = this._createStyleSheetActor(style.sheet, flags);
-//    return { "styleSheet": actor.form() };
+      let actor = this._createStyleSheetActor(style.sheet, flags);
+      this._notifyStyleSheetsAdded([actor.form()]);
+    }.bind(this);
+
+    // if sheet has an @import, then it's loaded async
+    style.addEventListener("load", onSheetLoaded, false);
+
+    if (request.text) {
+      style.appendChild(this.doc.createTextNode(request.text));
+    }
+    parent.appendChild(style);
   }
 };
 
@@ -241,7 +246,6 @@ StyleEditorActor.prototype.requestTypes = {
 
 
 function StyleSheetActor(aStyleSheet, aParentActor, flags) {
-  dump("HEATHER: new actor " + aStyleSheet + "\n");
   this.styleSheet = aStyleSheet;
   this.parentActor = aParentActor;
   this._flags = flags || [];
