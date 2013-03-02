@@ -48,6 +48,9 @@ function StyleEditorActor(aConnection, aParentActor)
     this._window = Services.wm.getMostRecentWindow("navigator:browser");
   }
 
+  // keep a map of sheets-to-actors so we don't create two actors for one sheet
+  this._sheets = new Map();
+
   this._actorPool = new ActorPool(this.conn);
   this.conn.addActorPool(this._actorPool);
 }
@@ -145,7 +148,7 @@ StyleEditorActor.prototype = {
 
     // We need to attach mutation listeners right after fetching initial
     // sheets so that we don't miss any stylesheets being added.
-    // this._attachMutationObserver();   // TODO: prevent duplicate with new/import
+    this._attachMutationObserver();
 
     if (styleSheets.length) {
       this._notifyStyleSheetsAdded(styleSheets);
@@ -163,12 +166,16 @@ StyleEditorActor.prototype = {
 
   _createStyleSheetActor: function(aStyleSheet, flags)
   {
+    if (this._sheets.has(aStyleSheet)) {
+      return this._sheets.get(aStyleSheet);
+    }
     let actor = new StyleSheetActor(aStyleSheet, this, flags);
     this._actorPool.addActor(actor);
+    this._sheets.set(aStyleSheet, actor);
     return actor;
   },
 
-  _attachMutationObserver: function SEA_attachMutationObserver() {
+  _attachMutationObserver: function() {
     this._observer = new this.win.MutationObserver(this._onMutations);
     this._observer.observe(this.win.document.documentElement, {
       childList: true,
@@ -176,7 +183,7 @@ StyleEditorActor.prototype = {
     });
   },
 
-  _onMutations: function SEA_onMutations(mutations)
+  _onMutations: function(mutations)
   {
     let styleSheets = [];
     for (let mutation of mutations) {
@@ -209,7 +216,7 @@ StyleEditorActor.prototype = {
     this._notifyStyleSheetsAdded([actor.form()]);
   },
 
-  onNewStyleSheet: function SEA_newStyleSheet(request) {
+  onNewStyleSheet: function(request) {
     let parent = this.doc.documentElement;
     let style = this.doc.createElementNS("http://www.w3.org/1999/xhtml", "style");
     style.setAttribute("type", "text/css");
@@ -218,15 +225,8 @@ StyleEditorActor.prototype = {
     if (request.text) {
       flags.push("imported");
     }
-    let onSheetLoaded = function(event) {
-      style.removeEventListener("load", onSheetLoaded, false);
 
-      let actor = this._createStyleSheetActor(style.sheet, flags);
-      this._notifyStyleSheetsAdded([actor.form()]);
-    }.bind(this);
-
-    // if sheet has an @import, then it's loaded async
-    style.addEventListener("load", onSheetLoaded, false);
+    let actor = this._createStyleSheetActor(style.sheet, flags);
 
     if (request.text) {
       style.appendChild(this.doc.createTextNode(request.text));
@@ -255,6 +255,18 @@ function StyleSheetActor(aStyleSheet, aParentActor, flags) {
   this._styleSheetIndex = -1;
 
   this._onSourceLoad = this._onSourceLoad.bind(this);
+
+  // if this sheet has an @import, then it's rules are loaded async
+  let ownerNode = this.styleSheet.ownerNode;
+  if (ownerNode) {
+    let onSheetLoaded = function(event) {
+      ownerNode.removeEventListener("load", onSheetLoaded, false);
+      // the 'cssRules' property has changed
+      this._notifyPropertyChanged();
+    }.bind(this);
+
+    ownerNode.addEventListener("load", onSheetLoaded, false);
+  }
 }
 
 StyleSheetActor.prototype = {
@@ -315,15 +327,24 @@ StyleSheetActor.prototype = {
       styleSheetIndex: this.styleSheetIndex
     }
 
-    // send a shallow copy of the sheet's cssRules
-    form.cssRules = [];
-    let rules = this.styleSheet.cssRules;
-    for (let i = 0; i < rules.length; i++) {
-      let rule = rules[i];
-      form.cssRules.push({
-        cssText: rule.cssText,
-        type: rule.type
-      });
+    let rules;
+    try {
+      rules = this.styleSheet.cssRules;
+    }
+    catch(e) {
+      // stylesheet had an @import rule that wasn't loaded yet
+    }
+
+    if (rules) {
+      // send a shallow copy of the sheet's cssRules
+      form.cssRules = [];
+      for (let i = 0; i < rules.length; i++) {
+        let rule = rules[i];
+        form.cssRules.push({
+          cssText: rule.cssText,
+          type: rule.type
+        });
+      }
     }
 
     return form;

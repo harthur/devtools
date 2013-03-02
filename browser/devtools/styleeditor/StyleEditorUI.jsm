@@ -263,7 +263,10 @@ StyleEditorUI.prototype = {
   _updateSummaryForEditor: function(editor, summary) {
     let index = editor.styleSheet.styleSheetIndex;
     summary = summary || this._view.getSummaryElementByOrdinal(index);
-    let ruleCount = editor.styleSheet.cssRules.length;
+    let ruleCount = 0;
+    if (editor.styleSheet.cssRules) {
+      ruleCount = editor.styleSheet.cssRules.length;
+    }
 
     this._view.setItemClassName(summary, editor.flags);
 
@@ -373,8 +376,51 @@ StyleSheetEditor.prototype = {
     return this._styleSheet;
   },
 
+  /**
+   * Get a user-friendly name for the style sheet.
+   *
+   * @return string
+   */
   get friendlyName() {
-    return this._styleSheet.friendlyName;
+    return this._friendlyName;
+
+    if (this.savedFile) { // reuse the saved filename if any
+      return this.savedFile.leafName;
+    }
+
+    if (this.hasFlag(StyleEditorFlags.NEW)) {
+      let index = this.styleSheetIndex + 1; // 0-indexing only works for devs
+      return _("newStyleSheet", index);
+    }
+
+    if (this.hasFlag(StyleEditorFlags.INLINE)) {
+      let index = this.styleSheetIndex + 1; // 0-indexing only works for devs
+      return _("inlineStyleSheet", index);
+    }
+
+    if (!this._friendlyName) {
+      let sheetURI = this.styleSheet.href;
+      let contentURI = this.contentDocument.baseURIObject;
+      let contentURIScheme = contentURI.scheme;
+      let contentURILeafIndex = contentURI.specIgnoringRef.lastIndexOf("/");
+      contentURI = contentURI.specIgnoringRef;
+
+      // get content base URI without leaf name (if any)
+      if (contentURILeafIndex > contentURIScheme.length) {
+        contentURI = contentURI.substring(0, contentURILeafIndex + 1);
+      }
+
+      // avoid verbose repetition of absolute URI when the style sheet URI
+      // is relative to the content URI
+      this._friendlyName = (sheetURI.indexOf(contentURI) == 0)
+                           ? sheetURI.substring(contentURI.length)
+                           : sheetURI;
+      try {
+        this._friendlyName = decodeURI(this._friendlyName);
+      } catch (ex) {
+      }
+    }
+    return this._friendlyName;
   },
 
   fetchSource: function() {

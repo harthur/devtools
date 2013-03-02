@@ -86,6 +86,7 @@ StyleEditorDebuggee.prototype = {
 
   _onStyleSheetsAdded: function(type, request) {
     for (let form of request.styleSheets) {
+      dump("HEATHER: adding stylesheet from added handler" + "\n");
       this._addStyleSheet(form);
     }
   },
@@ -99,6 +100,7 @@ StyleEditorDebuggee.prototype = {
   createStyleSheet: function(text) {
     var message = { to: this._actor, type: "newStyleSheet", text: text }
     this._client.request(message, function(response) {
+      dump("HEATHER: adding a new stylesheet from response " + "\n");
       let form = response.styleSheet;
       this._addStyleSheet(form);
     }.bind(this));
