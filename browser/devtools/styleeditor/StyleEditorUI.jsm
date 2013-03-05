@@ -37,6 +37,7 @@ function StyleEditorUI(debuggee, panelDoc) {
   this._selectedStyleSheetIndex = -1;
 
   this._onStyleSheetAdded = this._onStyleSheetAdded.bind(this);
+  this._onStyleSheetCreated = this._onStyleSheetCreated.bind(this);
   this._onStyleSheetsCleared = this._onStyleSheetsCleared.bind(this);
 
   debuggee.on("stylesheet-added", this._onStyleSheetAdded);
@@ -54,7 +55,7 @@ StyleEditorUI.prototype = {
     this._view = new SplitView(viewRoot);
 
     wire(this._view.rootElement, ".style-editor-newButton", function onNew() {
-      this._debuggee.createStyleSheet();
+      this._debuggee.createStyleSheet(null, this._onStyleSheetCreated);
     }.bind(this));
 
     wire(this._view.rootElement, ".style-editor-importButton", function onImport() {
@@ -76,8 +77,6 @@ StyleEditorUI.prototype = {
   {
     let onFileSelected = function(file) {
       if (file) {
-        this._savedFile = file; // remember filename for next save if any
-
         NetUtil.asyncFetch(file, function onAsyncFetch(stream, status) {
           if (!Components.isSuccessCode(status)) {
             // TODO: return this._signalError(LOAD_ERROR);
@@ -85,7 +84,9 @@ StyleEditorUI.prototype = {
           let source = NetUtil.readInputStreamToString(stream, stream.available());
           stream.close();
 
-          this._debuggee.createStyleSheet(source);
+          this._debuggee.createStyleSheet(source, function(styleSheet) {
+            this._onStyleSheetCreated(styleSheet, file);
+          }.bind(this));
         }.bind(this));
       }
     }.bind(this);
@@ -101,14 +102,19 @@ StyleEditorUI.prototype = {
     this._root.classList.add("loading");
   },
 
-  _onStyleSheetAdded: function(event, sheet) {
-    // this might be the first stylesheet, so remove loading indicator
-    this._root.classList.remove("loading");
-    this._addStyleSheetEditor(sheet);
+  /* When a new/imported stylesheet has been added to the document */
+  _onStyleSheetCreated: function(styleSheet, file) {
+    this._addStyleSheetEditor(styleSheet, file, true);
   },
 
-  _addStyleSheetEditor: function(sheet) {
-    let editor = new StyleSheetEditor(sheet, this._window);
+  _onStyleSheetAdded: function(event, styleSheet) {
+    // this might be the first stylesheet, so remove loading indicator
+    this._root.classList.remove("loading");
+    this._addStyleSheetEditor(styleSheet);
+  },
+
+  _addStyleSheetEditor: function(styleSheet, file, isNew) {
+    let editor = new StyleSheetEditor(styleSheet, this._window, file, isNew);
     editor.once("source-load", this._sourceLoaded.bind(this, editor));
     editor.on("property-change", this._summaryChange.bind(this, editor));
     this._editors.push(editor);
@@ -119,8 +125,6 @@ StyleEditorUI.prototype = {
   },
 
   _sourceLoaded: function(editor) {
-    dump("HEATHER: index: " + editor.styleSheet.styleSheetIndex + "\n");
-
     // add new sidebar item and editor to the UI
     this._view.appendTemplatedItem(STYLE_EDITOR_TEMPLATE, {
       data: {
@@ -208,7 +212,8 @@ StyleEditorUI.prototype = {
   },
 
   _getSummaryElementForEditor: function(editor) {
-    return this._view.getSummaryElementByOrdinal(editor.styleSheet.styleSheetIndex);
+    let index = editor.styleSheet.styleSheetIndex;
+    return this._view.getSummaryElementByOrdinal(index);
   },
 
   /** TODO: fit to new remoting
@@ -261,9 +266,11 @@ StyleEditorUI.prototype = {
    *        to passed editor is used.
    */
   _updateSummaryForEditor: function(editor, summary) {
-    let index = editor.styleSheet.styleSheetIndex;
-    summary = summary || this._view.getSummaryElementByOrdinal(index);
-    let ruleCount = 0;
+    summary = summary || this._getSummaryElementForEditor(editor);
+    if (!summary) {
+      return;
+    }
+    let ruleCount = "-";
     if (editor.styleSheet.cssRules) {
       ruleCount = editor.styleSheet.cssRules.length;
     }
@@ -344,13 +351,16 @@ StyleEditorUI.prototype = {
 
 Cu.import("resource:///modules/source-editor.jsm");
 
-function StyleSheetEditor(styleSheet, win) {
+function StyleSheetEditor(styleSheet, win, file, isNew) {
   EventEmitter.decorate(this);
 
-  this._styleSheet = styleSheet;
+  this.styleSheet = styleSheet;
   this._inputElement = null;
   this._sourceEditor = null;
   this._window = win;
+
+  this._isNew = isNew;
+  this._savedFile = file;
 
   this._state = {   // state to use when inputElement attaches
     text: "",
@@ -364,16 +374,12 @@ function StyleSheetEditor(styleSheet, win) {
 
   this._focusOnSourceEditorReady = false;
 
-  this._styleSheet.on("property-change", this._onPropertyChange);
+  this.styleSheet.on("property-change", this._onPropertyChange);
 }
 
 StyleSheetEditor.prototype = {
   get sourceEditor() {
     return this._sourceEditor;
-  },
-
-  get styleSheet() {
-    return this._styleSheet;
   },
 
   /**
@@ -382,25 +388,23 @@ StyleSheetEditor.prototype = {
    * @return string
    */
   get friendlyName() {
-    return this._friendlyName;
-
-    if (this.savedFile) { // reuse the saved filename if any
-      return this.savedFile.leafName;
+    if (this._savedFile) { // reuse the saved filename if any
+      return this._savedFile.leafName;
     }
 
-    if (this.hasFlag(StyleEditorFlags.NEW)) {
-      let index = this.styleSheetIndex + 1; // 0-indexing only works for devs
+    if (this._isNew) {
+      let index = this.styleSheet.styleSheetIndex + 1; // 0-indexing only works for devs
       return _("newStyleSheet", index);
     }
 
-    if (this.hasFlag(StyleEditorFlags.INLINE)) {
-      let index = this.styleSheetIndex + 1; // 0-indexing only works for devs
+    if (!this.styleSheet.href) {
+      let index = this.styleSheet.styleSheetIndex + 1; // 0-indexing only works for devs
       return _("inlineStyleSheet", index);
     }
 
     if (!this._friendlyName) {
       let sheetURI = this.styleSheet.href;
-      let contentURI = this.contentDocument.baseURIObject;
+      let contentURI = this.styleSheet.debuggee.baseURI;
       let contentURIScheme = contentURI.scheme;
       let contentURILeafIndex = contentURI.specIgnoringRef.lastIndexOf("/");
       contentURI = contentURI.specIgnoringRef;
@@ -424,8 +428,8 @@ StyleSheetEditor.prototype = {
   },
 
   fetchSource: function() {
-    this._styleSheet.once("source-load", this._onSourceLoad);
-    this._styleSheet.fetchSource();
+    this.styleSheet.once("source-load", this._onSourceLoad);
+    this.styleSheet.fetchSource();
   },
 
   _onSourceLoad: function(event, source) {

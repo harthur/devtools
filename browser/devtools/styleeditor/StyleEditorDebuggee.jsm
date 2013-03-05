@@ -23,29 +23,31 @@ let StyleEditorDebuggee = function(target) {
   this.styleSheets = [];
 
   this.clear = this.clear.bind(this);
-  this.reset = this.reset.bind(this);
+  this._onNewDocument = this._onNewDocument.bind(this);
   this._onStyleSheetsAdded = this._onStyleSheetsAdded.bind(this);
 
   this._target = target;
 
   this._target.on("will-navigate", this.clear);
-  this._target.on("navigate", this.reset);
+  this._target.on("navigate", this._onNewDocument);
 }
 
 StyleEditorDebuggee.prototype = {
   styleSheets: null, /* list of StyleSheet objects for this target */
 
+  baseURI: null,   /* baseURIObject for the current document */
+
   initialize: function(callback) {
     this._connect(function() {
-      this._client.addListener("styleSheetsAdded", this._onStyleSheetsAdded);
+      this.client.addListener("styleSheetsAdded", this._onStyleSheetsAdded);
 
-      this.reset();
+      this._onNewDocument();
       callback();
     }.bind(this));
   },
   _connect: function(callback) {
     if (this._target.client) {
-      this._client = this._target.client;
+      this.client = this._target.client;
       this._actor = this._target.form.styleEditorActor;
       callback();
     }
@@ -56,10 +58,10 @@ StyleEditorDebuggee.prototype = {
       }
 
       let transport = DebuggerServer.connectPipe();
-      this._client = new DebuggerClient(transport);
+      this.client = new DebuggerClient(transport);
 
-      this._client.connect(function(type, traits) {
-        this._client.listTabs(function (response) {
+      this.client.connect(function(type, traits) {
+        this.client.listTabs(function (response) {
           let tab = response.tabs[response.selected];
           this._actor = tab.styleEditorActor;
           callback();
@@ -69,55 +71,64 @@ StyleEditorDebuggee.prototype = {
   },
 
   clear: function(callback) {
+    this.baseURI = null;
     this.styleSheets = [];
 
     this.emit("stylesheets-cleared");
   },
 
-  reset: function(callback) {
+  _onNewDocument: function() {
+    this._getBaseURI()
     this._addLoadListener();
+  },
+
+  _getBaseURI: function() {
+    var message = { to: this._actor, type: "getBaseURI" };
+    this.client.request(message, function(response) {
+      this.baseURI = response.baseURI;
+    }.bind(this));
   },
 
   _addLoadListener: function() {
     var message = { to: this._actor, type: "addLoadListener" };
-    this._client.request(message, function(response) {
+    this.client.request(message, function(response) {
     });
   },
 
   _onStyleSheetsAdded: function(type, request) {
     for (let form of request.styleSheets) {
-      dump("HEATHER: adding stylesheet from added handler" + "\n");
-      this._addStyleSheet(form);
+      let sheet = this._addStyleSheet(form);
+      this.emit("stylesheet-added", sheet);
     }
   },
 
   _addStyleSheet: function(form) {
-    var sheet = new StyleSheet(form, this._client);
+    var sheet = new StyleSheet(form, this);
     this.styleSheets.push(sheet);
-    this.emit("stylesheet-added", sheet);
+    return sheet;
   },
 
-  createStyleSheet: function(text) {
+  createStyleSheet: function(text, callback) {
     var message = { to: this._actor, type: "newStyleSheet", text: text }
-    this._client.request(message, function(response) {
-      dump("HEATHER: adding a new stylesheet from response " + "\n");
-      let form = response.styleSheet;
-      this._addStyleSheet(form);
+    this.client.request(message, function(response) {
+      var sheet = this._addStyleSheet(response.styleSheet);
+      callback(sheet);
     }.bind(this));
   },
 
   _fetchStyleSheets: function(callback) {
     var message = { to: this._actor, type: "getStyleSheets" };
-    this._client.request(message, function(response) {
+    this.client.request(message, function(response) {
       callback(response.styleSheets);
     });
   }
 }
 
-let StyleSheet = function(form, client) {
+let StyleSheet = function(form, debuggee) {
   EventEmitter.decorate(this);
 
-  this._client = client;
+  this.debuggee = debuggee;
+  this._client = debuggee.client;
   this._actor = form.actor;
 
   this._onSourceLoad = this._onSourceLoad.bind(this);

@@ -80,7 +80,7 @@ StyleEditorActor.prototype = {
 
   actorPrefix: "styleEditor",
 
-  grip: function IA_grip()
+  grip: function()
   {
     return { actor: this.actorID };
   },
@@ -88,7 +88,7 @@ StyleEditorActor.prototype = {
   /**
    * Destroy the current StyleEditorActor instance.
    */
-  disconnect: function SEA_disconnect()
+  disconnect: function()
   {
     if (this._observer) {
       this._observer.disconnect();
@@ -100,14 +100,18 @@ StyleEditorActor.prototype = {
     this.conn = this._window = null;
   },
 
-  releaseActor: function SEA_releaseActor(aActor)
+  releaseActor: function(aActor)
   {
     if (this._actorPool) {
       this._actorPool.removeActor(aActor.actorID);
     }
   },
 
-  onAddLoadListener: function SEA_onAddLoadListen()
+  onGetBaseURI: function() {
+    return { baseURI: this.doc.baseURIObject };
+  },
+
+  onAddLoadListener: function()
   {
     // Note: listening for load won't be necessary once
     // https://bugzilla.mozilla.org/show_bug.cgi?id=839103 is fixed
@@ -120,7 +124,7 @@ StyleEditorActor.prototype = {
     return {};
   },
 
-  onGetStyleSheets: function SEA_onGetStyleSheets()
+  onGetStyleSheets: function()
   {
     let styleSheets = [];
 
@@ -133,7 +137,7 @@ StyleEditorActor.prototype = {
     return { "styleSheets": styleSheets };
   },
 
-  _onDocumentLoaded: function SEA_onDocumentLoaded(aEvent)
+  _onDocumentLoaded: function(aEvent)
   {
     if (aEvent) {
       this.win.removeEventListener("load", this._onDocumentLoaded, false);
@@ -148,7 +152,7 @@ StyleEditorActor.prototype = {
 
     // We need to attach mutation listeners right after fetching initial
     // sheets so that we don't miss any stylesheets being added.
-    this._attachMutationObserver();
+    //this._attachMutationObserver();
 
     if (styleSheets.length) {
       this._notifyStyleSheetsAdded(styleSheets);
@@ -221,17 +225,13 @@ StyleEditorActor.prototype = {
     let style = this.doc.createElementNS("http://www.w3.org/1999/xhtml", "style");
     style.setAttribute("type", "text/css");
 
-    let flags = ["new"];
-    if (request.text) {
-      flags.push("imported");
-    }
-
-    let actor = this._createStyleSheetActor(style.sheet, flags);
-
     if (request.text) {
       style.appendChild(this.doc.createTextNode(request.text));
     }
     parent.appendChild(style);
+
+    let actor = this._createStyleSheetActor(style.sheet);
+    return { styleSheet: actor.form() };
   }
 };
 
@@ -241,14 +241,14 @@ StyleEditorActor.prototype = {
 StyleEditorActor.prototype.requestTypes = {
   "getStyleSheets": StyleEditorActor.prototype.onGetStyleSheets,
   "newStyleSheet": StyleEditorActor.prototype.onNewStyleSheet,
+  "getBaseURI": StyleEditorActor.prototype.onGetBaseURI,
   "addLoadListener": StyleEditorActor.prototype.onAddLoadListener
 };
 
 
-function StyleSheetActor(aStyleSheet, aParentActor, flags) {
+function StyleSheetActor(aStyleSheet, aParentActor) {
   this.styleSheet = aStyleSheet;
   this.parentActor = aParentActor;
-  this._flags = flags || [];
 
   // text and index are unknown until source load
   this.text = null;
@@ -288,14 +288,6 @@ StyleSheetActor.prototype = {
     return this.win.document;
   },
 
-  get isInline() {
-    return !this.styleSheet.href;
-  },
-
-  get isNew() {
-    return this._flags.indexOf("new") >= 0;
-  },
-
   /**
    * Retrieve the index (order) of stylesheet in the document.
    *
@@ -320,11 +312,8 @@ StyleSheetActor.prototype = {
       href: this.styleSheet.href,
       disabled: this.styleSheet.disabled,
       title: this.styleSheet.title,
-      isInline: this.isInline,
-      isNew: this.isNew,
-      friendlyName: this._getFriendlyName(),
-      text: this.text,
-      styleSheetIndex: this.styleSheetIndex
+      styleSheetIndex: this.styleSheetIndex,
+      text: this.text
     }
 
     let rules;
@@ -363,8 +352,6 @@ StyleSheetActor.prototype = {
       type: "sourceLoad-" + this.actorID,
       source: source
     });
-
-    this._notifyPropertyChanged();
   },
 
   _notifyPropertyChanged: function()
@@ -499,48 +486,6 @@ StyleSheetActor.prototype = {
       this.doc.documentElement.classList.remove(TRANSITION_CLASS);
       this.styleSheet.deleteRule(this.styleSheet.cssRules.length - 1);
     }
-  },
-
-  /**
-   * Get a user-friendly name for the style sheet.
-   *
-   * @return string
-   */
-  _getFriendlyName: function SSA_getFriendlyName()
-  {
-    if (this.isNew) {
-      let index = this.styleSheetIndex + 1; // 0-indexing only works for devs
-      return _("newStyleSheet", index);
-    }
-
-    if (this.isInline) {
-      let index = this.styleSheetIndex + 1; // 0-indexing only works for devs
-      return _("inlineStyleSheet", index);
-    }
-
-    if (!this._friendlyName) {
-      let sheetURI = this.styleSheet.href;
-      let contentURI = this.doc.baseURIObject;
-      let contentURIScheme = contentURI.scheme;
-      let contentURILeafIndex = contentURI.specIgnoringRef.lastIndexOf("/");
-      contentURI = contentURI.specIgnoringRef;
-
-      // get content base URI without leaf name (if any)
-      if (contentURILeafIndex > contentURIScheme.length) {
-        contentURI = contentURI.substring(0, contentURILeafIndex + 1);
-      }
-
-      // avoid verbose repetition of absolute URI when the style sheet URI
-      // is relative to the content URI
-      this._friendlyName = (sheetURI.indexOf(contentURI) == 0)
-                           ? sheetURI.substring(contentURI.length)
-                           : sheetURI;
-      try {
-        this._friendlyName = decodeURI(this._friendlyName);
-      } catch (ex) {
-      }
-    }
-    return this._friendlyName;
   }
 }
 
