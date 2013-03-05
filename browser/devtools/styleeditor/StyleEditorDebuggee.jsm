@@ -45,6 +45,7 @@ StyleEditorDebuggee.prototype = {
       callback();
     }.bind(this));
   },
+
   _connect: function(callback) {
     if (this._target.client) {
       this.client = this._target.client;
@@ -147,17 +148,9 @@ StyleSheet.prototype = {
     }
   },
 
-  getDisabled : function(callback) {
-    let message = { type: "getDisabled" };
-    this._sendRequest(message, function(response) {
-      callback(response.disabled);
-    });
-  },
-
   toggleDisabled: function() {
     let message = { type: "toggleDisabled" };
     this._sendRequest(message, function(response) {
-      // TODO: err handling
     });
   },
 

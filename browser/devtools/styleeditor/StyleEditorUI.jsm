@@ -137,6 +137,7 @@ StyleEditorUI.prototype = {
         wire(summary, ".stylesheet-enabled", function onToggleDisabled(event) {
           event.stopPropagation();
           event.target.blur();
+
           editor.toggleDisabled();
         });
 
@@ -275,7 +276,11 @@ StyleEditorUI.prototype = {
       ruleCount = editor.styleSheet.cssRules.length;
     }
 
-    this._view.setItemClassName(summary, editor.flags);
+    var flags = [];
+    if (editor.styleSheet.disabled) {
+      flags.push("disabled");
+    }
+    this._view.setItemClassName(summary, flags.join(" "));
 
     let label = summary.querySelector(".stylesheet-name > label");
     label.setAttribute("value", editor.friendlyName);

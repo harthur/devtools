@@ -341,6 +341,9 @@ StyleSheetActor.prototype = {
 
   onToggleDisabled: function(aRequest) {
     this.styleSheet.disabled = !this.styleSheet.disabled;
+    this._notifyPropertyChanged();
+
+    return { disabled: this.styleSheet.disabled };
   },
 
   _onSourceLoad: function SSA_onSourceLoad(source)
@@ -490,8 +493,7 @@ StyleSheetActor.prototype = {
 }
 
 StyleSheetActor.prototype.requestTypes = {
-  "getDisabled": StyleSheetActor.prototype.onGetDisabled,
-  "setDisabled": StyleSheetActor.prototype.onSetDisabled,
+  "toggleDisabled": StyleSheetActor.prototype.onToggleDisabled,
   "fetchSource": StyleSheetActor.prototype.onFetchSource,
   "update": StyleSheetActor.prototype.onUpdate
 };
