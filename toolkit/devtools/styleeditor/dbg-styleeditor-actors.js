@@ -306,7 +306,7 @@ StyleSheetActor.prototype = {
     return this._styleSheetIndex;
   },
 
-  form: function SSA_form() {
+  form: function() {
     let form = {
       actor: this.actorID,  // actorID is set when this actor is added to a pool
       href: this.styleSheet.href,
@@ -346,7 +346,7 @@ StyleSheetActor.prototype = {
     return { disabled: this.styleSheet.disabled };
   },
 
-  _onSourceLoad: function SSA_onSourceLoad(source)
+  _onSourceLoad: function(source)
   {
     this.text = source;
 
@@ -394,7 +394,7 @@ StyleSheetActor.prototype = {
    * @param string href
    *        URL for the stylesheet.
    */
-  _loadSourceFromFile: function SSA_loadSourceFromFile(href)
+  _loadSourceFromFile: function(href)
   {
     try {
       NetUtil.asyncFetch(href, function onFetch(stream, status) {
@@ -416,7 +416,7 @@ StyleSheetActor.prototype = {
    * @param string href
    *        URL for the stylesheet.
    */
-  _loadSourceFromCache: function SSA_loadSourceFromCache(href)
+  _loadSourceFromCache: function(href)
   {
     let channel = Services.io.newChannel(href, null, null);
     let chunks = [];
@@ -453,15 +453,15 @@ StyleSheetActor.prototype = {
     channel.asyncOpen(streamListener, null);
   },
 
-  onUpdate: function(aRequest) {
-    DOMUtils.parseStyleSheet(this.styleSheet, aRequest.text);
-    if (aRequest.transition) {
-      this._insertTransistion();
+  onUpdate: function(request) {
+    DOMUtils.parseStyleSheet(this.styleSheet, request.text);
+    if (request.transition) {
+      this._insertTransistionRule();
     }
     return {};
   },
 
-  _insertTransistion: function(aRequest) {
+  _insertTransistionRule: function() {
     // Insert the global transition rule
     // Use a ref count to make sure we do not add it multiple times.. and remove
     // it only when all pending StyleEditor-generated transitions ended.
@@ -476,14 +476,13 @@ StyleSheetActor.prototype = {
     // @see _onTransitionEnd
     this.win.setTimeout(this._onTransitionEnd.bind(this),
                            Math.floor(TRANSITION_DURATION_MS * 1.1));
-
   },
 
   /**
     * This cleans up class and rule added for transition effect and then trigger
     * Commit as the changes have been completed.
     */
-  _onTransitionEnd: function SAA_onTransitionEnd()
+  _onTransitionEnd: function()
   {
     if (--this._transitionRefCount == 0) {
       this.doc.documentElement.classList.remove(TRANSITION_CLASS);
