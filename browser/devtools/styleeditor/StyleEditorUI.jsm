@@ -25,6 +25,9 @@ Cu.import("resource:///modules/devtools/SplitView.jsm");
 // @see StyleEditor.updateStylesheet
 const UPDATE_STYLESHEET_THROTTLE_DELAY = 500;
 
+// @see StyleSheetEditor._persistExpando
+const STYLESHEET_EXPANDO = "-moz-styleeditor-stylesheet-";
+
 const STYLE_EDITOR_TEMPLATE = "stylesheet";
 
 function StyleEditorUI(debuggee, panelDoc) {
@@ -408,7 +411,7 @@ StyleSheetEditor.prototype = {
     };
 
     sourceEditor.init(inputElement, config, function onSourceEditorReady() {
-      //setupBracketCompletion(sourceEditor); TODO
+      setupBracketCompletion(sourceEditor);
       sourceEditor.addEventListener(SourceEditor.EVENTS.TEXT_CHANGED,
                                     function onTextChanged(aEvent) {
         this.updateStyleSheet();
@@ -663,4 +666,50 @@ function showFilePicker(path, toSave, parentWindow, callback)
   fp.appendFilters(fp.filterAll);
   fp.open(fpCallback);
   return;
+}
+
+/**
+ * Set up bracket completion on a given SourceEditor.
+ * This automatically closes the following CSS brackets: "{", "(", "["
+ *
+ * @param SourceEditor sourceEditor
+ */
+function setupBracketCompletion(sourceEditor)
+{
+  let editorElement = sourceEditor.editorElement;
+  let pairs = {
+    123: { // {
+      closeString: "}",
+      closeKeyCode: Ci.nsIDOMKeyEvent.DOM_VK_CLOSE_BRACKET
+    },
+    40: { // (
+      closeString: ")",
+      closeKeyCode: Ci.nsIDOMKeyEvent.DOM_VK_0
+    },
+    91: { // [
+      closeString: "]",
+      closeKeyCode: Ci.nsIDOMKeyEvent.DOM_VK_CLOSE_BRACKET
+    },
+  };
+
+  editorElement.addEventListener("keypress", function onKeyPress(aEvent) {
+    let pair = pairs[aEvent.charCode];
+    if (!pair || aEvent.ctrlKey || aEvent.metaKey ||
+        aEvent.accelKey || aEvent.altKey) {
+      return true;
+    }
+
+    // We detected an open bracket, sending closing character
+    let keyCode = pair.closeKeyCode;
+    let charCode = pair.closeString.charCodeAt(0);
+    let modifiers = 0;
+    let utils = editorElement.ownerDocument.defaultView.
+                  QueryInterface(Ci.nsIInterfaceRequestor).
+                  getInterface(Ci.nsIDOMWindowUtils);
+    let handled = utils.sendKeyEvent("keydown", keyCode, 0, modifiers);
+    utils.sendKeyEvent("keypress", 0, charCode, modifiers, !handled);
+    utils.sendKeyEvent("keyup", keyCode, 0, modifiers);
+    // and rewind caret
+    sourceEditor.setCaretOffset(aSourceEditor.getCaretOffset() - 1);
+  }, false);
 }
