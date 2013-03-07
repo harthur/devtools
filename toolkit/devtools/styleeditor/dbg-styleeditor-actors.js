@@ -346,6 +346,15 @@ StyleSheetActor.prototype = {
     return { disabled: this.styleSheet.disabled };
   },
 
+  _notifyPropertyChanged: function()
+  {
+    this.conn.send({
+      from: this.actorID,
+      type: "propertyChange-" + this.actorID,
+      form: this.form()
+    })
+  },
+
   _onSourceLoad: function(source)
   {
     this.text = source;
@@ -355,15 +364,6 @@ StyleSheetActor.prototype = {
       type: "sourceLoad-" + this.actorID,
       source: source
     });
-  },
-
-  _notifyPropertyChanged: function()
-  {
-    this.conn.send({
-      from: this.actorID,
-      type: "propertyChange-" + this.actorID,
-      form: this.form()
-    })
   },
 
   onFetchSource: function() {
@@ -434,9 +434,10 @@ StyleSheetActor.prototype = {
         }
         chunks.push(NetUtil.readInputStreamToString(aStream, aCount));
       },
-      onStopRequest: function (aRequest, aContext, aStatusCode) {
+      onStopRequest: function SEA_onStopRequest(aRequest, aContext, aStatusCode) {
         if (!Components.isSuccessCode(aStatusCode)) {
           // TODO: implement error stuff
+          return;
         }
         let source = chunks.join("");
         this._onSourceLoad(source, channelCharset);

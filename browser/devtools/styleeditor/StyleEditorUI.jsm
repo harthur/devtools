@@ -403,8 +403,8 @@ StyleSheetEditor.prototype = {
       initialText: this._state.text,
       showLineNumbers: true,
       mode: SourceEditor.MODES.CSS,
-      readOnly: this._state.readOnly
-      // keys: this._getKeyBindings() TODO: keybindings
+      readOnly: this._state.readOnly,
+      keys: this._getKeyBindings()
     };
 
     sourceEditor.init(inputElement, config, function onSourceEditorReady() {
@@ -526,7 +526,7 @@ StyleSheetEditor.prototype = {
    */
   saveToFile: function(file, callback)
   {
-    let callback = function(returnFile) {
+    let onFile = function(returnFile) {
       if (!returnFile) {
         if (callback) {
           callback(null);
@@ -553,7 +553,6 @@ StyleSheetEditor.prototype = {
           return;
         }
         FileUtils.closeSafeFileOutputStream(ostream);
-
         // remember filename for next save if any
         this._friendlyName = null;
         this.savedFile = returnFile;
@@ -567,7 +566,41 @@ StyleSheetEditor.prototype = {
       }.bind(this));
     }.bind(this);
 
-    showFilePicker(file || this._styleSheetFilePath, true, this._window, callback);
+    showFilePicker(file || this._styleSheetFilePath, true, this._window, onFile);
+  },
+
+  /**
+    * Retrieve custom key bindings objects as expected by SourceEditor.
+    * SourceEditor action names are not displayed to the user.
+    *
+    * @return Array
+    */
+  _getKeyBindings: function SE__getKeyBindings()
+  {
+    let bindings = [];
+
+    bindings.push({
+      action: "StyleEditor.save",
+      code: _("saveStyleSheet.commandkey"),
+      accel: true,
+      callback: function save() {
+        this.saveToFile(this.savedFile);
+        return true;
+      }.bind(this)
+    });
+
+    bindings.push({
+      action: "StyleEditor.saveAs",
+      code: _("saveStyleSheet.commandkey"),
+      accel: true,
+      shift: true,
+      callback: function saveAs() {
+        this.saveToFile();
+        return true;
+      }.bind(this)
+    });
+
+    return bindings;
   }
 }
 
