@@ -402,7 +402,7 @@ StyleSheetActor.prototype = {
           return this._signalError(LOAD_ERROR);
         }
         let source = NetUtil.readInputStreamToString(stream, stream.available());
-        aStream.close();
+        stream.close();
         this._onSourceLoad(source);
       }.bind(this));
     } catch (ex) {
