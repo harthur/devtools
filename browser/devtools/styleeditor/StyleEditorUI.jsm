@@ -278,6 +278,9 @@ StyleEditorUI.prototype = {
     if (editor.styleSheet.disabled) {
       flags.push("disabled");
     }
+    if (editor.unsaved) {
+      flags.push("unsaved");
+    }
     this._view.setItemClassName(summary, flags.join(" "));
 
     let label = summary.querySelector(".stylesheet-name > label");
@@ -327,6 +330,10 @@ function StyleSheetEditor(styleSheet, win, file, isNew) {
 StyleSheetEditor.prototype = {
   get sourceEditor() {
     return this._sourceEditor;
+  },
+
+  get unsaved() {
+    return this._sourceEditor && this._sourceEditor.dirty;
   },
 
   /**
@@ -384,7 +391,7 @@ StyleSheetEditor.prototype = {
     this.emit("source-load");
   },
 
-  _onPropertyChange: function(event) {
+  _onPropertyChange: function() {
     this.emit("property-change");
   },
 
@@ -420,6 +427,9 @@ StyleSheetEditor.prototype = {
 
       this.emit("source-editor-load");
     }.bind(this));
+
+    sourceEditor.addEventListener(SourceEditor.EVENTS.DIRTY_CHANGED,
+                                  this._onPropertyChange);
   },
 
   getSourceEditor: function() {
@@ -481,8 +491,6 @@ StyleSheetEditor.prototype = {
    */
   _updateStyleSheet: function()
   {
-    // TODO: this.setFlag(StyleEditorFlags.UNSAVED);
-    this.unSaved = true;
     if (this.styleSheet.disabled) {
       return;  // TODO: do we want to do this?
     }
@@ -554,7 +562,7 @@ StyleSheetEditor.prototype = {
         if (callback) {
           callback(returnFile);
         }
-        //TODO: this.clearFlag(StyleEditorFlags.UNSAVED);
+        this.sourceEditor.dirty = false;
         //TODO: this.clearFlag(StyleEditorFlags.ERROR);
       }.bind(this));
     }.bind(this);
