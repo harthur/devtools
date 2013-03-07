@@ -91,7 +91,7 @@ StyleEditorUI.prototype = {
       }
     }.bind(this);
 
-    this._showFilePicker(file, false, parentWindow, onFileSelected);
+    showFilePicker(file, false, parentWindow, onFileSelected);
   },
 
   _onStyleSheetsCleared: function() {
@@ -141,14 +141,12 @@ StyleEditorUI.prototype = {
           editor.toggleDisabled();
         });
 
-        /*
-        wire(aSummary, ".stylesheet-saveButton", function onSaveButton(aEvent) {
-          aEvent.stopPropagation();
-          aEvent.target.blur();
+        wire(summary, ".stylesheet-saveButton", function onSaveButton(event) {
+          event.stopPropagation();
+          event.target.blur();
 
           editor.saveToFile(editor.savedFile);
         });
-        */
 
         this._updateSummaryForEditor(editor, summary);
 
@@ -289,68 +287,6 @@ StyleEditorUI.prototype = {
     text(summary, ".stylesheet-rule-count",
       PluralForm.get(ruleCount, _("ruleCount.label")).replace("#1", ruleCount));
     // text(summary, ".stylesheet-error-message", editor.errorMessage);
-  },
-
-  /**
-   * Show file picker and return the file user selected.
-   *
-   * @param mixed file
-   *        Optional nsIFile or string representing the filename to auto-select.
-   * @param boolean toSave
-   *        If true, the user is selecting a filename to save.
-   * @param nsIWindow parentWindow
-   *        Optional parent window. If null the parent window of the file picker
-   *        will be the window of the attached input element.
-   * @param callback
-   *        The callback method, which will be called passing in the selected
-   *        file or null if the user did not pick one.
-   */
-  _showFilePicker: function (path, toSave, parentWindow, callback)
-  {
-    if (typeof(path) == "string") {
-      try {
-        if (Services.io.extractScheme(path) == "file") {
-          let uri = Services.io.newURI(path, null, null);
-          let file = uri.QueryInterface(Ci.nsIFileURL).file;
-          callback(file);
-          return;
-        }
-      } catch (ex) {
-        // TODO
-      }
-      try {
-        let file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsILocalFile);
-        file.initWithPath(path);
-        callback(file);
-        return;
-      } catch (ex) {
-        // TODO: this._signalError(aSave ? SAVE_ERROR : LOAD_ERROR);
-        callback(null);
-        return;
-      }
-    }
-    if (path) { // "path" is an nsIFile
-      callback(path);
-      return;
-    }
-
-    let window = parentWindow ? parentWindow : this._window;
-    let fp = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
-    let mode = toSave ? fp.modeSave : fp.modeOpen;
-    let key = toSave ? "saveStyleSheet" : "importStyleSheet";
-    let fpCallback = function(result) {
-      if (result == Ci.nsIFilePicker.returnCancel) {
-        callback(null);
-      } else {
-        callback(fp.file);
-      }
-    };
-
-    fp.init(window, _(key + ".title"), mode);
-    fp.appendFilters(_(key + ".filter"), "*.css");
-    fp.appendFilters(fp.filterAll);
-    fp.open(fpCallback);
-    return;
   }
 }
 
@@ -365,7 +301,7 @@ function StyleSheetEditor(styleSheet, win, file, isNew) {
   this._window = win;
 
   this._isNew = isNew;
-  this._savedFile = file;
+  this.savedFile = file;
 
   this._state = {   // state to use when inputElement attaches
     text: "",
@@ -373,6 +309,12 @@ function StyleSheetEditor(styleSheet, win, file, isNew) {
     readOnly: false,
     topIndex: 0,              // the first visible line
   };
+
+  this._styleSheetFilePath = null;
+  if (styleSheet.href &&
+      Services.io.extractScheme(this.styleSheet.href) == "file") {
+    this._styleSheetFilePath = this.styleSheet.href;
+  }
 
   this._onSourceLoad = this._onSourceLoad.bind(this);
   this._onPropertyChange = this._onPropertyChange.bind(this);
@@ -393,8 +335,8 @@ StyleSheetEditor.prototype = {
    * @return string
    */
   get friendlyName() {
-    if (this._savedFile) { // reuse the saved filename if any
-      return this._savedFile.leafName;
+    if (this.savedFile) { // reuse the saved filename if any
+      return this.savedFile.leafName;
     }
 
     if (this._isNew) {
@@ -557,5 +499,127 @@ StyleSheetEditor.prototype = {
     this.styleSheet.update(this._state.text);
 
     //this._persistExpando(); TODO
+  },
+
+  /**
+   * Save the editor contents into a file and set savedFile property.
+   * A file picker UI will open if file is not set and editor is not headless.
+   *
+   * @param mixed file
+   *        Optional nsIFile or string representing the filename to save in the
+   *        background, no UI will be displayed.
+   *        If not specified, the original style sheet URI is used.
+   *        To implement 'Save' instead of 'Save as', you can pass savedFile here.
+   * @param function(nsIFile aFile) callback
+   *        Optional callback called when the operation has finished.
+   *        aFile has the nsIFile object for saved file or null if the operation
+   *        has failed or has been canceled by the user.
+   * @see savedFile
+   */
+  saveToFile: function(file, callback)
+  {
+    let callback = function(returnFile) {
+      if (!returnFile) {
+        if (callback) {
+          callback(null);
+        }
+        return;
+      }
+
+      if (this._sourceEditor) {
+        this._state.text = this._sourceEditor.getText();
+      }
+
+      let ostream = FileUtils.openSafeFileOutputStream(returnFile);
+      let converter = Cc["@mozilla.org/intl/scriptableunicodeconverter"]
+                        .createInstance(Ci.nsIScriptableUnicodeConverter);
+      converter.charset = "UTF-8";
+      let istream = converter.convertToInputStream(this._state.text);
+
+      NetUtil.asyncCopy(istream, ostream, function SE_onStreamCopied(status) {
+        if (!Components.isSuccessCode(status)) {
+          if (callback) {
+            callback(null);
+          }
+          // TODO: this._signalError(SAVE_ERROR);
+          return;
+        }
+        FileUtils.closeSafeFileOutputStream(ostream);
+
+        // remember filename for next save if any
+        this._friendlyName = null;
+        this.savedFile = returnFile;
+        // TODO: this._persistExpando();
+
+        if (callback) {
+          callback(returnFile);
+        }
+        //TODO: this.clearFlag(StyleEditorFlags.UNSAVED);
+        //TODO: this.clearFlag(StyleEditorFlags.ERROR);
+      }.bind(this));
+    }.bind(this);
+
+    showFilePicker(file || this._styleSheetFilePath, true, this._window, callback);
   }
+}
+
+/**
+ * Show file picker and return the file user selected.
+ *
+ * @param mixed file
+ *        Optional nsIFile or string representing the filename to auto-select.
+ * @param boolean toSave
+ *        If true, the user is selecting a filename to save.
+ * @param nsIWindow parentWindow
+ *        Optional parent window. If null the parent window of the file picker
+ *        will be the window of the attached input element.
+ * @param callback
+ *        The callback method, which will be called passing in the selected
+ *        file or null if the user did not pick one.
+ */
+function showFilePicker(path, toSave, parentWindow, callback)
+{
+  if (typeof(path) == "string") {
+    try {
+      if (Services.io.extractScheme(path) == "file") {
+        let uri = Services.io.newURI(path, null, null);
+        let file = uri.QueryInterface(Ci.nsIFileURL).file;
+        callback(file);
+        return;
+      }
+    } catch (ex) {
+      // TODO
+    }
+    try {
+      let file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsILocalFile);
+      file.initWithPath(path);
+      callback(file);
+      return;
+    } catch (ex) {
+      // TODO: this._signalError(aSave ? SAVE_ERROR : LOAD_ERROR);
+      callback(null);
+      return;
+    }
+  }
+  if (path) { // "path" is an nsIFile
+    callback(path);
+    return;
+  }
+
+  let fp = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
+  let mode = toSave ? fp.modeSave : fp.modeOpen;
+  let key = toSave ? "saveStyleSheet" : "importStyleSheet";
+  let fpCallback = function(result) {
+    if (result == Ci.nsIFilePicker.returnCancel) {
+      callback(null);
+    } else {
+      callback(fp.file);
+    }
+  };
+
+  fp.init(parentWindow, _(key + ".title"), mode);
+  fp.appendFilters(_(key + ".filter"), "*.css");
+  fp.appendFilters(fp.filterAll);
+  fp.open(fpCallback);
+  return;
 }
