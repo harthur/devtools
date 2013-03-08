@@ -134,9 +134,11 @@ let StyleSheet = function(form, debuggee) {
 
   this._onSourceLoad = this._onSourceLoad.bind(this);
   this._onPropertyChange = this._onPropertyChange.bind(this);
+  this._onError = this._onError.bind(this);
 
   this._client.addListener("sourceLoad-" + this._actor, this._onSourceLoad);
   this._client.addListener("propertyChange-" + this._actor, this._onPropertyChange);
+  this._client.addListener("error-" + this._actor, this._onError);
 
   this.importFromForm(form);
 }
@@ -150,21 +152,17 @@ StyleSheet.prototype = {
 
   toggleDisabled: function() {
     let message = { type: "toggleDisabled" };
-    this._sendRequest(message, function(response) {
-    });
+    this._sendRequest(message);
   },
 
   fetchSource: function() {
     let message = { type: "fetchSource" };
-    this._sendRequest(message, function(response) {
-      // TODO: err handling
-    })
+    this._sendRequest(message);
   },
 
   update: function(sheetText) {
     let message = { type: "update", text: sheetText, transition: true };
-    this._sendRequest(message, function(response) {
-    });
+    this._sendRequest(message);
   },
 
   _sendRequest: function(message, callback) {
@@ -179,5 +177,9 @@ StyleSheet.prototype = {
   _onPropertyChange: function(type, request) {
     this.importFromForm(request.form)
     this.emit("property-change");
-  }
+  },
+
+  _onError: function(type, request) {
+    this.emit("error", request.errorMessage);
+  },
 }

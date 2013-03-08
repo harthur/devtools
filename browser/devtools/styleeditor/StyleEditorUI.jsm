@@ -34,6 +34,8 @@ const STYLESHEET_EXPANDO = "-moz-styleeditor-stylesheet-";
 const STYLE_EDITOR_TEMPLATE = "stylesheet";
 
 function StyleEditorUI(debuggee, panelDoc) {
+  EventEmitter.decorate(this);
+
   this._debuggee = debuggee;
   this._panelDoc = panelDoc;
   this._window = this._panelDoc.defaultView;
@@ -82,30 +84,26 @@ StyleEditorUI.prototype = {
   _importFromFile: function(file, parentWindow)
   {
     let onFileSelected = function(file) {
-      if (file) {
-        NetUtil.asyncFetch(file, function onAsyncFetch(stream, status) {
-          if (!Components.isSuccessCode(status)) {
-            // TODO: global error return this._signalError(LOAD_ERROR);
-          }
-          let source = NetUtil.readInputStreamToString(stream, stream.available());
-          stream.close();
-
-          this._debuggee.createStyleSheet(source, function(styleSheet) {
-            this._onStyleSheetCreated(styleSheet, file);
-          }.bind(this));
-        }.bind(this));
+      if (!file) {
+        this.emit("error", LOAD_ERROR);
+        return;
       }
+      NetUtil.asyncFetch(file, function onAsyncFetch(stream, status) {
+        if (!Components.isSuccessCode(status)) {
+          this.emit("error", LOAD_ERROR);
+          return;
+        }
+        let source = NetUtil.readInputStreamToString(stream, stream.available());
+        stream.close();
+
+        this._debuggee.createStyleSheet(source, function(styleSheet) {
+          this._onStyleSheetCreated(styleSheet, file);
+        }.bind(this));
+      }.bind(this));
+
     }.bind(this);
 
-    let onError = function() {
-      this._showError()
-    }
-
     showFilePicker(file, false, parentWindow, onFileSelected);
-  },
-
-  _showError: function() {
-
   },
 
   _onStyleSheetsCleared: function() {
@@ -131,6 +129,9 @@ StyleEditorUI.prototype = {
     let editor = new StyleSheetEditor(styleSheet, this._window, file, isNew);
     editor.once("source-load", this._sourceLoaded.bind(this, editor));
     editor.on("property-change", this._summaryChange.bind(this, editor));
+    editor.on("error", function(event, errorCode) {
+      this.emit("error", errorCode);
+    }.bind(this));
     this._editors.push(editor);
 
     // Queue editor loading. This helps responsivity during loading when
@@ -295,9 +296,6 @@ StyleEditorUI.prototype = {
     if (editor.unsaved) {
       flags.push("unsaved");
     }
-    if (editor.errorMessage) {
-      flags.push("error");
-    }
     this._view.setItemClassName(summary, flags.join(" "));
 
     let label = summary.querySelector(".stylesheet-name > label");
@@ -339,10 +337,12 @@ function StyleSheetEditor(styleSheet, win, file, isNew) {
 
   this._onSourceLoad = this._onSourceLoad.bind(this);
   this._onPropertyChange = this._onPropertyChange.bind(this);
+  this._onError = this._onError.bind(this);
 
   this._focusOnSourceEditorReady = false;
 
   this.styleSheet.on("property-change", this._onPropertyChange);
+  this.styleSheet.on("error", this._onError);
 }
 
 StyleSheetEditor.prototype = {
@@ -411,6 +411,10 @@ StyleSheetEditor.prototype = {
 
   _onPropertyChange: function() {
     this.emit("property-change");
+  },
+
+  _onError: function(event, errorCode) {
+    this.emit("error", errorCode);
   },
 
   load: function(inputElement) {
@@ -528,25 +532,6 @@ StyleSheetEditor.prototype = {
   },
 
   /**
-   * Signal an error to the user.
-   *
-   * @param string aErrorCode
-   *        String name for the localized error property in the string bundle.
-   * @param ...rest
-   *        Optional arguments to pass for message formatting.
-   * @see StyleEditorUtil._
-   */
-  _signalError: function(errorCode) {
-    this.errorMessage = _(errorCode);
-    this.emit("property-change");
-  },
-
-  _clearError: function() {
-    this.errorMessage = null;
-    this.emit("property-change");
-  }
-
-  /**
    * Save the editor contents into a file and set savedFile property.
    * A file picker UI will open if file is not set and editor is not headless.
    *
@@ -586,7 +571,7 @@ StyleSheetEditor.prototype = {
           if (callback) {
             callback(null);
           }
-          this._signalError(SAVE_ERROR);
+          this.emit("error", SAVE_ERROR);
           return;
         }
         FileUtils.closeSafeFileOutputStream(ostream);
@@ -599,8 +584,6 @@ StyleSheetEditor.prototype = {
           callback(returnFile);
         }
         this.sourceEditor.dirty = false;
-
-        this._clearError();
       }.bind(this));
     }.bind(this);
 

@@ -24,6 +24,7 @@ transition-timing-function: ease-out !important;\
 transition-property: all !important;\
 }";
 
+const LOAD_ERROR = "error-load";
 
 /**
  * Creates a StyleEditorActor. StyleEditorActor provides remote access to the
@@ -255,6 +256,7 @@ function StyleSheetActor(aStyleSheet, aParentActor) {
   this._styleSheetIndex = -1;
 
   this._onSourceLoad = this._onSourceLoad.bind(this);
+  this._notifyError = this._notifyError.bind(this);
 
   // if this sheet has an @import, then it's rules are loaded async
   let ownerNode = this.styleSheet.ownerNode;
@@ -346,8 +348,7 @@ StyleSheetActor.prototype = {
     return { disabled: this.styleSheet.disabled };
   },
 
-  _notifyPropertyChanged: function()
-  {
+  _notifyPropertyChanged: function() {
     this.conn.send({
       from: this.actorID,
       type: "propertyChange-" + this.actorID,
@@ -355,8 +356,15 @@ StyleSheetActor.prototype = {
     })
   },
 
-  _onSourceLoad: function(source)
-  {
+  _notifyError: function(message) {
+    this.conn.send({
+      from: this.actorID,
+      type: "error-" + this.actorID,
+      errorMessage: message
+    });
+  },
+
+  _onSourceLoad: function(source) {
     this.text = source;
 
     this.conn.send({
@@ -371,7 +379,7 @@ StyleSheetActor.prototype = {
       // this is an inline <style> sheet
       let source = this.styleSheet.ownerNode.textContent;
       this._onSourceLoad(source);
-      return;
+      return {};
     }
 
     let scheme = Services.io.extractScheme(this.styleSheet.href);
@@ -386,6 +394,7 @@ StyleSheetActor.prototype = {
         this._loadSourceFromCache(this.styleSheet.href);
         break;
     }
+    return {};
   },
 
   /**
@@ -399,14 +408,14 @@ StyleSheetActor.prototype = {
     try {
       NetUtil.asyncFetch(href, function onFetch(stream, status) {
         if (!Components.isSuccessCode(status)) {
-          return this._signalError(LOAD_ERROR);
+          return this._notifyError(LOAD_ERROR);
         }
         let source = NetUtil.readInputStreamToString(stream, stream.available());
         stream.close();
         this._onSourceLoad(source);
       }.bind(this));
     } catch (ex) {
-      // TODO: implement error stuff
+      this._notifyError(LOAD_ERROR);
     }
   },
 
@@ -424,7 +433,7 @@ StyleSheetActor.prototype = {
     let streamListener = { // nsIStreamListener inherits nsIRequestObserver
       onStartRequest: function (aRequest, aContext, aStatusCode) {
         if (!Components.isSuccessCode(aStatusCode)) {
-          return this._signalError(LOAD_ERROR);
+          return this._notifyError(LOAD_ERROR);
         }
       }.bind(this),
       onDataAvailable: function (aRequest, aContext, aStream, aOffset, aCount) {
@@ -436,8 +445,7 @@ StyleSheetActor.prototype = {
       },
       onStopRequest: function SEA_onStopRequest(aRequest, aContext, aStatusCode) {
         if (!Components.isSuccessCode(aStatusCode)) {
-          // TODO: implement error stuff
-          return;
+          return this._notifyError(LOAD_ERROR);
         }
         let source = chunks.join("");
         this._onSourceLoad(source, channelCharset);
