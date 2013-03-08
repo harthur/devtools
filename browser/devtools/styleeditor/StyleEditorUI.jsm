@@ -21,6 +21,9 @@ Cu.import("resource:///modules/devtools/StyleEditor.jsm");
 Cu.import("resource:///modules/devtools/StyleEditorUtil.jsm");
 Cu.import("resource:///modules/devtools/SplitView.jsm");
 
+const LOAD_ERROR = "error-load";
+const SAVE_ERROR = "error-save";
+
 // max update frequency in ms (avoid potential typing lag and/or flicker)
 // @see StyleEditor.updateStylesheet
 const UPDATE_STYLESHEET_THROTTLE_DELAY = 500;
@@ -82,7 +85,7 @@ StyleEditorUI.prototype = {
       if (file) {
         NetUtil.asyncFetch(file, function onAsyncFetch(stream, status) {
           if (!Components.isSuccessCode(status)) {
-            // TODO: return this._signalError(LOAD_ERROR);
+            // TODO: global error return this._signalError(LOAD_ERROR);
           }
           let source = NetUtil.readInputStreamToString(stream, stream.available());
           stream.close();
@@ -94,7 +97,15 @@ StyleEditorUI.prototype = {
       }
     }.bind(this);
 
+    let onError = function() {
+      this._showError()
+    }
+
     showFilePicker(file, false, parentWindow, onFileSelected);
+  },
+
+  _showError: function() {
+
   },
 
   _onStyleSheetsCleared: function() {
@@ -284,6 +295,9 @@ StyleEditorUI.prototype = {
     if (editor.unsaved) {
       flags.push("unsaved");
     }
+    if (editor.errorMessage) {
+      flags.push("error");
+    }
     this._view.setItemClassName(summary, flags.join(" "));
 
     let label = summary.querySelector(".stylesheet-name > label");
@@ -292,7 +306,7 @@ StyleEditorUI.prototype = {
     text(summary, ".stylesheet-title", editor.styleSheet.title || "");
     text(summary, ".stylesheet-rule-count",
       PluralForm.get(ruleCount, _("ruleCount.label")).replace("#1", ruleCount));
-    // text(summary, ".stylesheet-error-message", editor.errorMessage);
+    text(summary, ".stylesheet-error-message", editor.errorMessage);
   }
 }
 
@@ -305,9 +319,10 @@ function StyleSheetEditor(styleSheet, win, file, isNew) {
   this._inputElement = null;
   this._sourceEditor = null;
   this._window = win;
-
   this._isNew = isNew;
   this.savedFile = file;
+
+  this.errorMessage = null;
 
   this._state = {   // state to use when inputElement attaches
     text: "",
@@ -513,6 +528,25 @@ StyleSheetEditor.prototype = {
   },
 
   /**
+   * Signal an error to the user.
+   *
+   * @param string aErrorCode
+   *        String name for the localized error property in the string bundle.
+   * @param ...rest
+   *        Optional arguments to pass for message formatting.
+   * @see StyleEditorUtil._
+   */
+  _signalError: function(errorCode) {
+    this.errorMessage = _(errorCode);
+    this.emit("property-change");
+  },
+
+  _clearError: function() {
+    this.errorMessage = null;
+    this.emit("property-change");
+  }
+
+  /**
    * Save the editor contents into a file and set savedFile property.
    * A file picker UI will open if file is not set and editor is not headless.
    *
@@ -552,7 +586,7 @@ StyleSheetEditor.prototype = {
           if (callback) {
             callback(null);
           }
-          // TODO: this._signalError(SAVE_ERROR);
+          this._signalError(SAVE_ERROR);
           return;
         }
         FileUtils.closeSafeFileOutputStream(ostream);
@@ -565,7 +599,8 @@ StyleSheetEditor.prototype = {
           callback(returnFile);
         }
         this.sourceEditor.dirty = false;
-        //TODO: this.clearFlag(StyleEditorFlags.ERROR);
+
+        this._clearError();
       }.bind(this));
     }.bind(this);
 
@@ -632,7 +667,8 @@ function showFilePicker(path, toSave, parentWindow, callback)
         return;
       }
     } catch (ex) {
-      // TODO
+      callback(null);
+      return;
     }
     try {
       let file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsILocalFile);
@@ -640,7 +676,6 @@ function showFilePicker(path, toSave, parentWindow, callback)
       callback(file);
       return;
     } catch (ex) {
-      // TODO: this._signalError(aSave ? SAVE_ERROR : LOAD_ERROR);
       callback(null);
       return;
     }
