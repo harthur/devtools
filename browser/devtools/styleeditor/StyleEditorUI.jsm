@@ -165,13 +165,6 @@ StyleEditorUI.prototype = {
 
         this._updateSummaryForEditor(editor, summary);
 
-        summary.addEventListener("focus", function onSummaryFocus(event) {
-          if (event.target == summary) {
-            // autofocus the stylesheet name
-            summary.querySelector(".stylesheet-name").focus();
-          }
-        }, false);
-
         // autofocus new stylesheet
         if (editor.styleSheet.isNew) {
           this._selectEditor(editor);
