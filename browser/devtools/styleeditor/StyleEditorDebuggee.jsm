@@ -73,6 +73,10 @@ StyleEditorDebuggee.prototype = {
 
   clear: function(callback) {
     this.baseURI = null;
+
+    for (let stylesheet of this.styleSheets) {
+      stylesheet.destroy();
+    }
     this.styleSheets = [];
 
     this.emit("stylesheets-cleared");
@@ -122,6 +126,13 @@ StyleEditorDebuggee.prototype = {
     this.client.request(message, function(response) {
       callback(response.styleSheets);
     });
+  },
+
+  destroy: function() {
+    this.clear();
+
+    this._target.off("will-navigate", this.clear);
+    this._target.off("navigate", this._onNewDocument);
   }
 }
 
@@ -182,4 +193,10 @@ StyleSheet.prototype = {
   _onError: function(type, request) {
     this.emit("error", request.errorMessage);
   },
+
+  destroy: function() {
+    this._client.removeListener("sourceLoad-" + this._actor, this._onSourceLoad);
+    this._client.removeListener("propertyChange-" + this._actor, this._onPropertyChange);
+    this._client.removeListener("error-" + this._actor, this._onError);
+  }
 }

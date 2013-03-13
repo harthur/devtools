@@ -50,6 +50,8 @@ StyleEditorPanel.prototype = {
       deferred.resolve(this);
     }.bind(this));
 
+    this._debuggee = debuggee;
+
     //this.setPage(contentWin);
     return deferred.promise;
   },
@@ -81,6 +83,9 @@ StyleEditorPanel.prototype = {
       this._toolbox = null;
       this._panelDoc = null;
     }
+
+    this._debuggee.destroy();
+    this._UI.destroy();
 
     return Promise.resolve(null);
   },

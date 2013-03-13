@@ -47,6 +47,7 @@ function StyleEditorUI(debuggee, panelDoc) {
   this._onStyleSheetAdded = this._onStyleSheetAdded.bind(this);
   this._onStyleSheetCreated = this._onStyleSheetCreated.bind(this);
   this._onStyleSheetsCleared = this._onStyleSheetsCleared.bind(this);
+  this._onError = this._onError.bind(this);
 
   debuggee.on("stylesheet-added", this._onStyleSheetAdded);
   debuggee.on("stylesheets-cleared", this._onStyleSheetsCleared);
@@ -107,7 +108,8 @@ StyleEditorUI.prototype = {
   },
 
   _onStyleSheetsCleared: function() {
-    this._editors = [];
+    this._clearStyleSheetEditors();
+
     this._view.removeAll();
     this._selectedStyleSheetIndex = -1;
 
@@ -125,18 +127,28 @@ StyleEditorUI.prototype = {
     this._addStyleSheetEditor(styleSheet);
   },
 
+  _onError: function(event, errorCode) {
+    this.emit("error", errorCode);
+  },
+
   _addStyleSheetEditor: function(styleSheet, file, isNew) {
     let editor = new StyleSheetEditor(styleSheet, this._window, file, isNew);
     editor.once("source-load", this._sourceLoaded.bind(this, editor));
     editor.on("property-change", this._summaryChange.bind(this, editor));
-    editor.on("error", function(event, errorCode) {
-      this.emit("error", errorCode);
-    }.bind(this));
+    editor.on("error", this._onError);
+
     this._editors.push(editor);
 
     // Queue editor loading. This helps responsivity during loading when
     // there are many heavy stylesheets.
     this._window.setTimeout(editor.fetchSource.bind(editor), 0);
+  },
+
+  _clearStyleSheetEditors: function() {
+    for (let editor of this._editors) {
+      editor.destroy();
+    }
+    this._editors = [];
   },
 
   _sourceLoaded: function(editor) {
@@ -298,6 +310,13 @@ StyleEditorUI.prototype = {
     text(summary, ".stylesheet-rule-count",
       PluralForm.get(ruleCount, _("ruleCount.label")).replace("#1", ruleCount));
     text(summary, ".stylesheet-error-message", editor.errorMessage);
+  },
+
+  destroy: function() {
+    this._clearStyleSheetEditors();
+
+    this._debuggee.off("stylesheet-added", this._onStyleSheetAdded);
+    this._debuggee.off("stylesheets-cleared", this._onStyleSheetsCleared);
   }
 }
 
@@ -334,6 +353,7 @@ function StyleSheetEditor(styleSheet, win, file, isNew) {
 
   this._focusOnSourceEditorReady = false;
 
+  this.styleSheet.once("source-load", this._onSourceLoad);
   this.styleSheet.on("property-change", this._onPropertyChange);
   this.styleSheet.on("error", this._onError);
 }
@@ -393,7 +413,6 @@ StyleSheetEditor.prototype = {
   },
 
   fetchSource: function() {
-    this.styleSheet.once("source-load", this._onSourceLoad);
     this.styleSheet.fetchSource();
   },
 
@@ -425,7 +444,7 @@ StyleSheetEditor.prototype = {
     sourceEditor.init(inputElement, config, function onSourceEditorReady() {
       setupBracketCompletion(sourceEditor);
       sourceEditor.addEventListener(SourceEditor.EVENTS.TEXT_CHANGED,
-                                    function onTextChanged(aEvent) {
+                                    function onTextChanged(event) {
         this.updateStyleSheet();
       }.bind(this));
 
@@ -615,6 +634,12 @@ StyleSheetEditor.prototype = {
     });
 
     return bindings;
+  },
+
+  destroy: function() {
+    this.styleSheet.off("source-load", this._onSourceLoad);
+    this.styleSheet.off("property-change", this._onPropertyChange);
+    this.styleSheet.off("error", this._onError);
   }
 }
 
@@ -781,10 +806,10 @@ function setupBracketCompletion(sourceEditor)
     },
   };
 
-  editorElement.addEventListener("keypress", function onKeyPress(aEvent) {
-    let pair = pairs[aEvent.charCode];
-    if (!pair || aEvent.ctrlKey || aEvent.metaKey ||
-        aEvent.accelKey || aEvent.altKey) {
+  editorElement.addEventListener("keypress", function onKeyPress(event) {
+    let pair = pairs[event.charCode];
+    if (!pair || event.ctrlKey || event.metaKey ||
+        event.accelKey || event.altKey) {
       return true;
     }
 
@@ -799,6 +824,6 @@ function setupBracketCompletion(sourceEditor)
     utils.sendKeyEvent("keypress", 0, charCode, modifiers, !handled);
     utils.sendKeyEvent("keyup", keyCode, 0, modifiers);
     // and rewind caret
-    sourceEditor.setCaretOffset(aSourceEditor.getCaretOffset() - 1);
+    sourceEditor.setCaretOffset(sourceEditor.getCaretOffset() - 1);
   }, false);
 }
