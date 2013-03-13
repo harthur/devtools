@@ -28,9 +28,6 @@ const SAVE_ERROR = "error-save";
 // @see StyleEditor.updateStylesheet
 const UPDATE_STYLESHEET_THROTTLE_DELAY = 500;
 
-// @see StyleSheetEditor._persistExpando
-const STYLESHEET_EXPANDO = "-moz-styleeditor-stylesheet-";
-
 const STYLE_EDITOR_TEMPLATE = "stylesheet";
 
 function StyleEditorUI(debuggee, panelDoc) {
@@ -539,8 +536,6 @@ StyleSheetEditor.prototype = {
     }
 
     this.styleSheet.update(this._state.text);
-
-    //this._persistExpando(); TODO
   },
 
   /**
@@ -590,7 +585,6 @@ StyleSheetEditor.prototype = {
         // remember filename for next save if any
         this._friendlyName = null;
         this.savedFile = returnFile;
-        // TODO: this._persistExpando();
 
         if (callback) {
           callback(returnFile);
