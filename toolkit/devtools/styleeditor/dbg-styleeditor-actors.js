@@ -34,7 +34,6 @@ function StyleEditorActor(aConnection, aParentActor)
 {
   this.conn = aConnection;
   this._onDocumentLoaded = this._onDocumentLoaded.bind(this);
-  this._onMutations = this._onMutations.bind(this);
   this._onSheetLoaded = this._onSheetLoaded.bind(this);
 
   if (aParentActor instanceof BrowserTabActor &&
@@ -151,10 +150,6 @@ StyleEditorActor.prototype = {
       styleSheets.push(actor.form());
     }
 
-    // We need to attach mutation listeners right after fetching initial
-    // sheets so that we don't miss any stylesheets being added.
-    //this._attachMutationObserver();
-
     if (styleSheets.length) {
       this._notifyStyleSheetsAdded(styleSheets);
     }
@@ -178,39 +173,6 @@ StyleEditorActor.prototype = {
     this._actorPool.addActor(actor);
     this._sheets.set(aStyleSheet, actor);
     return actor;
-  },
-
-  _attachMutationObserver: function() {
-    this._observer = new this.win.MutationObserver(this._onMutations);
-    this._observer.observe(this.win.document.documentElement, {
-      childList: true,
-      subtree: true
-    });
-  },
-
-  _onMutations: function(mutations)
-  {
-    let styleSheets = [];
-    for (let mutation of mutations) {
-      if (mutation.type != "childList") {
-        continue;
-      }
-      let target = mutation.target;
-      for (let node of mutation.addedNodes) {
-        if (node.localName == "style") {
-          let actor = this._createStyleSheetActor(node.sheet);
-          styleSheets.push(actor.form());
-        }
-        if (node.localName == "link" &&
-            node.rel == "stylesheet") {
-          node.addEventListener("load", this._onSheetLoaded, false);
-        }
-      }
-    }
-
-    if (styleSheets.length) {
-      this._notifyStyleSheetsAdded(styleSheets);
-    }
   },
 
   _onSheetLoaded: function(event) {
