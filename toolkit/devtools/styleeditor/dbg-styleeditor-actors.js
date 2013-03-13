@@ -95,6 +95,8 @@ StyleEditorActor.prototype = {
       delete this._observer;
     }
 
+    this._sheets.clear();
+
     this.conn.removeActorPool(this.actorPool);
     this._actorPool = null;
     this.conn = this._window = null;
@@ -111,8 +113,10 @@ StyleEditorActor.prototype = {
     return { baseURI: this.doc.baseURIObject };
   },
 
-  onAddLoadListener: function()
-  {
+  onNewDocument: function() {
+    // delete previous document's actors
+    this._clearStyleSheetActors();
+
     // Note: listening for load won't be necessary once
     // https://bugzilla.mozilla.org/show_bug.cgi?id=839103 is fixed
     if (this.doc.readyState == "complete") {
@@ -124,8 +128,14 @@ StyleEditorActor.prototype = {
     return {};
   },
 
-  onGetStyleSheets: function()
-  {
+  _clearStyleSheetActors: function() {
+    for (let actor in this._sheets) {
+      this.releaseActor(this._sheets[actor]);
+    }
+    this._sheets.clear();
+  },
+
+  onGetStyleSheets: function() {
     let styleSheets = [];
 
     for (let i = 0; i < this.doc.styleSheets.length; ++i) {
@@ -137,8 +147,7 @@ StyleEditorActor.prototype = {
     return { "styleSheets": styleSheets };
   },
 
-  _onDocumentLoaded: function(aEvent)
-  {
+  _onDocumentLoaded: function(aEvent) {
     if (aEvent) {
       this.win.removeEventListener("load", this._onDocumentLoaded, false);
     }
@@ -205,7 +214,7 @@ StyleEditorActor.prototype.requestTypes = {
   "getStyleSheets": StyleEditorActor.prototype.onGetStyleSheets,
   "newStyleSheet": StyleEditorActor.prototype.onNewStyleSheet,
   "getBaseURI": StyleEditorActor.prototype.onGetBaseURI,
-  "addLoadListener": StyleEditorActor.prototype.onAddLoadListener
+  "newDocument": StyleEditorActor.prototype.onNewDocument
 };
 
 

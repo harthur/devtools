@@ -84,7 +84,9 @@ StyleEditorDebuggee.prototype = {
 
   _onNewDocument: function() {
     this._getBaseURI()
-    this._addLoadListener();
+
+    var message = { to: this._actor, type: "newDocument" };
+    this.client.request(message);
   },
 
   _getBaseURI: function() {
@@ -92,12 +94,6 @@ StyleEditorDebuggee.prototype = {
     this.client.request(message, function(response) {
       this.baseURI = response.baseURI;
     }.bind(this));
-  },
-
-  _addLoadListener: function() {
-    var message = { to: this._actor, type: "addLoadListener" };
-    this.client.request(message, function(response) {
-    });
   },
 
   _onStyleSheetsAdded: function(type, request) {
