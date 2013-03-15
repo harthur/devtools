@@ -13,8 +13,9 @@ const Cu = Components.utils;
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 Cu.import("resource:///modules/devtools/EventEmitter.jsm");
-Cu.import("resource://gre/modules/devtools/dbg-server.jsm");
-Cu.import("resource://gre/modules/devtools/dbg-client.jsm");
+
+XPCOMUtils.defineLazyModuleGetter(this, "Promise",
+    "resource://gre/modules/commonjs/sdk/core/promise.js");
 
 
 let StyleEditorDebuggee = function(target) {
@@ -36,38 +37,31 @@ StyleEditorDebuggee.prototype = {
 
   baseURI: null,   /* baseURIObject for the current document */
 
+  get target() {
+    return this._target;
+  },
+
+  get client() {
+    return this._target.client;
+  },
+
   initialize: function(callback) {
-    this._connect(function() {
+    // We always interact with the target as if it were remote
+    let promise;
+    if (!this.target.isRemote) {
+      promise = this.target.makeRemote();
+    } else {
+      promise = Promise.resolve(this.target);
+    }
+
+    promise.then(function() {
+      this._actor = this.target.form.styleEditorActor;
+
       this.client.addListener("styleSheetsAdded", this._onStyleSheetsAdded);
 
       this._onNewDocument();
       callback();
     }.bind(this));
-  },
-
-  _connect: function(callback) {
-    if (this._target.client) {
-      this.client = this._target.client;
-      this._actor = this._target.form.styleEditorActor;
-      callback();
-    }
-    else {
-      if (!DebuggerServer.initialized) {
-        DebuggerServer.init();
-        DebuggerServer.addBrowserActors();
-      }
-
-      let transport = DebuggerServer.connectPipe();
-      this.client = new DebuggerClient(transport);
-
-      this.client.connect(function(type, traits) {
-        this.client.listTabs(function (response) {
-          let tab = response.tabs[response.selected];
-          this._actor = tab.styleEditorActor;
-          callback();
-        }.bind(this));
-      }.bind(this))
-    }
   },
 
   clear: function(callback) {
