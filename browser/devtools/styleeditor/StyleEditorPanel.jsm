@@ -12,6 +12,10 @@ Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/commonjs/sdk/core/promise.js");
 Cu.import("resource:///modules/devtools/EventEmitter.jsm");
+Cu.import("resource:///modules/devtools/StyleEditorDebuggee.jsm");
+Cu.import("resource:///modules/devtools/StyleEditorUI.jsm");
+Cu.import("resource:///modules/devtools/StyleEditorUtil.jsm");
+
 
 XPCOMUtils.defineLazyModuleGetter(this, "StyleEditorChrome",
                         "resource:///modules/devtools/StyleEditorChrome.jsm");
@@ -21,17 +25,14 @@ this.StyleEditorPanel = function StyleEditorPanel(panelWin, toolbox) {
 
   this._toolbox = toolbox;
   this._target = toolbox.target;
+  this._panelDoc = panelWin.document;
 
-  this.newPage = this.newPage.bind(this);
   this.destroy = this.destroy.bind(this);
   this.beforeNavigate = this.beforeNavigate.bind(this);
+  this._showError = this._showError.bind(this);
 
   this._target.on("will-navigate", this.beforeNavigate);
-  this._target.on("navigate", this.newPage);
   this._target.on("close", this.destroy);
-
-  this._panelWin = panelWin;
-  this._panelDoc = panelWin.document;
 }
 
 StyleEditorPanel.prototype = {
@@ -39,10 +40,18 @@ StyleEditorPanel.prototype = {
    * open is effectively an asynchronous constructor
    */
   open: function StyleEditor_open() {
-    let contentWin = this._toolbox.target.window;
     let deferred = Promise.defer();
 
-    this.setPage(contentWin).then(function() {
+    let contentWin = this._toolbox.target.window;
+
+    this._debuggee = new StyleEditorDebuggee(this._toolbox.target);
+
+    this._debuggee.initialize(function() {
+      this._UI = new StyleEditorUI(this._debuggee, this._panelDoc);
+      this._UI.on("error", this._showError);
+
+      this._UI.initialize();
+
       this.isReady = true;
       deferred.resolve(this);
     }.bind(this));
@@ -50,52 +59,21 @@ StyleEditorPanel.prototype = {
     return deferred.promise;
   },
 
-  /**
-   * Target getter.
-   */
-  get target() this._target,
-
-  /**
-   * Panel window getter.
-   */
-  get panelWindow() this._panelWin,
-
-  /**
-   * StyleEditorChrome instance getter.
-   */
-  get styleEditorChrome() this._panelWin.styleEditorChrome,
-
-  /**
-   * Set the page to target.
-   */
-  setPage: function StyleEditor_setPage(contentWindow) {
-    if (this._panelWin.styleEditorChrome) {
-      this._panelWin.styleEditorChrome.contentWindow = contentWindow;
-      this.selectStyleSheet(null, null, null);
-    } else {
-      let chromeRoot = this._panelDoc.getElementById("style-editor-chrome");
-      let chrome = new StyleEditorChrome(chromeRoot, contentWindow);
-      let promise = chrome.open();
-
-      this._panelWin.styleEditorChrome = chrome;
-      this.selectStyleSheet(null, null, null);
-      return promise;
+  _showError: function(event, errorCode) {
+    let message = _(errorCode);
+    let notificationBox = this._toolbox.getNotificationBox();
+    let notification = notificationBox.getNotificationWithValue("styleeditor-error");
+    if (!notification) {
+      notificationBox.appendNotification(message,
+        "styleeditor-error", "", notificationBox.PRIORITY_CRITICAL_LOW);
     }
-  },
-
-  /**
-   * Navigated to a new page.
-   */
-  newPage: function StyleEditor_newPage(event, window) {
-    this.reset();
-    this.setPage(window);
   },
 
   /**
    * Before navigating to a new page or reloading the page.
    */
   beforeNavigate: function StyleEditor_beforeNavigate(event, request) {
-    if (this.styleEditorChrome.isDirty) {
+    if (this._UI.isDirty) {
       this.preventNavigate(request);
     }
   },
@@ -107,8 +85,8 @@ StyleEditorPanel.prototype = {
     request.suspend();
 
     let notificationBox = null;
-    if (this.target.isLocalTab) {
-      let gBrowser = this.target.tab.ownerDocument.defaultView.gBrowser;
+    if (this._target.isLocalTab) {
+      let gBrowser = this._target.tab.ownerDocument.defaultView.gBrowser;
       notificationBox = gBrowser.getNotificationBox();
     }
     else {
@@ -167,35 +145,28 @@ StyleEditorPanel.prototype = {
     notification.persistence = -1;
   },
 
-
   /**
-   * No window available anymore.
+   * Select a stylesheet. TODO
    */
-  reset: function StyleEditor_reset() {
-    this._panelWin.styleEditorChrome.resetChrome();
-  },
-
-  /**
-   * Select a stylesheet.
-   */
-  selectStyleSheet: function StyleEditor_selectStyleSheet(stylesheet, line, col) {
-    this._panelWin.styleEditorChrome.selectStyleSheet(stylesheet, line, col);
+  selectStyleSheet: function(stylesheet, line, col) {
+    this._UI.selectStyleSheet(stylesheet, line, col); // TODO
   },
 
   /**
    * Destroy StyleEditor
    */
-  destroy: function StyleEditor_destroy() {
+  destroy: function() {
     if (!this._destroyed) {
       this._destroyed = true;
 
       this._target.off("will-navigate", this.beforeNavigate);
-      this._target.off("navigate", this.newPage);
       this._target.off("close", this.destroy);
       this._target = null;
       this._toolbox = null;
-      this._panelWin = null;
       this._panelDoc = null;
+
+      this._debuggee.destroy();
+      this._UI.destroy();
     }
 
     return Promise.resolve(null);
