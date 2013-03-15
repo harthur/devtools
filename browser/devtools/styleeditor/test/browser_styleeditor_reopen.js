@@ -43,13 +43,13 @@ function test() {
     });
 
     toolbox.once("destroyed", function onClose() {
-      gChromeWindow = null;
+      gPanelWindow = null;
       executeSoon(function () {
         waitForFocus(function () {
           // wait that browser has focus again
           // open StyleEditorChrome again (a new one since we closed the previous one)
           launchStyleEditorChrome(function (aChrome) {
-            is(gChromeWindow.document.documentElement.hasAttribute("data-marker"),
+            is(gPanelWindow.document.documentElement.hasAttribute("data-marker"),
               false,
               "opened a completely new StyleEditorChrome window");
 
@@ -96,15 +96,15 @@ function test() {
 
           // marker used to check it does not exist when we reopen
           // ie. the window we opened is indeed a new one
-          gChromeWindow.document.documentElement.setAttribute("data-marker", "true");
+          gPanelWindow.document.documentElement.setAttribute("data-marker", "true");
           toolbox.destroy();
         }
       });
 
       waitForFocus(function () {
         // insert char so that this stylesheet has the UNSAVED flag
-        EventUtils.synthesizeKey("x", {}, gChromeWindow);
-      }, gChromeWindow);
+        EventUtils.synthesizeKey("x", {}, gPanelWindow);
+      }, gPanelWindow);
     });
   }
 
@@ -137,8 +137,8 @@ function test() {
 
             // save using source editor key binding (previous successful path)
             waitForFocus(function () {
-              EventUtils.synthesizeKey("S", {accelKey: true}, gChromeWindow);
-            }, gChromeWindow);
+              EventUtils.synthesizeKey("S", {accelKey: true}, gPanelWindow);
+            }, gPanelWindow);
             return;
           }
 
