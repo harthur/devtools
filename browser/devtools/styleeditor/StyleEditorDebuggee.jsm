@@ -176,8 +176,8 @@ StyleSheet.prototype = {
   },
 
   _onPropertyChange: function(type, request) {
-    this.importFromForm(request.form)
-    this.emit("property-change");
+    this[request.property] = request.value;
+    this.emit("property-change", request.property);
   },
 
   _onError: function(type, request) {

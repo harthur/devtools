@@ -38,7 +38,7 @@ function StyleEditorUI(debuggee, panelDoc) {
   this._window = this._panelDoc.defaultView;
   this._root = this._panelDoc.getElementById("style-editor-chrome");
 
-  this._editors = [];
+  this.editors = [];
   this._selectedStyleSheetIndex = -1;
 
   this._onStyleSheetAdded = this._onStyleSheetAdded.bind(this);
@@ -61,7 +61,7 @@ StyleEditorUI.prototype = {
     if (this._markedDirty === true) {
       return true;
     }
-    return this._editors.some(function(editor) {
+    return this.editors.some(function(editor) {
       return editor.sourceEditor && editor.sourceEditor.dirty;
     });
   },
@@ -156,7 +156,7 @@ StyleEditorUI.prototype = {
     editor.on("property-change", this._summaryChange.bind(this, editor));
     editor.on("error", this._onError);
 
-    this._editors.push(editor);
+    this.editors.push(editor);
 
     // Queue editor loading. This helps responsivity during loading when
     // there are many heavy stylesheets.
@@ -164,10 +164,10 @@ StyleEditorUI.prototype = {
   },
 
   _clearStyleSheetEditors: function() {
-    for (let editor of this._editors) {
+    for (let editor of this.editors) {
       editor.destroy();
     }
-    this._editors = [];
+    this.editors = [];
   },
 
   _sourceLoaded: function(editor) {
@@ -200,11 +200,10 @@ StyleEditorUI.prototype = {
         if (editor.styleSheet.isNew) {
           this._selectEditor(editor);
         }
+
+        this.emit("editor-added", editor);
       }.bind(this),
 
-      onHide: function(summary, details, data) {
-        // data.editor.onHide();
-      },
       onShow: function(summary, details, data) {
         let editor = data.editor;
         if (!editor.sourceEditor) {
@@ -245,11 +244,11 @@ StyleEditorUI.prototype = {
       editor.sourceEditor.setCaretPosition(line - 1, col - 1);
     });
 
-    let summary = this._getSummaryElementForEditor(editor);
+    let summary = this.getSummaryElementForEditor(editor);
     this._view.activeSummary = summary;
   },
 
-  _getSummaryElementForEditor: function(editor) {
+  getSummaryElementForEditor: function(editor) {
     let index = editor.styleSheet.styleSheetIndex;
     return this._view.getSummaryElementByOrdinal(index);
   },
@@ -283,7 +282,7 @@ StyleEditorUI.prototype = {
 
     /* Switch to the editor for this sheet, if it exists yet.
        Otherwise each editor will be checked when it's created. */
-    for each (let editor in this._editors) {
+    for each (let editor in this.editors) {
       if (editor.styleSheet == sheet) {
         this._selectEditor(editor);
         break;
@@ -304,7 +303,7 @@ StyleEditorUI.prototype = {
    *        to passed editor is used.
    */
   _updateSummaryForEditor: function(editor, summary) {
-    summary = summary || this._getSummaryElementForEditor(editor);
+    summary = summary || this.getSummaryElementForEditor(editor);
     if (!summary) {
       return;
     }
@@ -440,8 +439,8 @@ StyleSheetEditor.prototype = {
     this.emit("source-load");
   },
 
-  _onPropertyChange: function() {
-    this.emit("property-change");
+  _onPropertyChange: function(event, property) {
+    this.emit("property-change", property);
   },
 
   _onError: function(event, errorCode) {

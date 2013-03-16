@@ -235,7 +235,7 @@ function StyleSheetActor(aStyleSheet, aParentActor) {
     let onSheetLoaded = function(event) {
       ownerNode.removeEventListener("load", onSheetLoaded, false);
       // the 'cssRules' property has changed
-      this._notifyPropertyChanged();
+      this._notifyPropertyChanged("cssRules");
     }.bind(this);
 
     ownerNode.addEventListener("load", onSheetLoaded, false);
@@ -314,16 +314,17 @@ StyleSheetActor.prototype = {
 
   onToggleDisabled: function(aRequest) {
     this.styleSheet.disabled = !this.styleSheet.disabled;
-    this._notifyPropertyChanged();
+    this._notifyPropertyChanged("disabled");
 
     return { disabled: this.styleSheet.disabled };
   },
 
-  _notifyPropertyChanged: function() {
+  _notifyPropertyChanged: function(property) {
     this.conn.send({
       from: this.actorID,
       type: "propertyChange-" + this.actorID,
-      form: this.form()
+      property: property,
+      value: this.form()[property]
     })
   },
 

@@ -25,6 +25,7 @@ this.StyleEditorPanel = function StyleEditorPanel(panelWin, toolbox) {
 
   this._toolbox = toolbox;
   this._target = toolbox.target;
+  this._panelWin = panelWin;
   this._panelDoc = panelWin.document;
 
   this.destroy = this.destroy.bind(this);
@@ -47,10 +48,10 @@ StyleEditorPanel.prototype = {
     this._debuggee = new StyleEditorDebuggee(this._toolbox.target);
 
     this._debuggee.initialize(function() {
-      this._UI = new StyleEditorUI(this._debuggee, this._panelDoc);
-      this._UI.on("error", this._showError);
+      this.UI = new StyleEditorUI(this._debuggee, this._panelDoc);
+      this.UI.on("error", this._showError);
 
-      this._UI.initialize();
+      this.UI.initialize();
 
       this.isReady = true;
       deferred.resolve(this);
@@ -73,7 +74,7 @@ StyleEditorPanel.prototype = {
    * Before navigating to a new page or reloading the page.
    */
   beforeNavigate: function StyleEditor_beforeNavigate(event, request) {
-    if (this._UI.isDirty) {
+    if (this.UI.isDirty) {
       this.preventNavigate(request);
     }
   },
@@ -149,7 +150,7 @@ StyleEditorPanel.prototype = {
    * Select a stylesheet. TODO
    */
   selectStyleSheet: function(stylesheet, line, col) {
-    this._UI.selectStyleSheet(stylesheet, line, col); // TODO
+    this.UI.selectStyleSheet(stylesheet, line, col); // TODO
   },
 
   /**
@@ -166,7 +167,7 @@ StyleEditorPanel.prototype = {
       this._panelDoc = null;
 
       this._debuggee.destroy();
-      this._UI.destroy();
+      this.UI.destroy();
     }
 
     return Promise.resolve(null);
