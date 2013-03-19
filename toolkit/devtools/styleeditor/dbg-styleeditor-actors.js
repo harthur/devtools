@@ -336,13 +336,13 @@ StyleSheetActor.prototype = {
     });
   },
 
-  _onSourceLoad: function(source) {
-    this.text = source;
+  _onSourceLoad: function(source, charset) {
+    this.text = this._decodeCSSCharset(source, charset);
 
     this.conn.send({
       from: this.actorID,
       type: "sourceLoad-" + this.actorID,
-      source: source
+      source: this.text
     });
   },
 
@@ -367,6 +367,87 @@ StyleSheetActor.prototype = {
         break;
     }
     return {};
+  },
+
+  /**
+   * Decode a CSS source string to unicode according to the character set rules
+   * defined in <http://www.w3.org/TR/CSS2/syndata.html#charset>.
+   *
+   * @param string string
+   *        Source of a CSS stylesheet, loaded from file or cache.
+   * @param string channelCharset
+   *        Charset of the source string if set by the HTTP channel.
+   * @return string
+   *         The CSS string, in unicode.
+   */
+  _decodeCSSCharset: function(string, channelCharset)
+  {
+    // StyleSheet's charset can be specified from multiple sources
+
+    if (channelCharset.length > 0) {
+      // step 1 of syndata.html: charset given in HTTP header.
+      return this._convertToUnicode(string, channelCharset);
+    }
+
+    let sheet = this.styleSheet;
+    if (sheet) {
+      // Do we have a @charset rule in the stylesheet?
+      // step 2 of syndata.html (without the BOM check).
+      if (sheet.cssRules) {
+        let rules = sheet.cssRules;
+        if (rules.length
+            && rules.item(0).type == Ci.nsIDOMCSSRule.CHARSET_RULE) {
+          return this._convertToUnicode(string, rules.item(0).encoding);
+        }
+      }
+
+      // step 3: charset attribute of <link> or <style> element, if it exists
+      if (sheet.ownerNode && sheet.ownerNode.getAttribute) {
+        let linkCharset = sheet.ownerNode.getAttribute("charset");
+        if (linkCharset != null) {
+          return this._convertToUnicode(string, linkCharset);
+        }
+      }
+
+      // step 4 (1 of 2): charset of referring stylesheet.
+      let parentSheet = sheet.parentStyleSheet;
+      if (parentSheet && parentSheet.cssRules &&
+          parentSheet.cssRules[0].type == Ci.nsIDOMCSSRule.CHARSET_RULE) {
+        return this._convertToUnicode(string,
+            parentSheet.cssRules[0].encoding);
+      }
+
+      // step 4 (2 of 2): charset of referring document.
+      if (sheet.ownerNode && sheet.ownerNode.ownerDocument.characterSet) {
+        return this._convertToUnicode(string,
+            sheet.ownerNode.ownerDocument.characterSet);
+      }
+    }
+
+    // step 5: default to utf-8.
+    return this._convertToUnicode(string, "UTF-8");
+  },
+
+  /**
+   * Convert a given string, encoded in a given character set, to unicode.
+   * @param string string
+   *        A string.
+   * @param string charset
+   *        A character set.
+   * @return string
+   *         A unicode string.
+   */
+  _convertToUnicode: function SE__convertToUnicode(string, charset) {
+    // Decoding primitives.
+    let converter = Cc["@mozilla.org/intl/scriptableunicodeconverter"]
+        .createInstance(Ci.nsIScriptableUnicodeConverter);
+
+    try {
+      converter.charset = charset;
+      return converter.ConvertToUnicode(string);
+    } catch(e) {
+      return string;
+    }
   },
 
   /**

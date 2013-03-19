@@ -150,6 +150,9 @@ StyleEditorPanel.prototype = {
    * Select a stylesheet. TODO
    */
   selectStyleSheet: function(stylesheet, line, col) {
+    if (!this.UI) {
+      return;
+    }
     this.UI.selectStyleSheet(stylesheet, line, col); // TODO
   },
 
