@@ -18,6 +18,7 @@ _BROWSER_TEST_FILES = \
                  browser_styleeditor_cmd_edit.html \
                  browser_styleeditor_import.js \
                  browser_styleeditor_init.js \
+                 browser_styleeditor_loading.js \
                  head.js \
                  helpers.js \
                  four.html \
@@ -37,7 +38,6 @@ _BROWSER_TEST_FILES = \
                  simple.html \
                  test_private.html \
                  test_private.css \
-               #  browser_styleeditor_loading.js \
                #  browser_styleeditor_new.js \
                #  browser_styleeditor_passedinsheet.js \
                #  browser_styleeditor_pretty.js \
