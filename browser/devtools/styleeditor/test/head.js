@@ -17,8 +17,6 @@ let cache = Cc["@mozilla.org/network/cache-service;1"]
               .getService(Ci.nsICacheService);
 
 
-dump("\n\nHEATHER: IMPORTING HEAD.JS " + "\n\n");
-
 // Import the GCLI test helper
 let testDir = gTestPath.substr(0, gTestPath.lastIndexOf("/"));
 Services.scriptloader.loadSubScript(testDir + "/helpers.js", this);

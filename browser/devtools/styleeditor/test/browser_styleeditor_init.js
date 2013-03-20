@@ -38,7 +38,6 @@ function testEditorAdded(aEvent, aEditor)
 
 function testFirstStyleSheetEditor(aEditor)
 {
-  dump("HEATHER: aEditor._state.text " + aEditor._state.text + "\n");
   // Note: the html <link> contains charset="UTF-8".
   ok(aEditor._state.text.indexOf("\u263a") >= 0,
      "stylesheet is unicode-aware.");
@@ -72,6 +71,8 @@ function testSecondStyleSheetEditor(aEditor)
 
   is(aEditor, gUI.editors[1],
      "second stylesheet corresponds to StyleEditorChrome.editors[1]");
+
+  let summary = gUI.getSummaryElementForEditor(aEditor);
 
   let name = summary.querySelector(".stylesheet-name > label").getAttribute("value");
   ok(/^<.*>$/.test(name),

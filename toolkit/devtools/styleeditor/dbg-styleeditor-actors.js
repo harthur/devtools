@@ -337,7 +337,7 @@ StyleSheetActor.prototype = {
   },
 
   _onSourceLoad: function(source, charset) {
-    this.text = this._decodeCSSCharset(source, charset);
+    this.text = this._decodeCSSCharset(source, charset || "");
 
     this.conn.send({
       from: this.actorID,
