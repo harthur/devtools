@@ -140,6 +140,7 @@ let StyleSheet = function(form, debuggee) {
   this._client.addListener("sourceLoad-" + this._actor, this._onSourceLoad);
   this._client.addListener("propertyChange-" + this._actor, this._onPropertyChange);
   this._client.addListener("error-" + this._actor, this._onError);
+  this._client.addListener("styleApplied-" + this._actor, this._onStyleApplied);
 
   this.importFromForm(form);
 }
@@ -182,6 +183,10 @@ StyleSheet.prototype = {
 
   _onError: function(type, request) {
     this.emit("error", request.errorMessage);
+  },
+
+  _onStyleApplied: function() {
+    this.emit("style-applied");
   },
 
   destroy: function() {

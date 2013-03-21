@@ -517,8 +517,12 @@ StyleSheetActor.prototype = {
 
   onUpdate: function(request) {
     DOMUtils.parseStyleSheet(this.styleSheet, request.text);
+
     if (request.transition) {
       this._insertTransistionRule();
+    }
+    else {
+      this._notifyStyleApplied();
     }
     return {};
   },
@@ -550,6 +554,16 @@ StyleSheetActor.prototype = {
       this.doc.documentElement.classList.remove(TRANSITION_CLASS);
       this.styleSheet.deleteRule(this.styleSheet.cssRules.length - 1);
     }
+
+    this._notifyStyleApplied();
+  },
+
+  _notifyStyleApplied: function()
+  {
+    this.conn.send({
+      from: this.actorID,
+      type: "styleApplied-" + this.actorID
+    })
   }
 }
 

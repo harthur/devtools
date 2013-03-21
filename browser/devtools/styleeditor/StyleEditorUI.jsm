@@ -488,13 +488,13 @@ StyleSheetEditor.prototype = {
     let deferred = Promise.defer();
 
     if (this.sourceEditor) {
+      dump("HEATHER: already had source editor" + "\n");
+      return Promise.resolve();
+    }
+    this.on("source-editor-load", function(event) {
+      dump("HEATHER: source editor loaded" + "\n");
       deferred.resolve();
-    }
-    else {
-      this.on("source-editor-load", function(event) {
-        deferred.resolve();
-      })
-    }
+    })
     return deferred.promise;
   },
 
