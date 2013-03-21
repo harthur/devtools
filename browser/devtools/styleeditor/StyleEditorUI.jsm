@@ -436,6 +436,7 @@ StyleSheetEditor.prototype = {
 
   _onSourceLoad: function(event, source) {
     this._state.text = prettifyCSS(source);
+    this.sourceLoaded = true;
     this.emit("source-load");
   },
 
@@ -488,12 +489,10 @@ StyleSheetEditor.prototype = {
     let deferred = Promise.defer();
 
     if (this.sourceEditor) {
-      dump("HEATHER: already had source editor" + "\n");
-      return Promise.resolve();
+      return Promise.resolve(this);
     }
     this.on("source-editor-load", function(event) {
-      dump("HEATHER: source editor loaded" + "\n");
-      deferred.resolve();
+      deferred.resolve(this);
     })
     return deferred.promise;
   },
