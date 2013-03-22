@@ -21,6 +21,7 @@ _BROWSER_TEST_FILES = \
                  browser_styleeditor_loading.js \
                  browser_styleeditor_pretty.js \
                  browser_styleeditor_private_perwindowpb.js \
+                 browser_styleeditor_sv_keynav.js \
                  head.js \
                  helpers.js \
                  four.html \
@@ -41,9 +42,7 @@ _BROWSER_TEST_FILES = \
                  test_private.html \
                  test_private.css \
                #  browser_styleeditor_new.js \
-               #  browser_styleeditor_readonly.js \
                #  browser_styleeditor_reopen.js \
-               #  browser_styleeditor_sv_keynav.js \
                #  browser_styleeditor_sv_resize.js \
                #  browser_styleeditor_bug_826982_location_changed.js \
                  $(NULL)

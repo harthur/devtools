@@ -196,6 +196,13 @@ StyleEditorUI.prototype = {
 
         this._updateSummaryForEditor(editor, summary);
 
+        summary.addEventListener("focus", function onSummaryFocus(event) {
+          if (event.target == summary) {
+            // autofocus the stylesheet name
+            summary.querySelector(".stylesheet-name").focus();
+          }
+        }, false);
+
         // autofocus new stylesheet
         if (editor.styleSheet.isNew) {
           this._selectEditor(editor);
@@ -211,6 +218,7 @@ StyleEditorUI.prototype = {
           let inputElement = details.querySelector(".stylesheet-editor-input");
           editor.load(inputElement);
         }
+        editor.onShow();
       }
     });
 
@@ -493,7 +501,7 @@ StyleSheetEditor.prototype = {
     }
     this.on("source-editor-load", function(event) {
       deferred.resolve(this);
-    })
+    }.bind(this))
     return deferred.promise;
   },
 
@@ -507,6 +515,18 @@ StyleSheetEditor.prototype = {
     } else {
       this._focusOnSourceEditorReady = true;
     }
+  },
+
+  /**
+   * Event handler for when the editor is shown. Call this after the editor is
+   * shown.
+   */
+  onShow: function SE_onShow()
+  {
+    if (this._sourceEditor) {
+      this._sourceEditor.setTopIndex(this._state.topIndex);
+    }
+    this.focus();
   },
 
   /**
