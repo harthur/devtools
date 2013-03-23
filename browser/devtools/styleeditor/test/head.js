@@ -65,12 +65,12 @@ function launchStyleEditorChromeFromWindow(aWindow, aCallback, aSheet, aLine, aC
   let target = TargetFactory.forTab(aWindow.gBrowser.selectedTab);
   gDevTools.showToolbox(target, "styleeditor").then(function(toolbox) {
     let panel = toolbox.getCurrentPanel();
-    gChromeWindow = panel._panelWin;
-    gChromeWindow.styleEditorChrome._alwaysDisableAnimations = true;
+    gPanelWindow = panel._panelWin;
+    gPanelWindow.styleEditorChrome._alwaysDisableAnimations = true;
     if (aSheet) {
       panel.selectStyleSheet(aSheet, aLine, aCol);
     }
-    aCallback(gChromeWindow.styleEditorChrome);
+    aCallback(gPanelWindow.styleEditorChrome);
   });
 }
 

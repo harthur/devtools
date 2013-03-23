@@ -124,16 +124,16 @@ function testEditor() {
   is(computedStyle.backgroundColor, "rgb(255, 255, 255)",
      "content's background color is initially white");
 
-  EventUtils.synthesizeKey("[", {accelKey: true}, gChromeWindow);
+  EventUtils.synthesizeKey("[", {accelKey: true}, gPanelWindow);
   is(aEditor.sourceEditor.getText(), "",
      "Nothing happened as it is a known shortcut in source editor");
 
-  EventUtils.synthesizeKey("]", {accelKey: true}, gChromeWindow);
+  EventUtils.synthesizeKey("]", {accelKey: true}, gPanelWindow);
   is(aEditor.sourceEditor.getText(), "",
      "Nothing happened as it is a known shortcut in source editor");
 
   for each (let c in TESTCASE_CSS_SOURCE) {
-    EventUtils.synthesizeKey(c, {}, gChromeWindow);
+    EventUtils.synthesizeKey(c, {}, gPanelWindow);
   }
 
   is(aEditor.sourceEditor.getText(), TESTCASE_CSS_SOURCE + "}",
@@ -149,5 +149,5 @@ function testEditor() {
 
     executeSoon(finishOnTransitionEndAndCommit);
   }, false);
-}, gChromeWindow) ;
+}, gPanelWindow) ;
 }
