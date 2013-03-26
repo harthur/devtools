@@ -28,8 +28,12 @@ let StyleEditorDebuggee = function(target) {
   this._onStyleSheetsAdded = this._onStyleSheetsAdded.bind(this);
 
   this._target = target;
+  this._actor = this.target.form.styleEditorActor;
 
+  this.client.addListener("styleSheetsAdded", this._onStyleSheetsAdded);
   this._target.on("navigate", this._onNewDocument);
+
+  this._onNewDocument();
 }
 
 StyleEditorDebuggee.prototype = {
@@ -45,25 +49,6 @@ StyleEditorDebuggee.prototype = {
     return this._target.client;
   },
 
-  initialize: function(callback) {
-    // We always interact with the target as if it were remote
-    let promise;
-    if (!this.target.isRemote) {
-      promise = this.target.makeRemote();
-    } else {
-      promise = Promise.resolve(this.target);
-    }
-
-    promise.then(function() {
-      this._actor = this.target.form.styleEditorActor;
-
-      this.client.addListener("styleSheetsAdded", this._onStyleSheetsAdded);
-
-      this._onNewDocument();
-      callback();
-    }.bind(this));
-  },
-
   clear: function(callback) {
     this.baseURI = null;
 
@@ -76,8 +61,9 @@ StyleEditorDebuggee.prototype = {
   },
 
   _onNewDocument: function() {
+    dump("HEATHER: navigate event fired" + "\n");
     this.clear();
-    this._getBaseURI()
+    this._getBaseURI();
 
     var message = { to: this._actor, type: "newDocument" };
     this.client.request(message);

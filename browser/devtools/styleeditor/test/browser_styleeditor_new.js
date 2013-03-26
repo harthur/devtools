@@ -57,7 +57,7 @@ function testEditorAdded(aEvent, aEditor)
   if (gAddedCount == 2) {
     waitForFocus(function () {// create a new style sheet
       let newButton = gPanelWindow.document.querySelector(".style-editor-newButton");
-      ok(newButton, "New button exists");
+      ok(newButton, "'new' button exists");
 
       EventUtils.synthesizeMouseAtCenter(newButton, {}, gPanelWindow);
     }, gPanelWindow);

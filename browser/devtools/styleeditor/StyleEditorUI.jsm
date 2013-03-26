@@ -69,7 +69,7 @@ StyleEditorUI.prototype = {
   /*
    * Mark the style editor as having or not having unsaved changes.
    */
-  set isDirty(val) {
+  set isDirty(value) {
     this._markedDirty = value;
   },
 

@@ -31,31 +31,38 @@ this.StyleEditorPanel = function StyleEditorPanel(panelWin, toolbox) {
   this.destroy = this.destroy.bind(this);
   this.beforeNavigate = this.beforeNavigate.bind(this);
   this._showError = this._showError.bind(this);
-
-  this._target.on("will-navigate", this.beforeNavigate);
-  this._target.on("close", this.destroy);
 }
 
 StyleEditorPanel.prototype = {
+  get target() this._toolbox.target,
+
   /**
    * open is effectively an asynchronous constructor
    */
   open: function StyleEditor_open() {
     let deferred = Promise.defer();
 
-    let contentWin = this._toolbox.target.window;
+    let promise;
+    // We always interact with the target as if it were remote
+    if (!this.target.isRemote) {
+      promise = this.target.makeRemote();
+    } else {
+      promise = Promise.resolve(this.target);
+    }
 
-    this._debuggee = new StyleEditorDebuggee(this._toolbox.target);
+    promise.then(function() {
+      this.target.on("will-navigate", this.beforeNavigate);
+      this.target.on("close", this.destroy);
 
-    this._debuggee.initialize(function() {
+      this._debuggee = new StyleEditorDebuggee(this.target);
+
       this.UI = new StyleEditorUI(this._debuggee, this._panelDoc);
       this.UI.on("error", this._showError);
-
       this.UI.initialize();
 
       this.isReady = true;
       deferred.resolve(this);
-    }.bind(this));
+    }.bind(this))
 
     return deferred.promise;
   },
@@ -73,7 +80,9 @@ StyleEditorPanel.prototype = {
   /**
    * Before navigating to a new page or reloading the page.
    */
-  beforeNavigate: function StyleEditor_beforeNavigate(event, request) {
+  beforeNavigate: function(event, request) {
+    dump("HEATHER: before navigate" + "\n");
+    dump("HEATHER: before navigate isDirty " + this.UI.isDirty + "\n");
     if (this.UI.isDirty) {
       this.preventNavigate(request);
     }
@@ -82,7 +91,7 @@ StyleEditorPanel.prototype = {
   /**
    * Show a notificiation about losing unsaved changes.
    */
-  preventNavigate: function StyleEditor_preventNavigate(request) {
+  preventNavigate: function(request) {
     request.suspend();
 
     let notificationBox = null;

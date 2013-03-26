@@ -296,6 +296,7 @@ TabTarget.prototype = {
     this.client.addListener("tabDetached", this.destroy);
 
     this._onTabNavigated = function onRemoteTabNavigated(aType, aPacket) {
+      dump("HEATHER: _onTabNavigated" + "\n");
       if (aPacket.state == "start") {
         this.emit("will-navigate", aPacket);
       } else {
