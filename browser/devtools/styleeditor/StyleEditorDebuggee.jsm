@@ -17,7 +17,13 @@ Cu.import("resource:///modules/devtools/EventEmitter.jsm");
 XPCOMUtils.defineLazyModuleGetter(this, "Promise",
     "resource://gre/modules/commonjs/sdk/core/promise.js");
 
-
+/**
+ * A StyleEditorDebuggee represents the document the style editor is debugging.
+ * It maintains a list of StyleSheet objects that represent the stylesheets in
+ * the target's document. It wraps remote debugging protocol comunications.
+ *
+ * @param {Target} target The target the debuggee is listening to
+ */
 let StyleEditorDebuggee = function(target) {
   EventEmitter.decorate(this);
 
@@ -49,6 +55,9 @@ StyleEditorDebuggee.prototype = {
     return this._target.client;
   },
 
+  /**
+   * Clear stylesheets and state.
+   */
   clear: function(callback) {
     this.baseURI = null;
 
@@ -60,22 +69,31 @@ StyleEditorDebuggee.prototype = {
     this.emit("stylesheets-cleared");
   },
 
+  /**
+   * Called when target is created or has navigated.
+   * Clear previous sheets and request new document's
+   */
   _onNewDocument: function() {
-    dump("HEATHER: navigate event fired" + "\n");
     this.clear();
     this._getBaseURI();
 
-    var message = { to: this._actor, type: "newDocument" };
-    this.client.request(message);
+    var message = { type: "newDocument" };
+    this._sendRequest(message);
   },
 
+  /**
+   * request baseURIObject information from the document
+   */
   _getBaseURI: function() {
-    var message = { to: this._actor, type: "getBaseURI" };
-    this.client.request(message, function(response) {
+    var message = { type: "getBaseURI" };
+    this._sendRequest(message, function(response) {
       this.baseURI = response.baseURI;
     }.bind(this));
   },
 
+  /**
+   * Handle stylesheet-added event from the target
+   */
   _onStyleSheetsAdded: function(type, request) {
     for (let form of request.styleSheets) {
       let sheet = this._addStyleSheet(form);
@@ -83,27 +101,39 @@ StyleEditorDebuggee.prototype = {
     }
   },
 
+  /**
+   * Create a new StyleSheet object from the form
+   * and add our stylesheet list.
+   */
   _addStyleSheet: function(form) {
     var sheet = new StyleSheet(form, this);
     this.styleSheets.push(sheet);
     return sheet;
   },
 
+  /**
+   * Create a new stylesheet with the given text
+   * and attach it to the document.
+   */
   createStyleSheet: function(text, callback) {
-    var message = { to: this._actor, type: "newStyleSheet", text: text }
-    this.client.request(message, function(response) {
+    var message = { type: "newStyleSheet", text: text };
+    this._sendRequest(message, function(response)) {
       var sheet = this._addStyleSheet(response.styleSheet);
       callback(sheet);
     }.bind(this));
   },
 
-  _fetchStyleSheets: function(callback) {
-    var message = { to: this._actor, type: "getStyleSheets" };
-    this.client.request(message, function(response) {
-      callback(response.styleSheets);
-    });
+  /**
+   * Send a request to our actor on the server
+   */
+  _sendRequest: function(message, callback) {
+    message.to = this._actor;
+    this._client.request(message, callback);
   },
 
+  /**
+   * Clean up and remove listeners
+   */
   destroy: function() {
     this.clear();
 
@@ -112,6 +142,13 @@ StyleEditorDebuggee.prototype = {
   }
 }
 
+/**
+ * A StyleSheet object represents a stylesheet on the debuggee. It wraps
+ * communication with a complimentary StyleSheetActor on the server.
+ *
+ * @param {object} form     initial properties of the stylesheet
+ * @param {StyleEditorDebuggee} debuggee owner of the stylesheet
+ */
 let StyleSheet = function(form, debuggee) {
   EventEmitter.decorate(this);
 
@@ -128,56 +165,82 @@ let StyleSheet = function(form, debuggee) {
   this._client.addListener("error-" + this._actor, this._onError);
   this._client.addListener("styleApplied-" + this._actor, this._onStyleApplied);
 
-  this.importFromForm(form);
+  // set initial property values
+  for (var attr in form) {
+    this[attr] = form[attr];
+  }
 }
 
 StyleSheet.prototype = {
-  importFromForm: function(form) {
-    for (var attr in form) {
-      this[attr] = form[attr];
-    }
-  },
-
+  /**
+   * Toggle the disabled attribute of the stylesheet
+   */
   toggleDisabled: function() {
     let message = { type: "toggleDisabled" };
     this._sendRequest(message);
   },
 
+  /**
+   * Request that the source of the stylesheet be fetched.
+   * 'source-load' event will be fired when it's been fetched.
+   */
   fetchSource: function() {
     let message = { type: "fetchSource" };
     this._sendRequest(message);
   },
 
+  /**
+   * Update the stylesheet in place with the given full source.
+   */
   update: function(sheetText) {
     let message = { type: "update", text: sheetText, transition: true };
     this._sendRequest(message);
   },
 
-  _sendRequest: function(message, callback) {
-    message.to = this._actor;
-    this._client.request(message, callback);
-  },
-
+  /**
+   * Handle source load event from the client
+   */
   _onSourceLoad: function(type, request) {
     this.emit("source-load", request.source);
   },
 
+  /**
+   * Handle a property change on the stylesheet
+   */
   _onPropertyChange: function(type, request) {
     this[request.property] = request.value;
     this.emit("property-change", request.property);
   },
 
+  /**
+   * Propogate errors from the server that relate to this stylesheet.
+   */
   _onError: function(type, request) {
     this.emit("error", request.errorMessage);
   },
 
+  /**
+   * Handle event when update has been successfully applied and propogate it.
+   */
   _onStyleApplied: function() {
     this.emit("style-applied");
   },
 
+  /**
+   * Send a request to our actor
+   */
+  _sendRequest: function(message, callback) {
+    message.to = this._actor;
+    this._client.request(message, callback);
+  },
+
+  /**
+   * Clean up and remove event listeners
+   */
   destroy: function() {
     this._client.removeListener("sourceLoad-" + this._actor, this._onSourceLoad);
     this._client.removeListener("propertyChange-" + this._actor, this._onPropertyChange);
     this._client.removeListener("error-" + this._actor, this._onError);
+    this._client.removeListener("styleApplied-" + this._actor, this._onStyleApplied);
   }
 }
