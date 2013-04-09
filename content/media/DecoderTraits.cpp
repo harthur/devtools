@@ -42,6 +42,8 @@
 #ifdef MOZ_WIDGET_GONK
 #include "MediaOmxDecoder.h"
 #include "MediaOmxReader.h"
+#include "nsIPrincipal.h"
+#include "mozilla/dom/HTMLMediaElement.h"
 #endif
 #ifdef MOZ_DASH
 #include "DASHDecoder.h"
@@ -175,44 +177,30 @@ IsWebMType(const nsACString& aType)
 #endif
 
 #ifdef MOZ_GSTREAMER
-static const char* const gH264Types[4] = {
-  "video/mp4",
-  "video/3gpp",
-  "video/quicktime",
-  nullptr
-};
-
-static bool
-IsH264Type(const nsACString& aType)
-{
-  return CodecListContains(gH264Types, aType);
-}
-
 static bool
 IsGStreamerSupportedType(const nsACString& aMimeType)
 {
   if (!MediaDecoder::IsGStreamerEnabled())
     return false;
-  if (IsH264Type(aMimeType))
-    return true;
-  if (!Preferences::GetBool("media.prefer-gstreamer", false))
-    return false;
+
 #ifdef MOZ_WEBM
-  if (IsWebMType(aMimeType))
-    return true;
+  if (IsWebMType(aMimeType) && !Preferences::GetBool("media.prefer-gstreamer", false))
+    return false;
 #endif
 #ifdef MOZ_OGG
-  if (IsOggType(aMimeType))
-    return true;
+  if (IsOggType(aMimeType) && !Preferences::GetBool("media.prefer-gstreamer", false))
+    return false;
 #endif
-  return false;
+
+  return GStreamerDecoder::CanHandleMediaType(aMimeType, nullptr);
 }
 #endif
 
 #ifdef MOZ_WIDGET_GONK
-static const char* const gOmxTypes[6] = {
+static const char* const gOmxTypes[7] = {
   "audio/mpeg",
   "audio/mp4",
+  "audio/amr",
   "video/mp4",
   "video/3gpp",
   "video/quicktime",
@@ -228,9 +216,7 @@ IsOmxSupportedType(const nsACString& aType)
 
   return CodecListContains(gOmxTypes, aType);
 }
-#endif
 
-#if defined(MOZ_GSTREAMER) || defined(MOZ_WIDGET_GONK)
 static char const *const gH264Codecs[9] = {
   "avc1.42E01E",  // H.264 Constrained Baseline Profile Level 3.0
   "avc1.42001E",  // H.264 Baseline Profile Level 3.0
@@ -341,9 +327,11 @@ DecoderTraits::CanHandleMediaType(const char* aMIMEType,
   }
 #endif
 #ifdef MOZ_GSTREAMER
-  if (IsH264Type(nsDependentCString(aMIMEType))) {
-    codecList = gH264Codecs;
-    result = CANPLAY_MAYBE;
+  if (GStreamerDecoder::CanHandleMediaType(nsDependentCString(aMIMEType),
+                                           aHaveRequestedCodecs ? &aRequestedCodecs : nullptr)) {
+    if (aHaveRequestedCodecs)
+      return CANPLAY_YES;
+    return CANPLAY_MAYBE;
   }
 #endif
 #ifdef MOZ_WIDGET_GONK
@@ -362,7 +350,7 @@ DecoderTraits::CanHandleMediaType(const char* aMIMEType,
       GetMediaPluginHost()->FindDecoder(nsDependentCString(aMIMEType), &codecList))
     result = CANPLAY_MAYBE;
 #endif
-  if (result == CANPLAY_NO || !aHaveRequestedCodecs) {
+  if (result == CANPLAY_NO || !aHaveRequestedCodecs || !codecList) {
     return result;
   }
 
@@ -414,6 +402,21 @@ DecoderTraits::CreateDecoder(const nsACString& aType, MediaDecoderOwner* aOwner)
 #endif
 #ifdef MOZ_WIDGET_GONK
   if (IsOmxSupportedType(aType)) {
+    // AMR audio is enabled for MMS, but we are discouraging Web and App
+    // developers from using AMR, thus we only allow AMR to be played on WebApps.
+    if (aType.EqualsASCII("audio/amr") || aType.EqualsASCII("video/3gpp")) {
+      HTMLMediaElement* element = aOwner->GetMediaElement();
+      if (!element) {
+        return nullptr;
+      }
+      nsIPrincipal* principal = element->NodePrincipal();
+      if (!principal) {
+        return nullptr;
+      }
+      if (principal->GetAppStatus() < nsIPrincipal::APP_STATUS_PRIVILEGED) {
+        return nullptr;
+      }
+    }
     decoder = new MediaOmxDecoder();
   }
 #endif

@@ -33,6 +33,7 @@ jfieldID AndroidGeckoEvent::jMetaStateField = 0;
 jfieldID AndroidGeckoEvent::jDomKeyLocationField = 0;
 jfieldID AndroidGeckoEvent::jFlagsField = 0;
 jfieldID AndroidGeckoEvent::jUnicodeCharField = 0;
+jfieldID AndroidGeckoEvent::jBaseUnicodeCharField = 0;
 jfieldID AndroidGeckoEvent::jRepeatCountField = 0;
 jfieldID AndroidGeckoEvent::jCountField = 0;
 jfieldID AndroidGeckoEvent::jStartField = 0;
@@ -50,6 +51,8 @@ jfieldID AndroidGeckoEvent::jBandwidthField = 0;
 jfieldID AndroidGeckoEvent::jCanBeMeteredField = 0;
 jfieldID AndroidGeckoEvent::jScreenOrientationField = 0;
 jfieldID AndroidGeckoEvent::jByteBufferField = 0;
+jfieldID AndroidGeckoEvent::jWidthField = 0;
+jfieldID AndroidGeckoEvent::jHeightField = 0;
 
 jclass AndroidPoint::jPointClass = 0;
 jfieldID AndroidPoint::jXField = 0;
@@ -225,6 +228,7 @@ AndroidGeckoEvent::InitGeckoEventClass(JNIEnv *jEnv)
     jDomKeyLocationField = getField("mDomKeyLocation", "I");
     jFlagsField = getField("mFlags", "I");
     jUnicodeCharField = getField("mUnicodeChar", "I");
+    jBaseUnicodeCharField = getField("mBaseUnicodeChar", "I");
     jRepeatCountField = getField("mRepeatCount", "I");
     jCountField = getField("mCount", "I");
     jStartField = getField("mStart", "I");
@@ -242,6 +246,8 @@ AndroidGeckoEvent::InitGeckoEventClass(JNIEnv *jEnv)
     jCanBeMeteredField = getField("mCanBeMetered", "Z");
     jScreenOrientationField = getField("mScreenOrientation", "S");
     jByteBufferField = getField("mBuffer", "Ljava/nio/ByteBuffer;");
+    jWidthField = getField("mWidth", "I");
+    jHeightField = getField("mHeight", "I");
 }
 
 void
@@ -487,6 +493,7 @@ void
 AndroidGeckoEvent::Init(int aType, nsIntRect const& aRect)
 {
     mType = aType;
+    mAckNeeded = false;
     mRect = aRect;
 }
 
@@ -510,12 +517,14 @@ AndroidGeckoEvent::Init(JNIEnv *jenv, jobject jobj)
             break;
 
         case KEY_EVENT:
+        case IME_KEY_EVENT:
             mTime = jenv->GetLongField(jobj, jTimeField);
             mMetaState = jenv->GetIntField(jobj, jMetaStateField);
             mDomKeyLocation = jenv->GetIntField(jobj, jDomKeyLocationField);
             mFlags = jenv->GetIntField(jobj, jFlagsField);
             mKeyCode = jenv->GetIntField(jobj, jKeyCodeField);
             mUnicodeChar = jenv->GetIntField(jobj, jUnicodeCharField);
+            mBaseUnicodeChar = jenv->GetIntField(jobj, jBaseUnicodeCharField);
             mRepeatCount = jenv->GetIntField(jobj, jRepeatCountField);
             ReadCharactersField(jenv);
             break;
@@ -608,14 +617,6 @@ AndroidGeckoEvent::Init(JNIEnv *jenv, jobject jobj)
             break;
         }
 
-        case ACTIVITY_STOPPING:
-        case ACTIVITY_START:
-        case ACTIVITY_PAUSING:
-        case ACTIVITY_RESUMING: {
-            mFlags = jenv->GetIntField(jobj, jFlagsField);
-            break;
-        }
-
         case THUMBNAIL: {
             mMetaState = jenv->GetIntField(jobj, jMetaStateField);
             ReadPointArray(mPoints, jenv, jPoints, 1);
@@ -625,6 +626,12 @@ AndroidGeckoEvent::Init(JNIEnv *jenv, jobject jobj)
 
         case SCREENORIENTATION_CHANGED: {
             mScreenOrientation = jenv->GetShortField(jobj, jScreenOrientationField);
+            break;
+        }
+
+        case COMPOSITOR_CREATE: {
+            mWidth = jenv->GetIntField(jobj, jWidthField);
+            mHeight = jenv->GetIntField(jobj, jHeightField);
             break;
         }
 
@@ -641,20 +648,15 @@ void
 AndroidGeckoEvent::Init(int aType)
 {
     mType = aType;
+    mAckNeeded = false;
 }
 
 void
 AndroidGeckoEvent::Init(int aType, int aAction)
 {
     mType = aType;
+    mAckNeeded = false;
     mAction = aAction;
-}
-
-void
-AndroidGeckoEvent::Init(int x1, int y1, int x2, int y2)
-{
-    mType = DRAW;
-    mRect.SetEmpty();
 }
 
 void
@@ -663,6 +665,7 @@ AndroidGeckoEvent::Init(AndroidGeckoEvent *aResizeEvent)
     NS_ASSERTION(aResizeEvent->Type() == SIZE_CHANGED, "Init called on non-SIZE_CHANGED event");
 
     mType = FORCED_RESIZE;
+    mAckNeeded = false;
     mTime = aResizeEvent->mTime;
     mPoints = aResizeEvent->mPoints; // x,y coordinates
 }

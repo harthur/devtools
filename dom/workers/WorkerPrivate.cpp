@@ -25,6 +25,7 @@
 #include "nsIURL.h"
 #include "nsIXPConnect.h"
 #include "nsIXPCScriptNotify.h"
+#include "nsPrintfCString.h"
 
 #include "jsfriendapi.h"
 #include "jsdbgapi.h"
@@ -768,9 +769,7 @@ public:
   {
     aData.steal(&mData, &mDataByteCount);
 
-    if (!mClonedObjects.SwapElements(aClonedObjects)) {
-      NS_ERROR("This should never fail!");
-    }
+    mClonedObjects.SwapElements(aClonedObjects);
   }
 
   bool
@@ -1412,10 +1411,28 @@ public:
 
   ~WorkerJSRuntimeStats()
   {
-    for (size_t i = 0; i != compartmentStatsVector.length(); i++) {
-      free(compartmentStatsVector[i].extra1);
-      // No need to free |extra2| because it's a static string.
+    for (size_t i = 0; i != zoneStatsVector.length(); i++) {
+      delete static_cast<xpc::ZoneStatsExtras*>(zoneStatsVector[i].extra);
     }
+
+    for (size_t i = 0; i != compartmentStatsVector.length(); i++) {
+      delete static_cast<xpc::CompartmentStatsExtras*>(compartmentStatsVector[i].extra);
+    }
+  }
+
+  virtual void
+  initExtraZoneStats(JS::Zone* aZone,
+                     JS::ZoneStats* aZoneStats)
+                     MOZ_OVERRIDE
+  {
+    MOZ_ASSERT(!aZoneStats->extra);
+
+    // ReportJSRuntimeExplicitTreeStats expects that
+    // aZoneStats->extra is a xpc::ZoneStatsExtras pointer.
+    xpc::ZoneStatsExtras* extras = new xpc::ZoneStatsExtras;
+    extras->pathPrefix = mRtPath;
+    extras->pathPrefix += nsPrintfCString("zone(%p)/", (void *)aZone);
+    aZoneStats->extra = extras;
   }
 
   virtual void
@@ -1423,23 +1440,25 @@ public:
                             JS::CompartmentStats* aCompartmentStats)
                             MOZ_OVERRIDE
   {
-    MOZ_ASSERT(!aCompartmentStats->extra1);
-    MOZ_ASSERT(!aCompartmentStats->extra2);
+    MOZ_ASSERT(!aCompartmentStats->extra);
 
     // ReportJSRuntimeExplicitTreeStats expects that
-    // aCompartmentStats->{extra1,extra2} are char pointers.
+    // aCompartmentStats->extra is a xpc::CompartmentStatsExtras pointer.
+    xpc::CompartmentStatsExtras* extras = new xpc::CompartmentStatsExtras;
 
-    // This is the |cJSPathPrefix|.  Each worker has exactly two compartments:
+    // This is the |jsPathPrefix|.  Each worker has exactly two compartments:
     // one for atoms, and one for everything else.
-    nsAutoCString cJSPathPrefix(mRtPath);
-    cJSPathPrefix += js::IsAtomsCompartment(aCompartment)
-                   ? NS_LITERAL_CSTRING("compartment(web-worker-atoms)/")
-                   : NS_LITERAL_CSTRING("compartment(web-worker)/");
-    aCompartmentStats->extra1 = strdup(cJSPathPrefix.get());
+    extras->jsPathPrefix.Assign(mRtPath);
+    extras->jsPathPrefix += nsPrintfCString("zone(%p)/",
+                                            (void *)js::GetCompartmentZone(aCompartment));
+    extras->jsPathPrefix += js::IsAtomsCompartment(aCompartment)
+                            ? NS_LITERAL_CSTRING("compartment(web-worker-atoms)/")
+                            : NS_LITERAL_CSTRING("compartment(web-worker)/");
 
     // This should never be used when reporting with workers (hence the "?!").
-    static const char bogusMemoryReporterPath[] = "explicit/workers/?!/";
-    aCompartmentStats->extra2 = const_cast<char*>(bogusMemoryReporterPath);
+    extras->domPathPrefix.AssignLiteral("explicit/workers/?!/");
+
+    aCompartmentStats->extra = extras;
   }
 };
 
@@ -1816,7 +1835,8 @@ WorkerPrivateParent<Derived>::WorkerPrivateParent(
                                      nsCOMPtr<nsIPrincipal>& aPrincipal,
                                      nsCOMPtr<nsIChannel>& aChannel,
                                      nsCOMPtr<nsIContentSecurityPolicy>& aCSP,
-                                     bool aEvalAllowed)
+                                     bool aEvalAllowed,
+                                     bool aReportCSPViolations)
 : EventTarget(aParent ? aCx : NULL), mMutex("WorkerPrivateParent Mutex"),
   mCondVar(mMutex, "WorkerPrivateParent CondVar"),
   mMemoryReportCondVar(mMutex, "WorkerPrivateParent Memory Report CondVar"),
@@ -1826,7 +1846,8 @@ WorkerPrivateParent<Derived>::WorkerPrivateParent(
   mJSRuntimeHeapSize(0), mJSWorkerAllocationThreshold(3),
   mGCZeal(0), mJSObjectRooted(false), mParentSuspended(false),
   mIsChromeWorker(aIsChromeWorker), mPrincipalIsSystem(false),
-  mMainThreadObjectsForgotten(false), mEvalAllowed(aEvalAllowed)
+  mMainThreadObjectsForgotten(false), mEvalAllowed(aEvalAllowed),
+  mReportCSPViolations(aReportCSPViolations)
 {
   MOZ_COUNT_CTOR(mozilla::dom::workers::WorkerPrivateParent);
 
@@ -2404,11 +2425,13 @@ WorkerPrivate::WorkerPrivate(JSContext* aCx, JSObject* aObject,
                              nsCOMPtr<nsIChannel>& aChannel,
                              nsCOMPtr<nsIContentSecurityPolicy>& aCSP,
                              bool aEvalAllowed,
+                             bool aReportCSPViolations,
                              bool aXHRParamsAllowed)
 : WorkerPrivateParent<WorkerPrivate>(aCx, aObject, aParent, aParentJSContext,
                                      aScriptURL, aIsChromeWorker, aDomain,
                                      aWindow, aParentScriptContext, aBaseURI,
-                                     aPrincipal, aChannel, aCSP, aEvalAllowed),
+                                     aPrincipal, aChannel, aCSP, aEvalAllowed,
+                                     aReportCSPViolations),
   mJSContext(nullptr), mErrorHandlerRecursionCount(0), mNextTimeoutId(1),
   mStatus(Pending), mSuspended(false), mTimerRunning(false),
   mRunningExpiredTimeouts(false), mCloseHandlerStarted(false),
@@ -2437,6 +2460,7 @@ WorkerPrivate::Create(JSContext* aCx, JSObject* aObj, WorkerPrivate* aParent,
   nsCOMPtr<nsIContentSecurityPolicy> csp;
 
   bool evalAllowed = true;
+  bool reportEvalViolations = false;
 
   JSContext* parentContext;
 
@@ -2601,7 +2625,7 @@ WorkerPrivate::Create(JSContext* aCx, JSObject* aObj, WorkerPrivate* aParent,
       return nullptr;
     }
 
-    if (csp && NS_FAILED(csp->GetAllowsEval(&evalAllowed))) {
+    if (csp && NS_FAILED(csp->GetAllowsEval(&reportEvalViolations, &evalAllowed))) {
       NS_ERROR("CSP: failed to get allowsEval");
       return nullptr;
     }
@@ -2660,7 +2684,8 @@ WorkerPrivate::Create(JSContext* aCx, JSObject* aObj, WorkerPrivate* aParent,
   nsRefPtr<WorkerPrivate> worker =
     new WorkerPrivate(aCx, aObj, aParent, parentContext, scriptURL,
                       aIsChromeWorker, domain, window, scriptContext, baseURI,
-                      principal, channel, csp, evalAllowed, xhrParamsAllowed);
+                      principal, channel, csp, evalAllowed, reportEvalViolations,
+                      xhrParamsAllowed);
 
   worker->SetIsDOMBinding();
   worker->SetWrapper(aObj);
@@ -3275,11 +3300,11 @@ WorkerPrivate::TraceInternal(JSTracer* aTrc)
 
   for (uint32_t index = 0; index < mTimeouts.Length(); index++) {
     TimeoutInfo* info = mTimeouts[index];
-    JS_CALL_VALUE_TRACER(aTrc, info->mTimeoutVal,
-                         "WorkerPrivate timeout value");
+    JS_CallValueTracer(aTrc, info->mTimeoutVal,
+                       "WorkerPrivate timeout value");
     for (uint32_t index2 = 0; index2 < info->mExtraArgVals.Length(); index2++) {
-      JS_CALL_VALUE_TRACER(aTrc, info->mExtraArgVals[index2],
-                           "WorkerPrivate timeout extra argument value");
+      JS_CallValueTracer(aTrc, info->mExtraArgVals[index2],
+                         "WorkerPrivate timeout extra argument value");
     }
   }
 }
@@ -4120,12 +4145,12 @@ WorkerPrivate::GarbageCollectInternal(JSContext* aCx, bool aShrinking,
   AssertIsOnWorkerThread();
 
   JSRuntime *rt = JS_GetRuntime(aCx);
-  js::PrepareForFullGC(rt);
+  JS::PrepareForFullGC(rt);
   if (aShrinking) {
-    js::ShrinkingGC(rt, js::gcreason::DOM_WORKER);
+    JS::ShrinkingGC(rt, JS::gcreason::DOM_WORKER);
   }
   else {
-    js::GCForReason(rt, js::gcreason::DOM_WORKER);
+    JS::GCForReason(rt, JS::gcreason::DOM_WORKER);
   }
 
   if (aCollectChildren) {

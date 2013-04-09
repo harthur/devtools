@@ -153,7 +153,9 @@ enum {
   PREF_typeinference,
   PREF_jit_hardening,
   PREF_mem_max,
+  PREF_baselinejit,
   PREF_ion,
+  PREF_asmjs,
   PREF_mem_gc_allocation_threshold_mb,
 
 #ifdef JS_GC_ZEAL
@@ -173,7 +175,9 @@ const char* gPrefsToWatch[] = {
   JS_OPTIONS_DOT_STR "typeinference",
   JS_OPTIONS_DOT_STR "jit_hardening",
   JS_OPTIONS_DOT_STR "mem.max",
+  JS_OPTIONS_DOT_STR "baselinejit.content",
   JS_OPTIONS_DOT_STR "ion.content",
+  JS_OPTIONS_DOT_STR "experimental_asmjs",
   "dom.workers.mem.gc_allocation_threshold_mb"
 
 #ifdef JS_GC_ZEAL
@@ -225,8 +229,14 @@ PrefCallback(const char* aPrefName, void* aClosure)
     if (Preferences::GetBool(gPrefsToWatch[PREF_typeinference])) {
       newOptions |= JSOPTION_TYPE_INFERENCE;
     }
+    if (Preferences::GetBool(gPrefsToWatch[PREF_baselinejit])) {
+      newOptions |= JSOPTION_BASELINE;
+    }
     if (Preferences::GetBool(gPrefsToWatch[PREF_ion])) {
       newOptions |= JSOPTION_ION;
+    }
+    if (Preferences::GetBool(gPrefsToWatch[PREF_asmjs])) {
+      newOptions |= JSOPTION_ASMJS;
     }
 
     RuntimeService::SetDefaultJSContextOptions(newOptions);
@@ -335,7 +345,7 @@ public:
       NS_NAMED_LITERAL_STRING(scriptSample,
          "Call to eval() or related function blocked by CSP.");
       csp->LogViolationDetails(nsIContentSecurityPolicy::VIOLATION_TYPE_EVAL,
-                                mFileName, scriptSample, mLineNum);
+                               mFileName, scriptSample, mLineNum);
     }
 
     nsRefPtr<LogViolationDetailsResponseRunnable> response =
@@ -354,30 +364,28 @@ ContentSecurityPolicyAllows(JSContext* aCx)
   WorkerPrivate* worker = GetWorkerPrivateFromContext(aCx);
   worker->AssertIsOnWorkerThread();
 
-  if (worker->IsEvalAllowed()) {
-    return true;
+  if (worker->GetReportCSPViolations()) {
+    nsString fileName;
+    uint32_t lineNum = 0;
+
+    JSScript* script;
+    const char* file;
+    if (JS_DescribeScriptedCaller(aCx, &script, &lineNum) &&
+        (file = JS_GetScriptFilename(aCx, script))) {
+      fileName.AssignASCII(file);
+    } else {
+      JS_ReportPendingException(aCx);
+    }
+
+    nsRefPtr<LogViolationDetailsRunnable> runnable =
+        new LogViolationDetailsRunnable(worker, fileName, lineNum);
+
+    if (!runnable->Dispatch(aCx)) {
+      JS_ReportPendingException(aCx);
+    }
   }
 
-  nsString fileName;
-  uint32_t lineNum = 0;
-
-  JSScript* script;
-  const char* file;
-  if (JS_DescribeScriptedCaller(aCx, &script, &lineNum) &&
-      (file = JS_GetScriptFilename(aCx, script))) {
-    fileName.AssignASCII(file);
-  } else {
-    JS_ReportPendingException(aCx);
-  }
-
-  nsRefPtr<LogViolationDetailsRunnable> runnable =
-      new LogViolationDetailsRunnable(worker, fileName, lineNum);
-
-  if (!runnable->Dispatch(aCx)) {
-    JS_ReportPendingException(aCx);
-  }
-
-  return false;
+  return worker->IsEvalAllowed();
 }
 
 void

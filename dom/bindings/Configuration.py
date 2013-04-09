@@ -36,9 +36,9 @@ class Configuration:
             self.interfaces[iface.identifier.name] = iface
             if iface.identifier.name not in config:
                 # Completely skip consequential interfaces with no descriptor
-                # because chances are we don't need to do anything interesting
-                # with them.
-                if iface.isConsequential():
+                # if they have no interface object because chances are we
+                # don't need to do anything interesting with them.
+                if iface.isConsequential() and not iface.hasInterfaceObject():
                     continue
                 entry = {}
             else:
@@ -113,6 +113,8 @@ class Configuration:
                 getter = lambda x: x.interface.isCallback()
             elif key == 'isExternal':
                 getter = lambda x: x.interface.isExternal()
+            elif key == 'isJSImplemented':
+                getter = lambda x: x.interface.isJSImplemented()
             else:
                 getter = lambda x: getattr(x, key)
             curr = filter(lambda x: getter(x) == val, curr)
@@ -209,11 +211,12 @@ class Descriptor(DescriptorProvider):
                 nativeTypeDefault = "mozilla::dom::" + ifaceName
 
         self.nativeType = desc.get('nativeType', nativeTypeDefault)
+        self.jsImplParent = desc.get('jsImplParent', self.nativeType)
 
         # Do something sane for JSObject
         if self.nativeType == "JSObject":
             headerDefault = "jsapi.h"
-        elif self.interface.isCallback():
+        elif self.interface.isCallback() or self.interface.isJSImplemented():
             # A copy of CGHeaders.getDeclarationFilename; we can't
             # import it here, sadly.
             # Use our local version of the header, not the exported one, so that
@@ -227,6 +230,10 @@ class Descriptor(DescriptorProvider):
                 headerDefault = self.nativeType
                 headerDefault = headerDefault.replace("::", "/") + ".h"
         self.headerFile = desc.get('headerFile', headerDefault)
+        if self.jsImplParent == self.nativeType:
+            self.jsImplParentHeader = self.headerFile
+        else:
+            self.jsImplParentHeader = self.jsImplParent.replace("::", "/") + ".h"
 
         self.skipGen = desc.get('skipGen', False)
 
@@ -376,8 +383,11 @@ class Descriptor(DescriptorProvider):
                 else:
                     add('all', [config], attribute)
 
-        for attribute in ['implicitJSContext', 'resultNotAddRefed']:
-            addExtendedAttribute(attribute, desc.get(attribute, {}))
+        if self.interface.isJSImplemented():
+            addExtendedAttribute('implicitJSContext', ['constructor'])
+        else:
+            for attribute in ['implicitJSContext', 'resultNotAddRefed']:
+                addExtendedAttribute(attribute, desc.get(attribute, {}))
 
         self.binaryNames = desc.get('binaryNames', {})
         if '__legacycaller' not in self.binaryNames:
@@ -420,9 +430,9 @@ class Descriptor(DescriptorProvider):
                 attrs.append("infallible")
 
         name = member.identifier.name
+        throws = self.interface.isJSImplemented() or member.getExtendedAttribute("Throws")
         if member.isMethod():
             attrs = self.extendedAttributes['all'].get(name, [])
-            throws = member.getExtendedAttribute("Throws")
             maybeAppendInfallibleToAttrs(attrs, throws)
             return attrs
 
@@ -430,7 +440,6 @@ class Descriptor(DescriptorProvider):
         assert bool(getter) != bool(setter)
         key = 'getterOnly' if getter else 'setterOnly'
         attrs = self.extendedAttributes['all'].get(name, []) + self.extendedAttributes[key].get(name, [])
-        throws = member.getExtendedAttribute("Throws")
         if throws is None:
             throwsAttr = "GetterThrows" if getter else "SetterThrows"
             throws = member.getExtendedAttribute(throwsAttr)
@@ -446,6 +455,15 @@ class Descriptor(DescriptorProvider):
     def needsConstructHookHolder(self):
         assert self.interface.hasInterfaceObject()
         return False
+
+    def needsHeaderInclude(self):
+        """
+        An interface doesn't need a header file if it is not concrete,
+        not pref-controlled, and has only consts.
+        """
+        return (self.interface.isExternal() or self.concrete or
+            self.interface.getExtendedAttribute("PrefControlled") or
+            self.interface.hasInterfacePrototypeObject())
 
 # Some utility methods
 def getTypesFromDescriptor(descriptor):

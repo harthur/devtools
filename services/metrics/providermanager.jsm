@@ -82,15 +82,19 @@ this.ProviderManager.prototype = Object.freeze({
    *
    * One can register entries in the application's .manifest file. e.g.
    *
-   *   category healthreport-js-provider FooProvider resource://gre/modules/foo.jsm
+   *   category healthreport-js-provider-default FooProvider resource://gre/modules/foo.jsm
+   *   category healthreport-js-provider-nightly EyeballProvider resource://gre/modules/eyeball.jsm
    *
    * Then to load them:
    *
    *   let reporter = getHealthReporter("healthreport.");
-   *   reporter.registerProvidersFromCategoryManager("healthreport-js-provider");
+   *   reporter.registerProvidersFromCategoryManager("healthreport-js-provider-default");
+   *
+   * If the category has no defined members, this call has no effect, and no error is raised.
    *
    * @param category
-   *        (string) Name of category to query and load from.
+   *        (string) Name of category from which to query and load.
+   * @return a newly spawned Task.
    */
   registerProvidersFromCategoryManager: function (category) {
     this._log.info("Registering providers from category: " + category);
@@ -153,7 +157,7 @@ this.ProviderManager.prototype = Object.freeze({
     }
 
     if (this._providers.has(provider.name)) {
-      return Promise.resolve();
+      return CommonUtils.laterTickResolvingPromise();
     }
 
     let deferred = Promise.defer();
@@ -222,13 +226,13 @@ this.ProviderManager.prototype = Object.freeze({
    */
   ensurePullOnlyProvidersRegistered: function () {
     if (this._pullOnlyProvidersRegistered) {
-      return Promise.resolve();
+      return CommonUtils.laterTickResolvingPromise();
     }
 
     let onFinished = function () {
       this._pullOnlyProvidersRegistered = true;
 
-      return Promise.resolve();
+      return CommonUtils.laterTickResolvingPromise();
     }.bind(this);
 
     return Task.spawn(function registerPullProviders() {
@@ -245,13 +249,13 @@ this.ProviderManager.prototype = Object.freeze({
 
   ensurePullOnlyProvidersUnregistered: function () {
     if (!this._pullOnlyProvidersRegistered) {
-      return Promise.resolve();
+      return CommonUtils.laterTickResolvingPromise();
     }
 
     let onFinished = function () {
       this._pullOnlyProvidersRegistered = false;
 
-      return Promise.resolve();
+      return CommonUtils.laterTickResolvingPromise();
     }.bind(this);
 
     return Task.spawn(function unregisterPullProviders() {
@@ -373,7 +377,7 @@ this.ProviderManager.prototype = Object.freeze({
           }
         }
 
-        return Promise.resolve(result);
+        return CommonUtils.laterTickResolvingPromise(result);
       });
 
       promises.push([provider.name, promise]);
@@ -412,7 +416,7 @@ this.ProviderManager.prototype = Object.freeze({
   _recordProviderError: function (name, msg, ex) {
     let msg = "Provider error: " + name + ": " + msg;
     if (ex) {
-      msg += ": " + ex.message;
+      msg += ": " + CommonUtils.exceptionStr(ex);
     }
     this._log.warn(msg);
 

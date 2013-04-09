@@ -331,6 +331,7 @@ protected:
 
   bool GetToken(bool aSkipWS);
   void UngetToken();
+  bool GetNextTokenLocation(bool aSkipWS, uint32_t *linenum, uint32_t *colnum);
 
   bool ExpectSymbol(PRUnichar aSymbol, bool aSkipWS);
   bool ExpectEndProperty();
@@ -1437,6 +1438,21 @@ CSSParserImpl::UngetToken()
 }
 
 bool
+CSSParserImpl::GetNextTokenLocation(bool aSkipWS, uint32_t *linenum, uint32_t *colnum)
+{
+  // Peek at next token so that mScanner updates line and column vals
+  if (!GetToken(aSkipWS)) {
+    return false;
+  }
+  UngetToken();
+  // The scanner uses one-indexing for line numbers but zero-indexing
+  // for column numbers.
+  *linenum = mScanner->GetLineNumber();
+  *colnum = 1 + mScanner->GetColumnNumber();
+  return true;
+}
+
+bool
 CSSParserImpl::ExpectSymbol(PRUnichar aSymbol,
                             bool aSkipWS)
 {
@@ -1611,7 +1627,8 @@ CSSParserImpl::ParseAtRule(RuleAppendFunc aAppendFunc,
     parseFunc = &CSSParserImpl::ParsePageRule;
     newSection = eCSSSection_General;
 
-  } else if (mToken.mIdent.LowerCaseEqualsLiteral("-moz-keyframes") ||
+  } else if ((nsCSSProps::IsEnabled(eCSSPropertyAlias_MozAnimation) &&
+              mToken.mIdent.LowerCaseEqualsLiteral("-moz-keyframes")) ||
              mToken.mIdent.LowerCaseEqualsLiteral("keyframes")) {
     parseFunc = &CSSParserImpl::ParseKeyframesRule;
     newSection = eCSSSection_General;
@@ -2887,8 +2904,9 @@ CSSParserImpl::ParseRuleSet(RuleAppendFunc aAppendFunc, void* aData,
 {
   // First get the list of selectors for the rule
   nsCSSSelectorList* slist = nullptr;
-  uint32_t linenum = mScanner->GetLineNumber();
-  if (! ParseSelectorList(slist, PRUnichar('{'))) {
+  uint32_t linenum, colnum;
+  if (!GetNextTokenLocation(true, &linenum, &colnum) ||
+      !ParseSelectorList(slist, PRUnichar('{'))) {
     REPORT_UNEXPECTED(PEBadSelectorRSIgnored);
     OUTPUT_ERROR();
     SkipRuleSet(aInsideBraces);
@@ -2916,7 +2934,7 @@ CSSParserImpl::ParseRuleSet(RuleAppendFunc aAppendFunc, void* aData,
   // Translate the selector list and declaration block into style data
 
   nsRefPtr<css::StyleRule> rule = new css::StyleRule(slist, declaration);
-  rule->SetLineNumber(linenum);
+  rule->SetLineNumberAndColumnNumber(linenum, colnum);
   (*aAppendFunc)(rule, aData);
 
   return true;

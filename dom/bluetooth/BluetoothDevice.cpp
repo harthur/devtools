@@ -64,7 +64,7 @@ BluetoothDevice::BluetoothDevice(nsPIDOMWindow* aWindow,
 
   BluetoothService* bs = BluetoothService::Get();
   NS_ENSURE_TRUE_VOID(bs);
-  bs->RegisterBluetoothSignalHandler(mPath, this);
+  bs->RegisterBluetoothSignalHandler(mAddress, this);
 }
 
 BluetoothDevice::~BluetoothDevice()
@@ -72,7 +72,7 @@ BluetoothDevice::~BluetoothDevice()
   BluetoothService* bs = BluetoothService::Get();
   // bs can be null on shutdown, where destruction might happen.
   NS_ENSURE_TRUE_VOID(bs);
-  bs->UnregisterBluetoothSignalHandler(mPath, this);
+  bs->UnregisterBluetoothSignalHandler(mAddress, this);
   Unroot();
 }
 
@@ -232,7 +232,7 @@ BluetoothDevice::GetConnected(bool* aConnected)
 }
 
 NS_IMETHODIMP
-BluetoothDevice::GetUuids(JSContext* aCx, jsval* aUuids)
+BluetoothDevice::GetUuids(JSContext* aCx, JS::Value* aUuids)
 {
   if (mJsUuids) {
     aUuids->setObject(*mJsUuids);
@@ -244,7 +244,7 @@ BluetoothDevice::GetUuids(JSContext* aCx, jsval* aUuids)
 }
 
 NS_IMETHODIMP
-BluetoothDevice::GetServices(JSContext* aCx, jsval* aServices)
+BluetoothDevice::GetServices(JSContext* aCx, JS::Value* aServices)
 {
   if (mJsServices) {
     aServices->setObject(*mJsServices);
@@ -254,6 +254,3 @@ BluetoothDevice::GetServices(JSContext* aCx, jsval* aServices)
   return NS_OK;
 }
 
-NS_IMPL_EVENT_HANDLER(BluetoothDevice, propertychanged)
-NS_IMPL_EVENT_HANDLER(BluetoothDevice, connected)
-NS_IMPL_EVENT_HANDLER(BluetoothDevice, disconnected)

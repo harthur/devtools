@@ -20,7 +20,6 @@
 #include "nsHTMLParts.h"
 #include "nsIPresShell.h"
 #include "nsCSSRendering.h"
-#include "nsDOMTouchEvent.h"
 #include "nsEventListenerManager.h"
 #include "nsIDOMEventTarget.h"
 #include "nsIDOMMouseEvent.h"
@@ -77,12 +76,12 @@ nsSliderFrame::~nsSliderFrame()
 {
 }
 
-NS_IMETHODIMP
+void
 nsSliderFrame::Init(nsIContent*      aContent,
                     nsIFrame*        aParent,
                     nsIFrame*        aPrevInFlow)
 {
-  nsresult rv = nsBoxFrame::Init(aContent, aParent, aPrevInFlow);
+  nsBoxFrame::Init(aContent, aParent, aPrevInFlow);
 
   static bool gotPrefs = false;
   if (!gotPrefs) {
@@ -93,8 +92,6 @@ nsSliderFrame::Init(nsIContent*      aContent,
   }
 
   mCurPos = GetCurrentPosition(aContent);
-
-  return rv;
 }
 
 NS_IMETHODIMP

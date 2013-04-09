@@ -155,10 +155,10 @@ struct ParseContext                 /* tree context for semantic checks */
     bool generateFunctionBindings(JSContext *cx, InternalHandle<Bindings*> bindings) const;
 
   public:
-    Node             yieldNode;     /* parse node for a yield expression that might
-                                       be an error if we turn out to be inside a
-                                       generator expression */
-
+    uint32_t         yieldOffset;   /* offset of a yield expression that might
+                                       be an error if we turn out to be inside
+                                       a generator expression.  Zero means
+                                       there isn't one. */
   private:
     ParseContext    **parserPC;     /* this points to the Parser's active pc
                                        and holds either |this| or one of
@@ -217,6 +217,10 @@ struct ParseContext                 /* tree context for semantic checks */
     //   if (cond) { function f3() { if (cond) { function f4() { } } } }
     //
     bool atBodyLevel();
+
+    inline bool useAsmOrInsideUseAsm() const {
+        return sc->isFunctionBox() && sc->asFunctionBox()->useAsmOrInsideUseAsm();
+    }
 };
 
 template <typename ParseHandler>
@@ -292,7 +296,13 @@ struct Parser : private AutoGCRooter, public StrictModeGetter
     /* State specific to the kind of parse being performed. */
     ParseHandler handler;
 
+  private:
+    bool reportHelper(ParseReportKind kind, bool strict, uint32_t offset,
+                      unsigned errorNumber, va_list args);
+  public:
     bool report(ParseReportKind kind, bool strict, Node pn, unsigned errorNumber, ...);
+    bool reportWithOffset(ParseReportKind kind, bool strict, uint32_t offset, unsigned errorNumber,
+                          ...);
 
     Parser(JSContext *cx, const CompileOptions &options,
            const jschar *chars, size_t length, bool foldConstants);
@@ -365,12 +375,9 @@ struct Parser : private AutoGCRooter, public StrictModeGetter
      * statements; pass ExpressionBody if the body is a single expression.
      */
     enum FunctionBodyType { StatementListBody, ExpressionBody };
-    Node functionBody(FunctionBodyType type);
+    Node functionBody(FunctionSyntaxKind kind, FunctionBodyType type);
 
-    virtual bool strictMode()
-    {
-        return pc->sc->strict;
-    }
+    virtual bool strictMode() { return pc->sc->strict; }
 
   private:
     /*
@@ -410,26 +417,8 @@ struct Parser : private AutoGCRooter, public StrictModeGetter
     Node assignExprWithoutYield(unsigned err);
     Node condExpr1();
     Node orExpr1();
-    Node andExpr1i();
-    Node andExpr1n();
-    Node bitOrExpr1i();
-    Node bitOrExpr1n();
-    Node bitXorExpr1i();
-    Node bitXorExpr1n();
-    Node bitAndExpr1i();
-    Node bitAndExpr1n();
-    Node eqExpr1i();
-    Node eqExpr1n();
-    Node relExpr1i();
-    Node relExpr1n();
-    Node shiftExpr1i();
-    Node shiftExpr1n();
-    Node addExpr1i();
-    Node addExpr1n();
-    Node mulExpr1i();
-    Node mulExpr1n();
     Node unaryExpr();
-    Node memberExpr(bool allowCallSyntax);
+    Node memberExpr(TokenKind tt, bool allowCallSyntax);
     Node primaryExpr(TokenKind tt);
     Node parenExpr(bool *genexp = NULL);
 
@@ -437,13 +426,13 @@ struct Parser : private AutoGCRooter, public StrictModeGetter
      * Additional JS parsers.
      */
     enum FunctionType { Getter, Setter, Normal };
-    bool functionArguments(Node *list, Node funcpn, bool &hasRest);
+    bool functionArguments(FunctionSyntaxKind kind, Node *list, Node funcpn, bool &hasRest);
 
     Node functionDef(HandlePropertyName name, const TokenStream::Position &start,
-                     FunctionType type, FunctionSyntaxKind kind);
+                     size_t startOffset, FunctionType type, FunctionSyntaxKind kind);
     bool functionArgsAndBody(Node pn, HandleFunction fun, HandlePropertyName funName,
-                             FunctionType type, FunctionSyntaxKind kind, bool strict,
-                             bool *becameStrict = NULL);
+                             size_t startOffset, FunctionType type, FunctionSyntaxKind kind,
+                             bool strict, bool *becameStrict = NULL);
 
     Node unaryOpExpr(ParseNodeKind kind, JSOp op);
 

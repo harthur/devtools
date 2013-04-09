@@ -37,9 +37,6 @@ enum BailoutKind
     // A bailout required to monitor the result of a VM call.
     Bailout_Monitor,
 
-    // A bailout to trigger recompilation to inline calls when the script is hot.
-    Bailout_RecompileCheck,
-
     // A bailout triggered by a bounds-check failure.
     Bailout_BoundsCheck,
 
@@ -49,6 +46,32 @@ enum BailoutKind
     // A shape guard based on JM ICs failed.
     Bailout_CachedShapeGuard
 };
+
+#ifdef DEBUG
+inline const char *
+BailoutKindString(BailoutKind kind)
+{
+    switch (kind) {
+      case Bailout_Normal:
+        return "Bailout_Normal";
+      case Bailout_ArgumentCheck:
+        return "Bailout_ArgumentCheck";
+      case Bailout_TypeBarrier:
+        return "Bailout_TypeBarrier";
+      case Bailout_Monitor:
+        return "Bailout_Monitor";
+      case Bailout_BoundsCheck:
+        return "Bailout_BoundsCheck";
+      case Bailout_ShapeGuard:
+        return "Bailout_ShapeGuard";
+      case Bailout_CachedShapeGuard:
+        return "Bailout_CachedShapeGuard";
+      default:
+        JS_NOT_REACHED("Invalid BailoutKind");
+    }
+    return "INVALID_BAILOUT_KIND";
+}
+#endif
 
 // The ordering of this enumeration is important: Anything < Value is a
 // specialized type. Furthermore, anything < String has trivial conversion to
@@ -67,7 +90,7 @@ enum MIRType
     MIRType_None,         // Invalid, used as a placeholder.
     MIRType_Slots,        // A slots vector
     MIRType_Elements,     // An elements vector
-    MIRType_StackFrame,   // StackFrame pointer for OSR.
+    MIRType_Pointer,      // An opaque pointer that receives no special treatment
     MIRType_Shape,        // A Shape pointer.
     MIRType_ForkJoinSlice // js::ForkJoinSlice*
 };

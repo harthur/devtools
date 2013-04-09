@@ -8,6 +8,8 @@
 #ifndef jsion_coderef_h__
 #define jsion_coderef_h__
 
+#include "mozilla/PodOperations.h"
+
 #include "IonTypes.h"
 #include "gc/Heap.h"
 
@@ -28,9 +30,8 @@ namespace ion {
 // bit on offsets.
 static const uint32_t MAX_BUFFER_SIZE = (1 << 30) - 1;
 
-// Maximum number of scripted arg and stack slots.
+// Maximum number of scripted arg slots.
 static const uint32_t SNAPSHOT_MAX_NARGS = 127;
-static const uint32_t SNAPSHOT_MAX_STACK = 127;
 
 class MacroAssembler;
 class CodeOffsetLabel;
@@ -131,6 +132,7 @@ class IonCode : public gc::Cell
     static IonCode *New(JSContext *cx, uint8_t *code, uint32_t bufferSize, JSC::ExecutablePool *pool);
 
   public:
+    JS::Zone *zone() const { return tenuredZone(); }
     static void readBarrier(IonCode *code);
     static void writeBarrierPre(IonCode *code);
     static void writeBarrierPost(IonCode *code, void *addr);
@@ -170,7 +172,7 @@ struct IonScript
     uint32_t invalidateEpilogueDataOffset_;
 
     // Flag set when we bailout, to avoid frequent bailouts.
-    bool bailoutExpected_;
+    uint32_t bailoutExpected_;
 
     // Any kind of data needed by the runtime, these can be either cache
     // information or profiling info.
@@ -302,6 +304,9 @@ struct IonScript
     static inline size_t offsetOfOsrEntryOffset() {
         return offsetof(IonScript, osrEntryOffset_);
     }
+    static size_t offsetOfBailoutExpected() {
+        return offsetof(IonScript, bailoutExpected_);
+    }
 
   public:
     IonCode *method() const {
@@ -352,10 +357,10 @@ struct IonScript
         return invalidateEpilogueDataOffset_;
     }
     void setBailoutExpected() {
-        bailoutExpected_ = true;
+        bailoutExpected_ = 1;
     }
     bool bailoutExpected() const {
-        return bailoutExpected_;
+        return bailoutExpected_ ? true : false;
     }
     const uint8_t *snapshots() const {
         return reinterpret_cast<const uint8_t *>(this) + snapshots_;
@@ -425,7 +430,7 @@ struct IonScript
         return runtimeSize_;
     }
     void toggleBarriers(bool enabled);
-    void purgeCaches(JSCompartment *c);
+    void purgeCaches(JS::Zone *zone);
     void copySnapshots(const SnapshotWriter *writer);
     void copyBailoutTable(const SnapshotOffset *table);
     void copyConstants(const HeapValue *vp);
@@ -578,7 +583,7 @@ struct IonScriptCounts
   public:
 
     IonScriptCounts() {
-        PodZero(this);
+        mozilla::PodZero(this);
     }
 
     ~IonScriptCounts() {
@@ -616,21 +621,22 @@ struct IonScriptCounts
 struct VMFunction;
 
 class IonCompartment;
+class IonRuntime;
 
-struct AutoFlushCache {
-
+struct AutoFlushCache
+{
   private:
     uintptr_t start_;
     uintptr_t stop_;
     const char *name_;
-    IonCompartment *myCompartment_;
+    IonRuntime *runtime_;
     bool used_;
 
   public:
     void update(uintptr_t p, size_t len);
     static void updateTop(uintptr_t p, size_t len);
     ~AutoFlushCache();
-    AutoFlushCache(const char * nonce, IonCompartment *comp = NULL);
+    AutoFlushCache(const char *nonce, IonRuntime *rt = NULL);
     void flushAnyway();
 };
 

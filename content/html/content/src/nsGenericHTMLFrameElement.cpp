@@ -14,7 +14,7 @@
 #include "nsServiceManagerUtils.h"
 #include "nsIDOMApplicationRegistry.h"
 #include "nsIPermissionManager.h"
-#include "sampler.h"
+#include "GeckoProfiler.h"
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -185,7 +185,7 @@ nsGenericHTMLFrameElement::BindToTree(nsIDocument* aDocument,
     NS_ASSERTION(!nsContentUtils::IsSafeToRunScript(),
                  "Missing a script blocker!");
 
-    SAMPLE_LABEL("nsGenericHTMLFrameElement", "BindToTree");
+    PROFILER_LABEL("nsGenericHTMLFrameElement", "BindToTree");
 
     // We're in a document now.  Kick off the frame load.
     LoadSrc();
@@ -227,6 +227,35 @@ nsGenericHTMLFrameElement::SetAttr(int32_t aNameSpaceID, nsIAtom* aName,
     // Don't propagate error here. The attribute was successfully set, that's
     // what we should reflect.
     LoadSrc();
+  } else if (aNameSpaceID == kNameSpaceID_None && aName == nsGkAtoms::name) {
+    // Propagate "name" to the docshell to make browsing context names live,
+    // per HTML5.
+    nsIDocShell *docShell = mFrameLoader ? mFrameLoader->GetExistingDocShell()
+                                         : nullptr;
+    if (docShell) {
+      docShell->SetName(aValue);
+    }
+  }
+
+  return NS_OK;
+}
+
+nsresult
+nsGenericHTMLFrameElement::UnsetAttr(int32_t aNameSpaceID, nsIAtom* aAttribute,
+                                     bool aNotify)
+{
+  // Invoke on the superclass.
+  nsresult rv = nsGenericHTMLElement::UnsetAttr(aNameSpaceID, aAttribute, aNotify);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  if (aNameSpaceID == kNameSpaceID_None && aAttribute == nsGkAtoms::name) {
+    // Propagate "name" to the docshell to make browsing context names live,
+    // per HTML5.
+    nsIDocShell *docShell = mFrameLoader ? mFrameLoader->GetExistingDocShell()
+                                         : nullptr;
+    if (docShell) {
+      docShell->SetName(EmptyString());
+    }
   }
 
   return NS_OK;

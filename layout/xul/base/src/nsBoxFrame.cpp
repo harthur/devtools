@@ -33,7 +33,7 @@
 
 #include "nsBoxLayoutState.h"
 #include "nsBoxFrame.h"
-#include "nsDOMTouchEvent.h"
+#include "mozilla/dom/Touch.h"
 #include "nsStyleContext.h"
 #include "nsPresContext.h"
 #include "nsCOMPtr.h"
@@ -66,6 +66,7 @@
 #include "nsIURI.h"
 
 using namespace mozilla;
+using namespace mozilla::dom;
 
 //define DEBUG_REDRAW
 
@@ -158,13 +159,12 @@ nsBoxFrame::DidSetStyleContext(nsStyleContext* aOldStyleContext)
 /**
  * Initialize us. This is a good time to get the alignment of the box
  */
-NS_IMETHODIMP
+void
 nsBoxFrame::Init(nsIContent*      aContent,
                  nsIFrame*        aParent,
                  nsIFrame*        aPrevInFlow)
 {
-  nsresult  rv = nsContainerFrame::Init(aContent, aParent, aPrevInFlow);
-  NS_ENSURE_SUCCESS(rv, rv);
+  nsContainerFrame::Init(aContent, aParent, aPrevInFlow);
 
   if (GetStateBits() & NS_FRAME_FONT_INFLATION_CONTAINER) {
     AddStateBits(NS_FRAME_FONT_INFLATION_FLOW_ROOT);
@@ -183,9 +183,7 @@ nsBoxFrame::Init(nsIContent*      aContent,
   UpdateMouseThrough();
 
   // register access key
-  rv = RegUnregAccessKey(true);
-
-  return rv;
+  RegUnregAccessKey(true);
 }
 
 void nsBoxFrame::UpdateMouseThrough()
@@ -1844,12 +1842,10 @@ nsBoxFrame::GetFrameSizeWithMargin(nsIFrame* aBox, nsSize& aSize)
 
 // If you make changes to this function, check its counterparts
 // in nsTextBoxFrame and nsXULLabelFrame
-nsresult
+void
 nsBoxFrame::RegUnregAccessKey(bool aDoReg)
 {
-  // if we have no content, we can't do anything
-  if (!mContent)
-    return NS_ERROR_FAILURE;
+  MOZ_ASSERT(mContent);
 
   // find out what type of element this is
   nsIAtom *atom = mContent->Tag();
@@ -1861,14 +1857,14 @@ nsBoxFrame::RegUnregAccessKey(bool aDoReg)
       atom != nsGkAtoms::textbox &&
       atom != nsGkAtoms::tab &&
       atom != nsGkAtoms::radio) {
-    return NS_OK;
+    return;
   }
 
   nsAutoString accessKey;
   mContent->GetAttr(kNameSpaceID_None, nsGkAtoms::accesskey, accessKey);
 
   if (accessKey.IsEmpty())
-    return NS_OK;
+    return;
 
   // With a valid PresContext we can get the ESM 
   // and register the access key
@@ -1879,8 +1875,6 @@ nsBoxFrame::RegUnregAccessKey(bool aDoReg)
     esm->RegisterAccessKey(mContent, key);
   else
     esm->UnregisterAccessKey(mContent, key);
-
-  return NS_OK;
 }
 
 bool
@@ -2078,12 +2072,12 @@ nsBoxFrame::GetEventPoint(nsGUIEvent* aEvent, nsIntPoint &aPoint) {
     if (touchEvent->touches.Length() != 1) {
       return false;
     }
-  
+
     nsIDOMTouch *touch = touchEvent->touches.SafeElementAt(0);
     if (!touch) {
       return false;
     }
-    nsDOMTouch* domtouch = static_cast<nsDOMTouch*>(touch);
+    Touch* domtouch = static_cast<Touch*>(touch);
     aPoint = domtouch->mRefPoint;
   } else {
     aPoint = aEvent->refPoint;

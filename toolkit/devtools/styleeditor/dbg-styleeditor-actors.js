@@ -537,7 +537,6 @@ StyleSheetActor.prototype = {
     if (!this._transitionRefCount) {
       this.styleSheet.insertRule(TRANSITION_RULE, this.styleSheet.cssRules.length);
       this.doc.documentElement.classList.add(TRANSITION_CLASS);
-      dump("HEATHER: added TRANSITION_CLASS"  + "\n");
     }
 
     this._transitionRefCount++;
@@ -546,7 +545,6 @@ StyleSheetActor.prototype = {
     // @see _onTransitionEnd
     this.win.setTimeout(this._onTransitionEnd.bind(this),
                            Math.floor(TRANSITION_DURATION_MS * 1.1));
-    dump("HEATHER: added transitionEnd listener" + "\n");
   },
 
   /**
@@ -555,7 +553,6 @@ StyleSheetActor.prototype = {
     */
   _onTransitionEnd: function()
   {
-    dump("HEATHER: transition end"  + "\n");
     if (--this._transitionRefCount == 0) {
       this.doc.documentElement.classList.remove(TRANSITION_CLASS);
       this.styleSheet.deleteRule(this.styleSheet.cssRules.length - 1);

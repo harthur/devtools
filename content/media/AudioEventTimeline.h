@@ -120,13 +120,6 @@ template <class ErrorResult>
 class AudioEventTimeline
 {
 public:
-  // This constructor should only be used for objects which are meant to be
-  // copied from other properly constructed objects.
-  AudioEventTimeline()
-    : mValue(0.f)
-  {
-  }
-
   explicit AudioEventTimeline(float aDefaultValue)
     : mValue(aDefaultValue)
   {
@@ -256,22 +249,7 @@ public:
 
     // If the requested time is before all of the existing events
     if (!previous) {
-      switch (next->mType) {
-      case AudioTimelineEvent::SetValue:
-      case AudioTimelineEvent::SetTarget:
-        // The requested time is before the first event
-        return mValue;
-      case AudioTimelineEvent::LinearRamp:
-        // Use t=0 as T0 and v=defaultValue as V0
-        return LinearInterpolate(0.0, mValue, next->template Time<TimeType>(), next->mValue, aTime);
-      case AudioTimelineEvent::ExponentialRamp:
-        // Use t=0 as T0 and v=defaultValue as V0
-        return ExponentialInterpolate(0.0, mValue, next->template Time<TimeType>(), next->mValue, aTime);
-      case AudioTimelineEvent::SetValueCurve:
-        // TODO: implement
-        return 0.0f;
-      }
-      MOZ_ASSERT(false, "unreached");
+      return mValue;
     }
 
     // SetTarget nodes can be handled no matter what their next node is (if they have one)

@@ -20,6 +20,7 @@
 #include <windows.h>
 #endif
 
+#include "jsapi.h"
 #include "nsCOMPtr.h"
 #include "nsAutoPtr.h"
 #include "nsICategoryManager.h"
@@ -735,19 +736,23 @@ mozJSComponentLoader::PrepareObjectForLocation(JSCLContextHelper& aCx,
     NS_ENSURE_SUCCESS(rv, nullptr);
 
     if (!mLoaderGlobal) {
-        nsCOMPtr<nsIXPCScriptable> backstagePass;
-        rv = mRuntimeService->GetBackstagePass(getter_AddRefs(backstagePass));
+        nsRefPtr<BackstagePass> backstagePass;
+        rv = NS_NewBackstagePass(getter_AddRefs(backstagePass));
         NS_ENSURE_SUCCESS(rv, nullptr);
 
-        rv = xpc->InitClassesWithNewWrappedGlobal(aCx, backstagePass,
+        rv = xpc->InitClassesWithNewWrappedGlobal(aCx,
+                                                  static_cast<nsIGlobalObject *>(backstagePass),
                                                   mSystemPrincipal,
                                                   0,
+                                                  JS::SystemZone,
                                                   getter_AddRefs(holder));
         NS_ENSURE_SUCCESS(rv, nullptr);
 
         JSObject *global;
         rv = holder->GetJSObject(&global);
         NS_ENSURE_SUCCESS(rv, nullptr);
+
+        backstagePass->SetGlobalObject(global);
 
         JSAutoCompartment ac(aCx, global);
         if (!JS_DefineFunctions(aCx, global, gGlobalFun) ||

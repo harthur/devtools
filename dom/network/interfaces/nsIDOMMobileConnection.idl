@@ -13,7 +13,7 @@ interface nsIDOMMozMobileCellInfo;
 interface nsIDOMMozIccManager;
 interface nsIDOMMozMobileCFInfo;
 
-[scriptable, builtinclass, uuid(4175a903-61e6-4fa7-af0d-1e41632ee2dd)]
+[scriptable, builtinclass, uuid(2065b3c3-e876-4be1-b373-428ee254a63e)]
 interface nsIDOMMozMobileConnection : nsIDOMEventTarget
 {
   const long ICC_SERVICE_CLASS_VOICE = (1 << 0);
@@ -30,7 +30,7 @@ interface nsIDOMMozMobileConnection : nsIDOMEventTarget
    * Indicates the state of the device's ICC card.
    *
    * Possible values: null, 'unknown', 'absent', 'pinRequired', 'pukRequired',
-   * 'networkLocked', 'ready'.
+   * 'networkLocked', 'corporateLocked', 'serviceProviderLocked', 'ready'.
    */
   readonly attribute DOMString cardState;
 
@@ -131,16 +131,27 @@ interface nsIDOMMozMobileConnection : nsIDOMEventTarget
    *   unlockCardLock({lockType: "pin",
    *                   pin: "..."});
    *
-   * (2) Network depersonalization. Unlocking the network control key (NCK).
-   *
-   *   unlockCardLock({lockType: "nck",
-   *                   pin: "..."});
-   *
-   * (3) Unlocking the PUK and supplying a new PIN:
+   * (2) Unlocking the PUK and supplying a new PIN:
    *
    *   unlockCardLock({lockType: "puk",
    *                   puk: "...",
    *                   newPin: "..."});
+   *
+   * (3) Network depersonalization. Unlocking the network control key (NCK).
+   *
+   *   unlockCardLock({lockType: "nck",
+   *                   pin: "..."});
+   *
+   * (4) Corporate depersonalization. Unlocking the corporate control key (CCK).
+   *
+   *   unlockCardLock({lockType: "cck",
+   *                   pin: "..."});
+   *
+   * (5) Service Provider depersonalization. Unlocking the service provider
+   *     control key (SPCK).
+   *
+   *   unlockCardLock({lockType: "spck",
+   *                   pin: "..."});
    *
    * @return a nsIDOMDOMRequest.
    *         The request's result will be an object containing

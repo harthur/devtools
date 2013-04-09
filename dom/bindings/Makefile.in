@@ -7,7 +7,6 @@ topsrcdir        = @top_srcdir@
 srcdir           = @srcdir@
 VPATH            = @srcdir@
 
-MODULE           = dom
 LIBRARY_NAME     = dombindings_s
 LIBXUL_LIBRARY   = 1
 FORCE_STATIC_LIB = 1
@@ -89,6 +88,8 @@ LOCAL_INCLUDES += -I$(topsrcdir)/js/xpconnect/src \
   -I$(topsrcdir)/content/xslt/src/xpath \
   -I$(topsrcdir)/content/xml/content/src \
   -I$(topsrcdir)/content/xul/content/src \
+  -I$(topsrcdir)/content/xul/document/src \
+  -I$(topsrcdir)/content/media/webspeech/recognition \
   $(NULL)
 
 ifdef MOZ_AUDIO_CHANNEL_MANAGER
@@ -125,6 +126,9 @@ CXXFLAGS += -Wno-uninitialized
 endif
 
 include $(topsrcdir)/config/rules.mk
+
+# edmorley is sick of clobbering everytime someone adds an interface
+$(CPPOBJS): PrototypeList.h
 
 # We need to create a separate target so we can ensure that the pickle is
 # done before generating headers.
@@ -185,7 +189,7 @@ $(binding_cpp_files): %Binding.cpp: $(bindinggen_dependencies) \
 $(globalgen_targets): ParserResults.pkl
 
 %-example: $(bindinggen_dependencies) \
-           $(all_webidl_files) \
+           ParserResults.pkl \
            $(NULL)
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) $(topsrcdir)/config/pythonpath.py \
 	  $(PLY_INCLUDE) -I$(srcdir)/parser \
@@ -218,11 +222,6 @@ ParserResults.pkl: $(globalgen_dependencies)
     $(all_webidl_files)
 
 GARBAGE += \
-  $(binding_header_files) \
-  $(binding_cpp_files) \
-  $(all_webidl_files) \
-  $(globalgen_targets) \
-  ParserResults.pkl \
   webidlyacc.py \
   parser.out \
   $(wildcard *-example.h) \
@@ -234,5 +233,13 @@ GARBAGE += \
 # headers they depend on.  This is really only needed for the test files, since
 # the non-test headers are all exported above anyway.
 webidl-export:: $(binding_header_files)
+
+distclean::
+	-$(RM) \
+        $(binding_header_files) \
+        $(binding_cpp_files) \
+        $(all_webidl_files) \
+        $(globalgen_targets) \
+        ParserResults.pkl
 
 .PHONY: webidl-export

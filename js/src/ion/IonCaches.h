@@ -112,6 +112,8 @@ class IonCacheVisitor
 class IonCache
 {
   public:
+    class StubAttacher;
+
     enum Kind {
 #   define DEFINE_CACHEKINDS(ickind) Cache_##ickind,
         IONCACHE_KIND_LIST(DEFINE_CACHEKINDS)
@@ -158,14 +160,6 @@ class IonCache
     JSScript *script;
     jsbytecode *pc;
 
-  private:
-    static const size_t MAX_STUBS;
-    void incrementStubCount() {
-        // The IC should stop generating stubs before wrapping stubCount.
-        stubCount_++;
-        JS_ASSERT(stubCount_);
-    }
-
     CodeLocationLabel fallbackLabel() const {
         return fallbackLabel_;
     }
@@ -177,6 +171,14 @@ class IonCache
             ptr = Assembler::nextInstruction(ptr, &i);
 #endif
         return CodeLocationLabel(ptr);
+    }
+
+  private:
+    static const size_t MAX_STUBS;
+    void incrementStubCount() {
+        // The IC should stop generating stubs before wrapping stubCount.
+        stubCount_++;
+        JS_ASSERT(stubCount_);
     }
 
   public:
@@ -221,7 +223,7 @@ class IonCache
     void updateBaseAddress(IonCode *code, MacroAssembler &masm);
 
     // Reset the cache around garbage collection.
-    void reset();
+    virtual void reset();
 
     bool canAttachStub() const {
         return stubCount_ < MAX_STUBS;
@@ -238,17 +240,14 @@ class IonCache
     // this function returns CACHE_FLUSHED. In case of allocation issue this
     // function returns LINK_ERROR.
     LinkStatus linkCode(JSContext *cx, MacroAssembler &masm, IonScript *ion, IonCode **code);
-
     // Fixup variables and update jumps in the list of stubs.  Increment the
     // number of attached stubs accordingly.
-    void attachStub(MacroAssembler &masm, IonCode *code, CodeOffsetJump &rejoinOffset,
-                    CodeOffsetJump *exitOffset, CodeOffsetLabel *stubOffset = NULL);
+    void attachStub(MacroAssembler &masm, StubAttacher &patcher, IonCode *code);
 
-    // Combine both linkCode and attachStub into one function. In addition, it
+    // Combine both linkStub and attachStub into one function. In addition, it
     // produces a spew augmented with the attachKind string.
-    bool linkAndAttachStub(JSContext *cx, MacroAssembler &masm, IonScript *ion,
-                           const char *attachKind, CodeOffsetJump &rejoinOffset,
-                           CodeOffsetJump *exitOffset, CodeOffsetLabel *stubOffset = NULL);
+    bool linkAndAttachStub(JSContext *cx, MacroAssembler &masm, StubAttacher &patcher,
+                           IonScript *ion, const char *attachKind);
 
     bool pure() {
         return pure_;
@@ -321,6 +320,8 @@ class GetPropertyIC : public IonCache
     }
 
     CACHE_HEADER(GetProperty)
+
+    void reset();
 
     Register object() const {
         return object_;
@@ -411,8 +412,13 @@ class GetElementIC : public IonCache
     Register object_;
     ConstantOrRegister index_;
     TypedOrValueRegister output_;
+
     bool monitoredResult_ : 1;
     bool hasDenseStub_ : 1;
+
+    size_t failedUpdates_;
+
+    static const size_t MAX_FAILED_UPDATES;
 
   public:
     GetElementIC(Register object, ConstantOrRegister index,
@@ -421,11 +427,14 @@ class GetElementIC : public IonCache
         index_(index),
         output_(output),
         monitoredResult_(monitoredResult),
-        hasDenseStub_(false)
+        hasDenseStub_(false),
+        failedUpdates_(0)
     {
     }
 
     CACHE_HEADER(GetElement)
+
+    void reset();
 
     Register object() const {
         return object_;
@@ -454,6 +463,17 @@ class GetElementIC : public IonCache
     static bool
     update(JSContext *cx, size_t cacheIndex, HandleObject obj, HandleValue idval,
                 MutableHandleValue vp);
+
+    void incFailedUpdates() {
+        failedUpdates_++;
+    }
+    void resetFailedUpdates() {
+        failedUpdates_ = 0;
+    }
+    bool shouldDisable() const {
+        return !canAttachStub() ||
+               (stubCount_ == 0 && failedUpdates_ > MAX_FAILED_UPDATES);
+    }
 };
 
 class BindNameIC : public IonCache
@@ -493,16 +513,21 @@ class BindNameIC : public IonCache
 class NameIC : public IonCache
 {
   protected:
+    // Registers live after the cache, excluding output registers. The initial
+    // value of these registers must be preserved by the cache.
+    RegisterSet liveRegs_;
+
     bool typeOf_;
     Register scopeChain_;
     PropertyName *name_;
     TypedOrValueRegister output_;
 
   public:
-    NameIC(bool typeOf,
+    NameIC(RegisterSet liveRegs, bool typeOf,
            Register scopeChain, PropertyName *name,
            TypedOrValueRegister output)
-      : typeOf_(typeOf),
+      : liveRegs_(liveRegs),
+        typeOf_(typeOf),
         scopeChain_(scopeChain),
         name_(name),
         output_(output)
@@ -524,8 +549,11 @@ class NameIC : public IonCache
         return typeOf_;
     }
 
-    bool attach(JSContext *cx, IonScript *ion, HandleObject scopeChain, HandleObject obj,
-                HandleShape shape);
+    bool attachReadSlot(JSContext *cx, IonScript *ion, HandleObject scopeChain, HandleObject obj,
+                        HandleShape shape);
+    bool attachCallGetter(JSContext *cx, IonScript *ion, JSObject *obj, JSObject *holder,
+                          HandleShape shape, const SafepointIndex *safepointIndex,
+                          void *returnAddr);
 
     static bool
     update(JSContext *cx, size_t cacheIndex, HandleObject scopeChain, MutableHandleValue vp);

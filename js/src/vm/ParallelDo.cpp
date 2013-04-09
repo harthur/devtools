@@ -5,16 +5,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "vm/ParallelDo.h"
+#include "mozilla/PodOperations.h"
 
 #include "jsapi.h"
 #include "jsobj.h"
 #include "jsarray.h"
 
-#include "vm/String.h"
-#include "vm/GlobalObject.h"
-#include "vm/ThreadPool.h"
 #include "vm/ForkJoin.h"
+#include "vm/GlobalObject.h"
+#include "vm/ParallelDo.h"
+#include "vm/String.h"
+#include "vm/ThreadPool.h"
 
 #include "jsinterpinlines.h"
 #include "jsobjinlines.h"
@@ -35,6 +36,8 @@
 using namespace js;
 using namespace js::parallel;
 using namespace js::ion;
+
+using mozilla::PodArrayZero;
 
 //
 // Debug spew
@@ -403,9 +406,9 @@ class ParallelIonInvoke
         calleeToken_ = CalleeToToken(callee);
     }
 
-    bool invoke() {
-        Value result;
-        enter_(jitcode_, argc_ + 1, argv_ + 1, NULL, calleeToken_, &result);
+    bool invoke(JSContext *cx) {
+        RootedValue result(cx);
+        enter_(jitcode_, argc_ + 1, argv_ + 1, NULL, calleeToken_, NULL, 0, result.address());
         return !result.isMagic();
     }
 };
@@ -414,17 +417,17 @@ class ParallelIonInvoke
 class ParallelDo : public ForkJoinOp
 {
     JSContext *cx_;
-    HeapPtrObject fun_;
+    RootedObject fun_;
 
   public:
     // For tests, make sure to keep this in sync with minItemsTestingThreshold.
     const static uint32_t MAX_BAILOUTS = 3;
     uint32_t bailouts;
-    Vector<JSScript *> pendingInvalidations;
+    AutoScriptVector pendingInvalidations;
 
     ParallelDo(JSContext *cx, HandleObject fun)
       : cx_(cx),
-        fun_(fun),
+        fun_(cx, fun),
         bailouts(0),
         pendingInvalidations(cx)
     { }
@@ -589,14 +592,12 @@ class ParallelDo : public ForkJoinOp
 
         // Make a new IonContext for the slice, which is needed if we need to
         // re-enter the VM.
-        IonContext icx(cx_, cx_->compartment, NULL);
+        IonContext icx(cx_, NULL);
 
         JS_ASSERT(pendingInvalidations[slice.sliceId] == NULL);
 
-        js::PerThreadData *pt = slice.perThreadData;
-        RootedObject fun(pt, fun_);
-        JS_ASSERT(fun->isFunction());
-        RootedFunction callee(cx_, fun->toFunction());
+        JS_ASSERT(fun_->isFunction());
+        RootedFunction callee(cx_, fun_->toFunction());
         if (!callee->nonLazyScript()->hasParallelIonScript()) {
             // Sometimes, particularly with GCZeal, the parallel ion
             // script can be collected between starting the parallel
@@ -612,10 +613,12 @@ class ParallelDo : public ForkJoinOp
         fii.args[1] = Int32Value(slice.numSlices);
         fii.args[2] = BooleanValue(false);
 
-        bool ok = fii.invoke();
+        bool ok = fii.invoke(cx_);
         JS_ASSERT(ok == !slice.abortedScript);
         if (!ok) {
             JSScript *script = slice.abortedScript;
+            Spew(SpewBailouts, "Aborted script: %p (hasParallelIonScript? %d)",
+                 script, script->hasParallelIonScript());
             JS_ASSERT(script->hasParallelIonScript());
             pendingInvalidations[slice.sliceId] = script;
         }

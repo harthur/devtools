@@ -418,10 +418,9 @@ FetchNameNoGC(JSObject *pobj, Shape *shape, MutableHandleValue vp)
 }
 
 inline bool
-GetIntrinsicOperation(JSContext *cx, JSScript *script, jsbytecode *pc, MutableHandleValue vp)
+GetIntrinsicOperation(JSContext *cx, jsbytecode *pc, MutableHandleValue vp)
 {
-    JSOp op = JSOp(*pc);
-    RootedPropertyName name(cx, GetNameFromBytecode(cx, script, pc, op));
+    RootedPropertyName name(cx, cx->stack.currentScript()->getName(pc));
     return cx->global()->getIntrinsicValue(cx, name, vp);
 }
 
@@ -537,6 +536,14 @@ DefVarOrConstOperation(JSContext *cx, HandleObject varobj, HandlePropertyName dn
     }
 
     return true;
+}
+
+inline bool
+SetConstOperation(JSContext *cx, HandleObject varobj, HandlePropertyName name, HandleValue rval)
+{
+    return JSObject::defineProperty(cx, varobj, name, rval,
+                                    JS_PropertyStub, JS_StrictPropertyStub,
+                                    JSPROP_ENUMERATE | JSPROP_PERMANENT | JSPROP_READONLY);
 }
 
 inline void
@@ -1154,7 +1161,7 @@ class FastInvokeGuard
 #ifdef JS_ION
         if (useIon_ && fun_) {
             if (ictx_.empty())
-                ictx_.construct(cx, cx->compartment, (js::ion::TempAllocator *)NULL);
+                ictx_.construct(cx, (js::ion::TempAllocator *)NULL);
             JS_ASSERT(fun_->nonLazyScript() == script_);
 
             ion::MethodStatus status = ion::CanEnterUsingFastInvoke(cx, script_, args_.length());

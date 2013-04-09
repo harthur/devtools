@@ -14,11 +14,10 @@ VPATH     = \
 
 include $(DEPTH)/config/autoconf.mk
 
-MODULE         = necko
 LIBRARY_NAME   = nksctp_s
 LIBXUL_LIBRARY = 1
-GRE_MODULE     = 1
 FORCE_STATIC_LIB = 1
+NO_PROFILE_GUIDED_OPTIMIZE = 1 # Don't PGO
 
 EXPORTS_NAMESPACES = mozilla/net
 

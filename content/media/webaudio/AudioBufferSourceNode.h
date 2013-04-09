@@ -33,6 +33,16 @@ public:
     return true;
   }
 
+  void JSBindingFinalized()
+  {
+    // If the JS binding goes away on a node which never received a start()
+    // call, then it can no longer produce output.
+    if (!mStartCalled) {
+      SetProduceOwnOutput(false);
+    }
+    AudioSourceNode::JSBindingFinalized();
+  }
+
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(AudioBufferSourceNode, AudioSourceNode)
 
@@ -51,10 +61,38 @@ public:
     mBuffer = aBuffer;
   }
 
+  bool Loop() const
+  {
+    return mLoop;
+  }
+  void SetLoop(bool aLoop)
+  {
+    mLoop = aLoop;
+  }
+  double LoopStart() const
+  {
+    return mLoopStart;
+  }
+  void SetLoopStart(double aStart)
+  {
+    mLoopStart = aStart;
+  }
+  double LoopEnd() const
+  {
+    return mLoopEnd;
+  }
+  void SetLoopEnd(double aEnd)
+  {
+    mLoopEnd = aEnd;
+  }
+
   virtual void NotifyMainThreadStateChanged() MOZ_OVERRIDE;
 
 private:
   nsRefPtr<AudioBuffer> mBuffer;
+  double mLoopStart;
+  double mLoopEnd;
+  bool mLoop;
   bool mStartCalled;
 };
 

@@ -22,6 +22,7 @@
 #include "mozilla/dom/SVGViewElement.h"
 #include "nsSubDocumentFrame.h"
 
+using namespace mozilla;
 using namespace mozilla::dom;
 
 class nsSVGMutationObserver : public nsStubMutationObserver
@@ -143,7 +144,7 @@ nsSVGOuterSVGFrame::nsSVGOuterSVGFrame(nsStyleContext* aContext)
   RemoveStateBits(NS_FRAME_SVG_LAYOUT);
 }
 
-NS_IMETHODIMP
+void
 nsSVGOuterSVGFrame::Init(nsIContent* aContent,
                          nsIFrame* aParent,
                          nsIFrame* aPrevInFlow)
@@ -168,7 +169,7 @@ nsSVGOuterSVGFrame::Init(nsIContent* aContent,
     AddStateBits(NS_STATE_SVG_NONDISPLAY_CHILD);
   }
 
-  nsresult rv = nsSVGOuterSVGFrameBase::Init(aContent, aParent, aPrevInFlow);
+  nsSVGOuterSVGFrameBase::Init(aContent, aParent, aPrevInFlow);
 
   nsIDocument* doc = mContent->GetCurrentDoc();
   if (doc) {
@@ -180,8 +181,6 @@ nsSVGOuterSVGFrame::Init(nsIContent* aContent,
     // not need to be removed
     doc->AddMutationObserverUnlessExists(&sSVGMutationObserver);
   }
-
-  return rv;
 }
 
 //----------------------------------------------------------------------
@@ -698,28 +697,19 @@ nsSVGOuterSVGFrame::BuildDisplayList(nsDisplayListBuilder*   aBuilder,
 
   DisplayBorderBackgroundOutline(aBuilder, aLists);
 
-  nsDisplayList childItems;
+  DisplayListClipState::AutoClipContainingBlockDescendantsToContentBox clip(aBuilder, this);
 
   if ((aBuilder->IsForEventDelivery() &&
        NS_SVGDisplayListHitTestingEnabled()) ||
       NS_SVGDisplayListPaintingEnabled()) {
-    nsDisplayList *nonContentList = &childItems;
-    nsDisplayListSet set(nonContentList, nonContentList, nonContentList,
-                         &childItems, nonContentList, nonContentList);
+    nsDisplayList *contentList = aLists.Content();
+    nsDisplayListSet set(contentList, contentList, contentList,
+                         contentList, contentList, contentList);
     BuildDisplayListForNonBlockChildren(aBuilder, aDirtyRect, set);
   } else {
-    childItems.AppendNewToTop(
+    aLists.Content()->AppendNewToTop(
       new (aBuilder) nsDisplayOuterSVG(aBuilder, this));
   }
-
-  // Clip to our _content_ box:
-  nsRect clipRect =
-    GetContentRectRelativeToSelf() + aBuilder->ToReferenceFrame(this);
-  nsDisplayClip* item =
-    new (aBuilder) nsDisplayClip(aBuilder, this, &childItems, clipRect);
-  childItems.AppendNewToTop(item);
-
-  WrapReplacedContentForBorderRadius(aBuilder, &childItems, aLists);
 }
 
 nsSplittableType
@@ -921,14 +911,14 @@ NS_NewSVGOuterSVGAnonChildFrame(nsIPresShell* aPresShell,
 NS_IMPL_FRAMEARENA_HELPERS(nsSVGOuterSVGAnonChildFrame)
 
 #ifdef DEBUG
-NS_IMETHODIMP
+void
 nsSVGOuterSVGAnonChildFrame::Init(nsIContent* aContent,
                                   nsIFrame* aParent,
                                   nsIFrame* aPrevInFlow)
 {
   NS_ABORT_IF_FALSE(aParent->GetType() == nsGkAtoms::svgOuterSVGFrame,
                     "Unexpected parent");
-  return nsSVGOuterSVGAnonChildFrameBase::Init(aContent, aParent, aPrevInFlow);
+  nsSVGOuterSVGAnonChildFrameBase::Init(aContent, aParent, aPrevInFlow);
 }
 #endif
 

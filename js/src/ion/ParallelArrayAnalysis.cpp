@@ -131,7 +131,6 @@ class ParallelArrayVisitor : public MInstructionVisitor
     UNSAFE_OP(OsrScopeChain)
     UNSAFE_OP(ReturnFromCtor)
     CUSTOM_OP(CheckOverRecursed)
-    DROP_OP(RecompileCheck)
     UNSAFE_OP(DefVar)
     UNSAFE_OP(DefFun)
     UNSAFE_OP(CreateThis)
@@ -216,6 +215,7 @@ class ParallelArrayVisitor : public MInstructionVisitor
     SAFE_OP(LoadTypedArrayElement)
     SAFE_OP(LoadTypedArrayElementHole)
     MAYBE_WRITE_GUARDED_OP(StoreTypedArrayElement, elements)
+    WRITE_GUARDED_OP(StoreTypedArrayElementHole, elements)
     UNSAFE_OP(ClampToUint8)
     SAFE_OP(LoadFixedSlot)
     WRITE_GUARDED_OP(StoreFixedSlot, object)
@@ -264,6 +264,25 @@ class ParallelArrayVisitor : public MInstructionVisitor
     SAFE_OP(ParCheckInterrupt)
     SAFE_OP(ParCheckOverRecursed)
     SAFE_OP(PolyInlineDispatch)
+    SAFE_OP(FunctionDispatch)
+    SAFE_OP(TypeObjectDispatch)
+    UNSAFE_OP(EffectiveAddress)
+    UNSAFE_OP(AsmJSUnsignedToDouble)
+    UNSAFE_OP(AsmJSNeg)
+    UNSAFE_OP(AsmJSUDiv)
+    UNSAFE_OP(AsmJSUMod)
+    UNSAFE_OP(AsmJSLoadHeap)
+    UNSAFE_OP(AsmJSStoreHeap)
+    UNSAFE_OP(AsmJSLoadGlobalVar)
+    UNSAFE_OP(AsmJSStoreGlobalVar)
+    UNSAFE_OP(AsmJSLoadFuncPtr)
+    UNSAFE_OP(AsmJSLoadFFIFunc)
+    UNSAFE_OP(AsmJSReturn)
+    UNSAFE_OP(AsmJSVoidReturn)
+    UNSAFE_OP(AsmJSPassStackArg)
+    UNSAFE_OP(AsmJSParameter)
+    UNSAFE_OP(AsmJSCall)
+    UNSAFE_OP(AsmJSCheckOverRecursed)
 
     // It looks like this could easily be made safe:
     UNSAFE_OP(ConvertElementsToDoubles)
@@ -513,7 +532,7 @@ ParallelArrayVisitor::convertToBailout(MBasicBlock *block, MInstruction *ins)
             continue;
 
         // create bailout block to insert on this edge
-        MBasicBlock *bailBlock = MBasicBlock::NewParBailout(graph_, block->info(), pred, pc);
+        MBasicBlock *bailBlock = MBasicBlock::NewParBailout(graph_, pred->info(), pred, pc);
         if (!bailBlock)
             return false;
 

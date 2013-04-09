@@ -18,7 +18,6 @@ class nsDisplayItem;
 class nsFontMetrics;
 class nsClientRectList;
 class nsFontFaceList;
-class nsHTMLVideoElement;
 class nsIImageLoadingContent;
 
 #include "nsChangeHint.h"
@@ -49,6 +48,7 @@ namespace dom {
 class Element;
 class HTMLImageElement;
 class HTMLCanvasElement;
+class HTMLVideoElement;
 } // namespace dom
 } // namespace mozilla
 
@@ -657,6 +657,15 @@ public:
                                            const nscoord aRadii[8],
                                            const nsRect& aContainedRect);
 
+  /**
+   * Return whether any part of aTestRect is inside of the rounded
+   * rectangle formed by aBounds and aRadii (which are indexed by the
+   * NS_CORNER_* constants in nsStyleConsts.h). This is precise.
+   */
+  static bool RoundedRectIntersectsRect(const nsRect& aRoundedRect,
+                                        const nscoord aRadii[8],
+                                        const nsRect& aTestRect);
+
   enum {
     PAINT_IN_TRANSFORM = 0x01,
     PAINT_SYNC_DECODE_IMAGES = 0x02,
@@ -776,10 +785,9 @@ public:
 
   struct RectListBuilder : public RectCallback {
     nsClientRectList* mRectList;
-    nsresult          mRV;
 
     RectListBuilder(nsClientRectList* aList);
-     virtual void AddRect(const nsRect& aRect);
+    virtual void AddRect(const nsRect& aRect);
   };
 
   static nsIFrame* GetContainingBlockForClientRect(nsIFrame* aFrame);
@@ -1509,7 +1517,7 @@ public:
                                                      uint32_t aSurfaceFlags = 0);
   static SurfaceFromElementResult SurfaceFromElement(mozilla::dom::HTMLCanvasElement *aElement,
                                                      uint32_t aSurfaceFlags = 0);
-  static SurfaceFromElementResult SurfaceFromElement(nsHTMLVideoElement *aElement,
+  static SurfaceFromElementResult SurfaceFromElement(mozilla::dom::HTMLVideoElement *aElement,
                                                      uint32_t aSurfaceFlags = 0);
 
   /**

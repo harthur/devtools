@@ -37,16 +37,17 @@ public:
   static void* GetNativeData(uint32_t aDataType);
 
   /**
-   * Returns true if our message loop can optimize the message order for
-   * a key message or an IME message.  Otherwise, false.
-   */
-  static bool CanOptimizeKeyAndIMEMessages();
-
-  /**
    * Returns true if the context or IME state is enabled.  Otherwise, false.
    */
   static bool IsIMEEnabled(const InputContext& aInputContext);
   static bool IsIMEEnabled(IMEState::Enabled aIMEState);
+
+  /**
+   * ProcessRawKeyMessage() message is called before calling TranslateMessage()
+   * and DispatchMessage().  If this returns true, the message is consumed.
+   * Then, caller must not perform TranslateMessage() nor DispatchMessage().
+   */
+  static bool ProcessRawKeyMessage(const MSG& aMsg);
 
   /**
    * When the message is not needed to handle anymore by the caller, this
@@ -101,7 +102,9 @@ public:
    * Called when nsIWidget::SetInputContext() is called before the window's
    * InputContext is modified actually.
    */
-  static void SetInputContext(nsWindow* aWindow, InputContext& aInputContext);
+  static void SetInputContext(nsWindow* aWindow,
+                              InputContext& aInputContext,
+                              const InputContextAction& aAction);
 
   /**
    * Called when the window is created.

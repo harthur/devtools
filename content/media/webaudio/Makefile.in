@@ -9,7 +9,6 @@ VPATH            := @srcdir@
 
 include $(DEPTH)/config/autoconf.mk
 
-MODULE         := content
 LIBRARY_NAME   := gkconwebaudio_s
 LIBXUL_LIBRARY := 1
 ifndef _MSC_VER
@@ -17,6 +16,7 @@ FAIL_ON_WARNINGS := 1
 endif # !_MSC_VER
 
 CPPSRCS := \
+  AnalyserNode.cpp \
   AudioBuffer.cpp \
   AudioBufferSourceNode.cpp \
   AudioContext.cpp \
@@ -32,10 +32,13 @@ CPPSRCS := \
   GainNode.cpp \
   MediaBufferDecoder.cpp \
   PannerNode.cpp \
+  ThreeDPoint.cpp \
+  WebAudioUtils.cpp \
   $(NULL)
 
 EXPORTS_NAMESPACES := mozilla/dom
 EXPORTS_mozilla/dom := \
+  AnalyserNode.h \
   AudioBuffer.h \
   AudioBufferSourceNode.h \
   AudioContext.h \
@@ -53,8 +56,10 @@ EXPORTS_mozilla/dom := \
   $(NULL)
 
 EXPORTS := \
+  AudioParamTimeline.h \
   MediaBufferDecoder.h \
   ThreeDPoint.h \
+  WebAudioUtils.h \
   $(NULL)
 
 FORCE_STATIC_LIB := 1

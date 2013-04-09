@@ -5,9 +5,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/*
- * JavaScript iterators.
- */
+/* JavaScript iterators. */
+
+#include "mozilla/PodOperations.h"
 #include "mozilla/Util.h"
 
 #include "jstypes.h"
@@ -30,7 +30,6 @@
 #include "jsproxy.h"
 #include "jsscript.h"
 
-#include "builtin/ParallelArray.h"
 #include "ds/Sort.h"
 #include "frontend/TokenStream.h"
 #include "gc/Marking.h"
@@ -41,7 +40,6 @@
 #include "jsobjinlines.h"
 
 #include "builtin/Iterator-inl.h"
-#include "builtin/ParallelArray-inl.h"
 #include "vm/Stack-inl.h"
 #include "vm/String-inl.h"
 
@@ -49,6 +47,10 @@ using namespace js;
 using namespace js::gc;
 
 using mozilla::ArrayLength;
+#ifdef JS_MORE_DETERMINISTIC
+using mozilla::PodCopy;
+#endif
+using mozilla::PodZero;
 
 typedef Rooted<PropertyIteratorObject*> RootedPropertyIteratorObject;
 
@@ -202,14 +204,6 @@ Snapshot(JSContext *cx, RawObject pobj_, unsigned flags, AutoIdVector *props)
                 return false;
             if (!EnumerateNativeProperties(cx, pobj, flags, ht, props))
                 return false;
-        } else if (ParallelArrayObject::is(pobj)) {
-            if (!ParallelArrayObject::enumerate(cx, pobj, flags, props))
-                return false;
-            /*
-             * ParallelArray objects enumerate the prototype on their own, so
-             * we are done here.
-             */
-            break;
         } else {
             if (pobj->isProxy()) {
                 AutoIdVector proxyProps(cx);

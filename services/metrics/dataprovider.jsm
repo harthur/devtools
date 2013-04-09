@@ -182,12 +182,28 @@ Measurement.prototype = Object.freeze({
   },
 
   _configureStorage: function () {
-    return Task.spawn(function configureFields() {
-      for (let [name, info] in Iterator(this.fields)) {
-        this._log.debug("Registering field: " + name + " " + info.type);
+    let missing = [];
+    for (let [name, info] in Iterator(this.fields)) {
+      if (this.storage.hasFieldFromMeasurement(this.id, name)) {
+        this._fields[name] =
+          [this.storage.fieldIDFromMeasurement(this.id, name), info.type];
+        continue;
+      }
 
-        let id = yield this.storage.registerField(this.id, name, info.type);
-        this._fields[name] = [id, info.type];
+      missing.push([name, info.type]);
+    }
+
+    if (!missing.length) {
+      return CommonUtils.laterTickResolvingPromise();
+    }
+
+    // We only perform a transaction if we have work to do (to avoid
+    // extra SQLite overhead).
+    return this.storage.enqueueTransaction(function registerFields() {
+      for (let [name, type] of missing) {
+        this._log.debug("Registering field: " + name + " " + type);
+        let id = yield this.storage.registerField(this.id, name, type);
+        this._fields[name] = [id, type];
       }
     }.bind(this));
   },
@@ -331,12 +347,30 @@ Measurement.prototype = Object.freeze({
     return this.storage.deleteLastTextFromFieldID(this.fieldID(field));
   },
 
+  /**
+   * This method is used by the default serializers to control whether a field
+   * is included in the output.
+   *
+   * There could be legacy fields in storage we no longer care about.
+   *
+   * This method is a hook to allow measurements to change this behavior, e.g.,
+   * to implement a dynamic fieldset.
+   *
+   * You will also need to override `fieldType`.
+   *
+   * @return (boolean) true if the specified field should be included in
+   *                   payload output.
+   */
+  shouldIncludeField: function (field) {
+    return field in this._fields;
+  },
+
   _serializeJSONSingular: function (data) {
     let result = {"_v": this.version};
 
     for (let [field, data] of data) {
       // There could be legacy fields in storage we no longer care about.
-      if (!(field in this._fields)) {
+      if (!this.shouldIncludeField(field)) {
         continue;
       }
 
@@ -367,7 +401,7 @@ Measurement.prototype = Object.freeze({
     let result = {"_v": this.version};
 
     for (let [field, data] of data) {
-      if (!(field in this._fields)) {
+      if (!this.shouldIncludeField(field)) {
         continue;
       }
 
@@ -508,23 +542,6 @@ Provider.prototype = Object.freeze({
     return m;
   },
 
-  /**
-   * Initializes preferences storage for this provider.
-   *
-   * Providers are allocated preferences storage under a pref branch named
-   * after the provider.
-   *
-   * This function is typically only called by the entity that constructs the
-   * Provider instance.
-   */
-  initPreferences: function (branchParent) {
-    if (!branchParent.endsWith(".")) {
-      throw new Error("branchParent must end with '.': " + branchParent);
-    }
-
-    this._prefs = new Preferences(branchParent + this.name + ".");
-  },
-
   init: function (storage) {
     if (this.storage !== null) {
       throw new Error("Provider() not called. Did the sub-type forget to call it?");
@@ -586,7 +603,7 @@ Provider.prototype = Object.freeze({
    * initialization activities have completed.
    */
   onInit: function () {
-    return Promise.resolve();
+    return CommonUtils.laterTickResolvingPromise();
   },
 
   /**
@@ -599,7 +616,7 @@ Provider.prototype = Object.freeze({
    * shutdown activities have completed.
    */
   onShutdown: function () {
-    return Promise.resolve();
+    return CommonUtils.laterTickResolvingPromise();
   },
 
   /**
@@ -611,7 +628,7 @@ Provider.prototype = Object.freeze({
    * @return Promise<>
    */
   collectConstantData: function () {
-    return Promise.resolve();
+    return CommonUtils.laterTickResolvingPromise();
   },
 
   /**
@@ -627,7 +644,7 @@ Provider.prototype = Object.freeze({
    * @return Promise<>
    */
   collectDailyData: function () {
-    return Promise.resolve();
+    return CommonUtils.laterTickResolvingPromise();
   },
 
   /**

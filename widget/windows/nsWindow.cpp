@@ -118,7 +118,7 @@
 #include "WinUtils.h"
 #include "WidgetUtils.h"
 #include "nsIWidgetListener.h"
-#include "nsDOMTouchEvent.h"
+#include "mozilla/dom/Touch.h"
 
 #ifdef MOZ_ENABLE_D3D9_LAYER
 #include "LayerManagerD3D9.h"
@@ -164,9 +164,10 @@
 #include "mozilla/HangMonitor.h"
 #include "WinIMEHandler.h"
 
-using namespace mozilla::widget;
-using namespace mozilla::layers;
 using namespace mozilla;
+using namespace mozilla::dom;
+using namespace mozilla::layers;
+using namespace mozilla::widget;
 
 /**************************************************************
  **************************************************************
@@ -958,15 +959,7 @@ float nsWindow::GetDPI()
 
 double nsWindow::GetDefaultScaleInternal()
 {
-  HDC dc = ::GetDC(mWnd);
-  if (!dc)
-    return 1.0;
-
-  // LOGPIXELSY returns the number of logical pixels per inch. This is based
-  // on font DPI settings rather than the actual screen DPI.
-  double pixelsPerInch = ::GetDeviceCaps(dc, LOGPIXELSY);
-  ::ReleaseDC(mWnd, dc);
-  return pixelsPerInch/96.0;
+  return gfxWindowsPlatform::GetPlatform()->GetDPIScale();
 }
 
 nsWindow* nsWindow::GetParentWindow(bool aIncludeOwner)
@@ -1632,11 +1625,18 @@ NS_IMETHODIMP nsWindow::SetSizeMode(int32_t aMode) {
 }
 
 // Constrain a potential move to fit onscreen
+// Position (aX, aY) is specified in Windows screen (logical) pixels
 NS_METHOD nsWindow::ConstrainPosition(bool aAllowSlop,
                                       int32_t *aX, int32_t *aY)
 {
   if (!mIsTopWidgetWindow) // only a problem for top-level windows
     return NS_OK;
+
+  float dpiScale = gfxWindowsPlatform::GetPlatform()->GetDPIScale();
+
+  // we need to use the window size in logical screen pixels
+  int32_t logWidth = std::max<int32_t>(NSToIntRound(mBounds.width / dpiScale), 1);
+  int32_t logHeight = std::max<int32_t>(NSToIntRound(mBounds.height / dpiScale), 1);
 
   bool doConstrain = false; // whether we have enough info to do anything
 
@@ -1649,23 +1649,20 @@ NS_METHOD nsWindow::ConstrainPosition(bool aAllowSlop,
     nsCOMPtr<nsIScreen> screen;
     int32_t left, top, width, height;
 
-    // zero size rects confuse the screen manager
-    width = mBounds.width > 0 ? mBounds.width : 1;
-    height = mBounds.height > 0 ? mBounds.height : 1;
-    screenmgr->ScreenForRect(*aX, *aY, width, height,
+    screenmgr->ScreenForRect(*aX, *aY, logWidth, logHeight,
                              getter_AddRefs(screen));
     if (screen) {
       if (mSizeMode != nsSizeMode_Fullscreen) {
         // For normalized windows, use the desktop work area.
-        screen->GetAvailRect(&left, &top, &width, &height);
+        screen->GetAvailRectDisplayPix(&left, &top, &width, &height);
       } else {
         // For full screen windows, use the desktop.
-        screen->GetRect(&left, &top, &width, &height);
+        screen->GetRectDisplayPix(&left, &top, &width, &height);
       }
       screenRect.left = left;
-      screenRect.right = left+width;
+      screenRect.right = left + width;
       screenRect.top = top;
-      screenRect.bottom = top+height;
+      screenRect.bottom = top + height;
       doConstrain = true;
     }
   } else {
@@ -1688,13 +1685,13 @@ NS_METHOD nsWindow::ConstrainPosition(bool aAllowSlop,
   }
 
   if (aAllowSlop) {
-    if (*aX < screenRect.left - mBounds.width + kWindowPositionSlop)
-      *aX = screenRect.left - mBounds.width + kWindowPositionSlop;
+    if (*aX < screenRect.left - logWidth + kWindowPositionSlop)
+      *aX = screenRect.left - logWidth + kWindowPositionSlop;
     else if (*aX >= screenRect.right - kWindowPositionSlop)
       *aX = screenRect.right - kWindowPositionSlop;
 
-    if (*aY < screenRect.top - mBounds.height + kWindowPositionSlop)
-      *aY = screenRect.top - mBounds.height + kWindowPositionSlop;
+    if (*aY < screenRect.top - logHeight + kWindowPositionSlop)
+      *aY = screenRect.top - logHeight + kWindowPositionSlop;
     else if (*aY >= screenRect.bottom - kWindowPositionSlop)
       *aY = screenRect.bottom - kWindowPositionSlop;
 
@@ -1702,13 +1699,13 @@ NS_METHOD nsWindow::ConstrainPosition(bool aAllowSlop,
 
     if (*aX < screenRect.left)
       *aX = screenRect.left;
-    else if (*aX >= screenRect.right - mBounds.width)
-      *aX = screenRect.right - mBounds.width;
+    else if (*aX >= screenRect.right - logWidth)
+      *aX = screenRect.right - logWidth;
 
     if (*aY < screenRect.top)
       *aY = screenRect.top;
-    else if (*aY >= screenRect.bottom - mBounds.height)
-      *aY = screenRect.bottom - mBounds.height;
+    else if (*aY >= screenRect.bottom - logHeight)
+      *aY = screenRect.bottom - logHeight;
   }
 
   return NS_OK;
@@ -3426,26 +3423,32 @@ nsWindow::OnDefaultButtonLoaded(const nsIntRect &aButtonRect)
 }
 
 NS_IMETHODIMP
-nsWindow::OverrideSystemMouseScrollSpeed(int32_t aOriginalDelta,
-                                         bool aIsHorizontal,
-                                         int32_t &aOverriddenDelta)
+nsWindow::OverrideSystemMouseScrollSpeed(double aOriginalDeltaX,
+                                         double aOriginalDeltaY,
+                                         double& aOverriddenDeltaX,
+                                         double& aOverriddenDeltaY)
 {
   // The default vertical and horizontal scrolling speed is 3, this is defined
   // on the document of SystemParametersInfo in MSDN.
   const uint32_t kSystemDefaultScrollingSpeed = 3;
 
-  int32_t absOriginDelta = Abs(aOriginalDelta);
+  double absOriginDeltaX = Abs(aOriginalDeltaX);
+  double absOriginDeltaY = Abs(aOriginalDeltaY);
 
   // Compute the simple overridden speed.
-  int32_t absComputedOverriddenDelta;
+  double absComputedOverriddenDeltaX, absComputedOverriddenDeltaY;
   nsresult rv =
-    nsBaseWidget::OverrideSystemMouseScrollSpeed(absOriginDelta, aIsHorizontal,
-                                                 absComputedOverriddenDelta);
+    nsBaseWidget::OverrideSystemMouseScrollSpeed(absOriginDeltaX,
+                                                 absOriginDeltaY,
+                                                 absComputedOverriddenDeltaX,
+                                                 absComputedOverriddenDeltaY);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  aOverriddenDelta = aOriginalDelta;
+  aOverriddenDeltaX = aOriginalDeltaX;
+  aOverriddenDeltaY = aOriginalDeltaY;
 
-  if (absComputedOverriddenDelta == absOriginDelta) {
+  if (absComputedOverriddenDeltaX == absOriginDeltaX &&
+      absComputedOverriddenDeltaY == absOriginDeltaY) {
     // We don't override now.
     return NS_OK;
   }
@@ -3479,23 +3482,29 @@ nsWindow::OverrideSystemMouseScrollSpeed(int32_t aOriginalDelta,
   // driver might accelerate the scrolling speed already.  If so, we shouldn't
   // override the scrolling speed for preventing the unexpected high speed
   // scrolling.
-  int32_t absDeltaLimit;
+  double absDeltaLimitX, absDeltaLimitY;
   rv =
     nsBaseWidget::OverrideSystemMouseScrollSpeed(kSystemDefaultScrollingSpeed,
-                                                 aIsHorizontal, absDeltaLimit);
+                                                 kSystemDefaultScrollingSpeed,
+                                                 absDeltaLimitX,
+                                                 absDeltaLimitY);
   NS_ENSURE_SUCCESS(rv, rv);
 
   // If the given delta is larger than our computed limitation value, the delta
   // was accelerated by the mouse driver.  So, we should do nothing here.
-  if (absDeltaLimit <= absOriginDelta) {
+  if (absDeltaLimitX <= absOriginDeltaX || absDeltaLimitY <= absOriginDeltaY) {
     return NS_OK;
   }
 
-  absComputedOverriddenDelta =
-    std::min(absComputedOverriddenDelta, absDeltaLimit);
+  aOverriddenDeltaX = std::min(absComputedOverriddenDeltaX, absDeltaLimitX);
+  aOverriddenDeltaY = std::min(absComputedOverriddenDeltaY, absDeltaLimitY);
 
-  aOverriddenDelta = (aOriginalDelta > 0) ? absComputedOverriddenDelta :
-                                            -absComputedOverriddenDelta;
+  if (aOriginalDeltaX < 0) {
+    aOverriddenDeltaX *= -1;
+  }
+  if (aOriginalDeltaY < 0) {
+    aOverriddenDeltaY *= -1;
+  }
   return NS_OK;
 }
 
@@ -3794,7 +3803,7 @@ void nsWindow::RemoveMessageAndDispatchPluginEvent(UINT aFirstMsg,
     }
     msg = aFakeCharMessage->GetCharMessage(mWnd);
   } else {
-    ::GetMessageW(&msg, mWnd, aFirstMsg, aLastMsg);
+    WinUtils::GetMessage(&msg, mWnd, aFirstMsg, aLastMsg);
   }
   DispatchPluginEvent(msg);
 }
@@ -3862,8 +3871,8 @@ bool nsWindow::DispatchMouseEvent(uint32_t aEventType, WPARAM wParam,
     sLastMouseMovePoint.y = mpScreen.y;
   }
 
-  bool insideMovementThreshold = (Abs(sLastMousePoint.x - eventPoint.x) < (short)::GetSystemMetrics(SM_CXDOUBLECLK)) &&
-                                   (Abs(sLastMousePoint.y - eventPoint.y) < (short)::GetSystemMetrics(SM_CYDOUBLECLK));
+  bool insideMovementThreshold = (DeprecatedAbs(sLastMousePoint.x - eventPoint.x) < (short)::GetSystemMetrics(SM_CXDOUBLECLK)) &&
+                                   (DeprecatedAbs(sLastMousePoint.y - eventPoint.y) < (short)::GetSystemMetrics(SM_CYDOUBLECLK));
 
   BYTE eventButton;
   switch (aButton) {
@@ -4552,6 +4561,7 @@ bool nsWindow::ProcessMessage(UINT msg, WPARAM &wParam, LPARAM &lParam,
         obsServ->NotifyObservers(nullptr, "profile-change-net-teardown", context.get());
         obsServ->NotifyObservers(nullptr, "profile-change-teardown", context.get());
         obsServ->NotifyObservers(nullptr, "profile-before-change", context.get());
+        obsServ->NotifyObservers(nullptr, "profile-before-change2", context.get());
         // Then a controlled but very quick exit.
         _exit(0);
       }
@@ -5627,10 +5637,10 @@ void nsWindow::PostSleepWakeNotification(const bool aIsSleepMode)
 void nsWindow::RemoveNextCharMessage(HWND aWnd)
 {
   MSG msg;
-  if (::PeekMessageW(&msg, aWnd,
-                     WM_KEYFIRST, WM_KEYLAST, PM_NOREMOVE | PM_NOYIELD) &&
+  if (WinUtils::PeekMessage(&msg, aWnd, WM_KEYFIRST, WM_KEYLAST,
+                            PM_NOREMOVE | PM_NOYIELD) &&
       (msg.message == WM_CHAR || msg.message == WM_SYSCHAR)) {
-    ::GetMessageW(&msg, aWnd, msg.message, msg.message);
+    WinUtils::GetMessage(&msg, aWnd, msg.message, msg.message);
   }
 }
 
@@ -6323,16 +6333,16 @@ bool nsWindow::OnTouch(WPARAM wParam, LPARAM lParam)
       touchPoint.y = TOUCH_COORD_TO_PIXEL(pInputs[i].y);
       touchPoint.ScreenToClient(mWnd);
       nsCOMPtr<nsIDOMTouch> touch =
-        new nsDOMTouch(pInputs[i].dwID,
-                       touchPoint,
-                       /* radius, if known */
-                       pInputs[i].dwFlags & TOUCHINPUTMASKF_CONTACTAREA ?
-                         nsIntPoint(
-                           TOUCH_COORD_TO_PIXEL(pInputs[i].cxContact) / 2,
-                           TOUCH_COORD_TO_PIXEL(pInputs[i].cyContact) / 2) :
-                         nsIntPoint(1,1),
-                       /* rotation angle and force */
-                       0.0f, 0.0f);
+        new Touch(pInputs[i].dwID,
+                  touchPoint,
+                  /* radius, if known */
+                  pInputs[i].dwFlags & TOUCHINPUTMASKF_CONTACTAREA ?
+                    nsIntPoint(
+                      TOUCH_COORD_TO_PIXEL(pInputs[i].cxContact) / 2,
+                      TOUCH_COORD_TO_PIXEL(pInputs[i].cyContact) / 2) :
+                    nsIntPoint(1,1),
+                  /* rotation angle and force */
+                  0.0f, 0.0f);
 
       // Append to the appropriate event
       if (msg == NS_TOUCH_START || msg == NS_TOUCH_MOVE) {
@@ -6393,10 +6403,10 @@ bool nsWindow::OnGesture(WPARAM wParam, LPARAM lParam)
 
     if (mDisplayPanFeedback) {
       mGesture.UpdatePanFeedbackX(mWnd,
-                                  Abs(RoundDown(wheelEvent.overflowDeltaX)),
+                                  DeprecatedAbs(RoundDown(wheelEvent.overflowDeltaX)),
                                   endFeedback);
       mGesture.UpdatePanFeedbackY(mWnd,
-                                  Abs(RoundDown(wheelEvent.overflowDeltaY)),
+                                  DeprecatedAbs(RoundDown(wheelEvent.overflowDeltaY)),
                                   endFeedback);
       mGesture.PanFeedbackFinalize(mWnd, endFeedback);
     }
@@ -6552,7 +6562,8 @@ LRESULT nsWindow::OnKeyDown(const MSG &aMsg,
   extraFlags.mDefaultPrevented = noDefault;
   MSG msg;
   BOOL gotMsg = aFakeCharMessage ||
-    ::PeekMessageW(&msg, mWnd, WM_KEYFIRST, WM_KEYLAST, PM_NOREMOVE | PM_NOYIELD);
+    WinUtils::PeekMessage(&msg, mWnd, WM_KEYFIRST, WM_KEYLAST,
+                          PM_NOREMOVE | PM_NOYIELD);
   // Enter and backspace are always handled here to avoid for example the
   // confusion between ctrl-enter and ctrl-J.
   if (DOMKeyCode == NS_VK_RETURN || DOMKeyCode == NS_VK_BACK ||
@@ -6579,7 +6590,8 @@ LRESULT nsWindow::OnKeyDown(const MSG &aMsg,
         RemoveMessageAndDispatchPluginEvent(WM_KEYFIRST, WM_KEYLAST);
         anyCharMessagesRemoved = true;
 
-        gotMsg = ::PeekMessageW (&msg, mWnd, WM_KEYFIRST, WM_KEYLAST, PM_NOREMOVE | PM_NOYIELD);
+        gotMsg = WinUtils::PeekMessage(&msg, mWnd, WM_KEYFIRST, WM_KEYLAST,
+                                       PM_NOREMOVE | PM_NOYIELD);
       }
     }
 
@@ -6621,7 +6633,7 @@ LRESULT nsWindow::OnKeyDown(const MSG &aMsg,
     }
 
     // If prevent default set for keydown, do same for keypress
-    ::GetMessageW(&msg, mWnd, msg.message, msg.message);
+    WinUtils::GetMessage(&msg, mWnd, msg.message, msg.message);
 
     if (msg.message == WM_DEADCHAR) {
       if (!PluginHasFocus())
@@ -7371,7 +7383,7 @@ nsWindow::SetInputContext(const InputContext& aContext,
                           const InputContextAction& aAction)
 {
   InputContext newInputContext = aContext;
-  IMEHandler::SetInputContext(this, newInputContext);
+  IMEHandler::SetInputContext(this, newInputContext, aAction);
   mInputContext = newInputContext;
 }
 

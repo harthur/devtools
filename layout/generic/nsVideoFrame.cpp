@@ -12,7 +12,7 @@
 #include "nsGkAtoms.h"
 
 #include "nsVideoFrame.h"
-#include "nsHTMLVideoElement.h"
+#include "mozilla/dom/HTMLVideoElement.h"
 #include "nsIDOMHTMLVideoElement.h"
 #include "nsIDOMHTMLImageElement.h"
 #include "nsIDOMHTMLElement.h"
@@ -177,7 +177,7 @@ nsVideoFrame::BuildLayer(nsDisplayListBuilder* aBuilder,
                          const ContainerParameters& aContainerParameters)
 {
   nsRect area = GetContentRect() - GetPosition() + aItem->ToReferenceFrame();
-  nsHTMLVideoElement* element = static_cast<nsHTMLVideoElement*>(GetContent());
+  HTMLVideoElement* element = static_cast<HTMLVideoElement*>(GetContent());
   nsIntSize videoSize;
   if (NS_FAILED(element->GetVideoSize(&videoSize)) || area.IsEmpty()) {
     return nullptr;
@@ -399,8 +399,8 @@ public:
       // cheap (i.e. hardware accelerated).
       return LAYER_ACTIVE;
     }
-    nsHTMLMediaElement* elem =
-      static_cast<nsHTMLMediaElement*>(mFrame->GetContent());
+    HTMLMediaElement* elem =
+      static_cast<HTMLMediaElement*>(mFrame->GetContent());
     return elem->IsPotentiallyPlaying() ? LAYER_ACTIVE_FORCE : LAYER_INACTIVE;
   }
 };
@@ -417,10 +417,11 @@ nsVideoFrame::BuildDisplayList(nsDisplayListBuilder*   aBuilder,
 
   DisplayBorderBackgroundOutline(aBuilder, aLists);
 
-  nsDisplayList replacedContent;
+  DisplayListClipState::AutoClipContainingBlockDescendantsToContentBox
+    clip(aBuilder, this, DisplayListClipState::ASSUME_DRAWING_RESTRICTED_TO_CONTENT_RECT);
 
   if (HasVideoElement() && !ShouldDisplayPoster()) {
-    replacedContent.AppendNewToTop(
+    aLists.Content()->AppendNewToTop(
       new (aBuilder) nsDisplayVideo(aBuilder, this));
   }
 
@@ -433,15 +434,13 @@ nsVideoFrame::BuildDisplayList(nsDisplayListBuilder*   aBuilder,
     if (child->GetContent() != mPosterImage || ShouldDisplayPoster()) {
       child->BuildDisplayListForStackingContext(aBuilder,
                                                 aDirtyRect - child->GetOffsetTo(this),
-                                                &replacedContent);
+                                                aLists.Content());
     } else if (child->GetType() == nsGkAtoms::boxFrame) {
       child->BuildDisplayListForStackingContext(aBuilder,
                                                 aDirtyRect - child->GetOffsetTo(this),
-                                                &replacedContent);
+                                                aLists.Content());
     }
   }
-
-  WrapReplacedContentForBorderRadius(aBuilder, &replacedContent, aLists);
 }
 
 nsIAtom*
@@ -516,7 +515,7 @@ bool nsVideoFrame::ShouldDisplayPoster()
   if (!HasVideoElement())
     return false;
 
-  nsHTMLVideoElement* element = static_cast<nsHTMLVideoElement*>(GetContent());
+  HTMLVideoElement* element = static_cast<HTMLVideoElement*>(GetContent());
   if (element->GetPlayedOrSeeked() && HasVideoData())
     return false;
 
@@ -558,7 +557,7 @@ nsVideoFrame::GetVideoIntrinsicSize(nsRenderingContext *aRenderingContext)
     return nsSize(nsPresContext::CSSPixelsToAppUnits(size.width), prefHeight);
   }
 
-  nsHTMLVideoElement* element = static_cast<nsHTMLVideoElement*>(GetContent());
+  HTMLVideoElement* element = static_cast<HTMLVideoElement*>(GetContent());
   if (NS_FAILED(element->GetVideoSize(&size)) && ShouldDisplayPoster()) {
     // Use the poster image frame's size.
     nsIFrame *child = mPosterImage->GetPrimaryFrame();
@@ -577,7 +576,7 @@ nsresult
 nsVideoFrame::UpdatePosterSource(bool aNotify)
 {
   NS_ASSERTION(HasVideoElement(), "Only call this on <video> elements.");
-  nsHTMLVideoElement* element = static_cast<nsHTMLVideoElement*>(GetContent());
+  HTMLVideoElement* element = static_cast<HTMLVideoElement*>(GetContent());
 
   nsAutoString posterStr;
   element->GetPoster(posterStr);
@@ -612,7 +611,7 @@ bool nsVideoFrame::HasVideoData()
 {
   if (!HasVideoElement())
     return false;
-  nsHTMLVideoElement* element = static_cast<nsHTMLVideoElement*>(GetContent());
+  HTMLVideoElement* element = static_cast<HTMLVideoElement*>(GetContent());
   nsIntSize size(0, 0);
   element->GetVideoSize(&size);
   return size != nsIntSize(0,0);

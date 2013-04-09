@@ -50,6 +50,7 @@ public:
     , mConnector(aConnector)
     , mShuttingDownOnIOThread(false)
     , mAddress(aAddress)
+    , mDelayedConnectTask(nullptr)
   {
   }
 
@@ -111,6 +112,28 @@ public:
                                  this);
   }
 
+  void SetDelayedConnectTask(CancelableTask* aTask)
+  {
+    MOZ_ASSERT(NS_IsMainThread());
+    mDelayedConnectTask = aTask;
+  }
+
+  void ClearDelayedConnectTask()
+  {
+    MOZ_ASSERT(NS_IsMainThread());
+    mDelayedConnectTask = nullptr;
+  }
+
+  void CancelDelayedConnectTask()
+  {
+    MOZ_ASSERT(NS_IsMainThread());
+    if (!mDelayedConnectTask) {
+      return;
+    }
+    mDelayedConnectTask->Cancel();
+    ClearDelayedConnectTask();
+  }
+
   /** 
    * Connect to a socket
    */
@@ -135,8 +158,7 @@ public:
 
   void GetSocketAddr(nsAString& aAddrStr)
   {
-    if (!mConnector)
-    {
+    if (!mConnector) {
       NS_WARNING("No connector to get socket address from!");
       aAddrStr.Truncate();
       return;
@@ -218,7 +240,12 @@ private:
   /**
    * Address struct of the socket currently in use
    */
-  sockaddr mAddr;
+  sockaddr_any mAddr;
+
+  /**
+   * Task member for delayed connect task. Should only be access on main thread.
+   */
+  CancelableTask* mDelayedConnectTask;
 };
 
 template<class T>
@@ -294,7 +321,7 @@ public:
   NS_IMETHOD Run()
   {
     MOZ_ASSERT(NS_IsMainThread());
-    if(mImpl->IsShutdownOnMainThread()) {
+    if (mImpl->IsShutdownOnMainThread()) {
       NS_WARNING("mConsumer is null, aborting receive!");
       // Since we've already explicitly closed and the close happened before
       // this, this isn't really an error. Since we've warned, return OK.
@@ -404,6 +431,30 @@ void SocketConnectTask::Run()
   mImpl->Connect();
 }
 
+class SocketDelayedConnectTask : public CancelableTask {
+  virtual void Run();
+
+  UnixSocketImpl* mImpl;
+public:
+  SocketDelayedConnectTask(UnixSocketImpl* aImpl) : mImpl(aImpl) { }
+
+  virtual void Cancel()
+  {
+    MOZ_ASSERT(NS_IsMainThread());
+    mImpl = nullptr;
+  }
+};
+
+void SocketDelayedConnectTask::Run()
+{
+  MOZ_ASSERT(NS_IsMainThread());
+  if (!mImpl || mImpl->IsShutdownOnMainThread()) {
+    return;
+  }
+  mImpl->ClearDelayedConnectTask();
+  XRE_GetIOMessageLoop()->PostTask(FROM_HERE, new SocketConnectTask(mImpl));
+}
+
 class ShutdownSocketTask : public Task {
   virtual void Run();
 
@@ -441,10 +492,12 @@ UnixSocketImpl::Accept()
 
   // This will set things we don't particularly care about, but it will hand
   // back the correct structure size which is what we do care about.
-  mConnector->CreateAddr(true, mAddrSize, &mAddr, nullptr);
+  if (!mConnector->CreateAddr(true, mAddrSize, mAddr, nullptr)) {
+    NS_WARNING("Cannot create socket address!");
+    return;
+  }
 
-  if(mFd.get() < 0)
-  {
+  if (mFd.get() < 0) {
     mFd = mConnector->Create();
     if (mFd.get() < 0) {
       return;
@@ -454,7 +507,7 @@ UnixSocketImpl::Accept()
       return;
     }
 
-    if (bind(mFd.get(), &mAddr, mAddrSize)) {
+    if (bind(mFd.get(), (struct sockaddr*)&mAddr, mAddrSize)) {
 #ifdef DEBUG
       LOG("...bind(%d) gave errno %d", mFd.get(), errno);
 #endif
@@ -483,8 +536,7 @@ UnixSocketImpl::Connect()
     return;
   }
 
-  if(mFd.get() < 0)
-  {
+  if (mFd.get() < 0) {
     mFd = mConnector->Create();
     if (mFd.get() < 0) {
       return;
@@ -493,9 +545,12 @@ UnixSocketImpl::Connect()
 
   int ret;
 
-  mConnector->CreateAddr(false, mAddrSize, &mAddr, mAddress.get());
+  if (!mConnector->CreateAddr(false, mAddrSize, mAddr, mAddress.get())) {
+    NS_WARNING("Cannot create socket address!");
+    return;
+  }
 
-  ret = connect(mFd.get(), &mAddr, mAddrSize);
+  ret = connect(mFd.get(), (struct sockaddr*)&mAddr, mAddrSize);
 
   if (ret) {
 #if DEBUG
@@ -595,6 +650,8 @@ UnixSocketConsumer::CloseSocket()
     return;
   }
 
+  mImpl->CancelDelayedConnectTask();
+
   // From this point on, we consider mImpl as being deleted.
   // We sever the relationship here so any future calls to listen or connect
   // will create a new implementation.
@@ -660,7 +717,7 @@ UnixSocketImpl::OnFileCanReadWithoutBlocking(int aFd)
   }
 
   if (status == SOCKET_LISTENING) {
-    int client_fd = accept(mFd.get(), &mAddr, &mAddrSize);
+    int client_fd = accept(mFd.get(), (struct sockaddr*)&mAddr, &mAddrSize);
 
     if (client_fd < 0) {
       return;
@@ -780,16 +837,22 @@ UnixSocketConsumer::ConnectSocket(UnixSocketConnector* aConnector,
 {
   MOZ_ASSERT(aConnector);
   MOZ_ASSERT(NS_IsMainThread());
+
+  nsAutoPtr<UnixSocketConnector> connector(aConnector);
+
   if (mImpl) {
     NS_WARNING("Socket already connecting/connected!");
     return false;
   }
+
   nsCString addr(aAddress);
-  mImpl = new UnixSocketImpl(this, aConnector, addr);
+  mImpl = new UnixSocketImpl(this, connector.forget(), addr);
   MessageLoop* ioLoop = XRE_GetIOMessageLoop();
   mConnectionStatus = SOCKET_CONNECTING;
   if (aDelayMs > 0) {
-    ioLoop->PostDelayedTask(FROM_HERE, new SocketConnectTask(mImpl), aDelayMs);
+    SocketDelayedConnectTask* connectTask = new SocketDelayedConnectTask(mImpl);
+    mImpl->SetDelayedConnectTask(connectTask);
+    MessageLoop::current()->PostDelayedTask(FROM_HERE, connectTask, aDelayMs);
   } else {
     ioLoop->PostTask(FROM_HERE, new SocketConnectTask(mImpl));
   }
@@ -801,11 +864,15 @@ UnixSocketConsumer::ListenSocket(UnixSocketConnector* aConnector)
 {
   MOZ_ASSERT(aConnector);
   MOZ_ASSERT(NS_IsMainThread());
+
+  nsAutoPtr<UnixSocketConnector> connector(aConnector);
+
   if (mImpl) {
     NS_WARNING("Socket already connecting/connected!");
     return false;
   }
-  mImpl = new UnixSocketImpl(this, aConnector, EmptyCString());
+
+  mImpl = new UnixSocketImpl(this, connector.forget(), EmptyCString());
   mConnectionStatus = SOCKET_LISTENING;
   XRE_GetIOMessageLoop()->PostTask(FROM_HERE,
                                    new SocketAcceptTask(mImpl));

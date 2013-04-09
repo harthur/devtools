@@ -1,10 +1,6 @@
 #filter substitution
 package @ANDROID_PACKAGE_NAME@.tests;
 
-import @ANDROID_PACKAGE_NAME@.*;
-import android.app.Activity;
-import android.content.ContentResolver;
-
 /* This test will test if doorhangers are displayed and dismissed
    The test will test:
    * geolocation doorhangers - sharing and not sharing the location dismisses the doorhanger
@@ -48,7 +44,7 @@ public class testDoorHanger extends BaseTest {
         // Test "Share" button hides the notification
         mSolo.clickOnCheckBox(0);
         mSolo.clickOnButton(GEO_ALLOW);
-        mAsserter.is(mSolo.searchText(GEO_MESSAGE), false, "Geolocation doorhanger has been hidden");
+        mAsserter.is(mSolo.searchText(GEO_MESSAGE), false, "Geolocation doorhanger has been hidden when allowing share");
 
         // Re-trigger geolocation notification
         loadUrl(GEO_URL);
@@ -57,7 +53,7 @@ public class testDoorHanger extends BaseTest {
         // Test "Don't share" button hides the notification
         mSolo.clickOnCheckBox(0);
         mSolo.clickOnButton(GEO_DENY);
-        mAsserter.is(mSolo.searchText(GEO_MESSAGE), false, "Geolocation doorhanger has been hidden");
+        mAsserter.is(mSolo.searchText(GEO_MESSAGE), false, "Geolocation doorhanger has been hidden when denying share");
 
         // Re-trigger geolocation notification
         loadUrl(GEO_URL);
@@ -67,7 +63,7 @@ public class testDoorHanger extends BaseTest {
         addTab(BLANK_URL);
 
         // Make sure doorhanger is hidden
-        mAsserter.is(mSolo.searchText(GEO_MESSAGE), false, "Doorhanger notification is hidden");
+        mAsserter.is(mSolo.searchText(GEO_MESSAGE), false, "Geolocation doorhanger notification is hidden when opening a new tab");
 
         // Load offline storage page
         loadUrl(OFFLINE_STORAGE_URL);
@@ -76,7 +72,7 @@ public class testDoorHanger extends BaseTest {
         // Test doorhanger dismissed when tapping "Don't share"
         mSolo.clickOnCheckBox(0);
         mSolo.clickOnButton(OFFLINE_DENY);
-        mAsserter.is(mSolo.searchText(OFFLINE_MESSAGE), false, "Doorhanger notification is hidden");
+        mAsserter.is(mSolo.searchText(OFFLINE_MESSAGE), false, "Offline storage doorhanger notification is hidden when denying storage");
 
         // Load offline storage page
         loadUrl(OFFLINE_STORAGE_URL);
@@ -84,9 +80,9 @@ public class testDoorHanger extends BaseTest {
 
         // Test doorhanger dismissed when tapping "Allow" and is not displayed again
         mSolo.clickOnButton(OFFLINE_ALLOW);
-        mAsserter.is(mSolo.searchText(OFFLINE_MESSAGE), false, "Doorhanger notification is hidden");
+        mAsserter.is(mSolo.searchText(OFFLINE_MESSAGE), false, "Offline storage doorhanger notification is hidden when allowing storage");
         loadUrl(OFFLINE_STORAGE_URL);
-        mAsserter.is(mSolo.searchText(OFFLINE_MESSAGE), false, "Doorhanger is no longer triggered");
+        mAsserter.is(mSolo.searchText(OFFLINE_MESSAGE), false, "Offline storage doorhanger is no longer triggered");
 
         // Load login page
         loadUrl(LOGIN_URL);
@@ -94,7 +90,7 @@ public class testDoorHanger extends BaseTest {
 
         // Test doorhanger is dismissed when tapping "Don't save"
         mSolo.clickOnButton(LOGIN_DENY);
-        mAsserter.is(mSolo.searchText(LOGIN_MESSAGE), false, "Doorhanger notification is hidden");
+        mAsserter.is(mSolo.searchText(LOGIN_MESSAGE), false, "Login doorhanger notification is hidden when denying saving password");
 
         // Load login page
         loadUrl(LOGIN_URL);
@@ -102,10 +98,10 @@ public class testDoorHanger extends BaseTest {
 
         // Test doorhanger is dismissed when tapping "Save" and is no longer triggered
         mSolo.clickOnButton(LOGIN_ALLOW);
-        mAsserter.is(mSolo.searchText(LOGIN_MESSAGE), false, "Doorhanger notification is hidden");
+        mAsserter.is(mSolo.searchText(LOGIN_MESSAGE), false, "Login doorhanger notification is hidden when allowing saving password");
 
         // Reload the page and check that there is no doorhanger displayed
         loadUrl(LOGIN_URL);
-        mAsserter.is(mSolo.searchText(LOGIN_MESSAGE), false, "Doorhanger notification is hidden");
+        mAsserter.is(mSolo.searchText(LOGIN_MESSAGE), false, "Login doorhanger is not re-triggered");
     }
 }

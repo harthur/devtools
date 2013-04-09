@@ -11,6 +11,7 @@
 #endif // #ifdef NS_ENABLE_TSF
 
 #include "nsWindow.h"
+#include "WinUtils.h"
 
 namespace mozilla {
 namespace widget {
@@ -72,19 +73,6 @@ IMEHandler::GetNativeData(uint32_t aDataType)
 
 // static
 bool
-IMEHandler::CanOptimizeKeyAndIMEMessages()
-{
-#ifdef NS_ENABLE_TSF
-  if (IsTSFAvailable()) {
-    return nsTextStore::CanOptimizeKeyAndIMEMessages();
-  }
-#endif // #ifdef NS_ENABLE_TSF
-
-  return nsIMM32Handler::CanOptimizeKeyAndIMEMessages();
-}
-
-// static
-bool
 IMEHandler::IsIMEEnabled(const InputContext& aInputContext)
 {
   return IsIMEEnabled(aInputContext.mIMEState.mEnabled);
@@ -96,6 +84,18 @@ IMEHandler::IsIMEEnabled(IMEState::Enabled aIMEState)
 {
   return (aIMEState == mozilla::widget::IMEState::ENABLED ||
           aIMEState == mozilla::widget::IMEState::PLUGIN);
+}
+
+// static
+bool
+IMEHandler::ProcessRawKeyMessage(const MSG& aMsg)
+{
+#ifdef NS_ENABLE_TSF
+  if (IsTSFAvailable()) {
+    return nsTextStore::ProcessRawKeyMessage(aMsg);
+  }
+#endif // #ifdef NS_ENABLE_TSF
+  return false; // noting to do in IMM mode.
 }
 
 // static
@@ -253,7 +253,9 @@ IMEHandler::OnDestroyWindow(nsWindow* aWindow)
 
 // static
 void
-IMEHandler::SetInputContext(nsWindow* aWindow, InputContext& aInputContext)
+IMEHandler::SetInputContext(nsWindow* aWindow,
+                            InputContext& aInputContext,
+                            const InputContextAction& aAction)
 {
   // FYI: If there is no composition, this call will do nothing.
   NotifyIME(aWindow, REQUEST_TO_COMMIT_COMPOSITION);
@@ -272,12 +274,14 @@ IMEHandler::SetInputContext(nsWindow* aWindow, InputContext& aInputContext)
 #ifdef NS_ENABLE_TSF
   // Note that even while a plugin has focus, we need to notify TSF of that.
   if (sIsInTSFMode) {
-    nsTextStore::SetInputContext(aInputContext);
+    nsTextStore::SetInputContext(aWindow, aInputContext, aAction);
     if (IsTSFAvailable()) {
       aInputContext.mNativeIMEContext = nsTextStore::GetTextStore();
+      if (adjustOpenState) {
+        nsTextStore::SetIMEOpenState(open);
+      }
+      return;
     }
-    // Currently, nsTextStore doesn't set focus to keyboard disabled document.
-    // Therefore, we still need to perform the following legacy code.
   }
 #endif // #ifdef NS_ENABLE_TSF
 
@@ -298,12 +302,6 @@ IMEHandler::SetInputContext(nsWindow* aWindow, InputContext& aInputContext)
   }
 
   if (adjustOpenState) {
-#ifdef NS_ENABLE_TSF
-    if (IsTSFAvailable()) {
-      nsTextStore::SetIMEOpenState(open);
-      return;
-    }
-#endif // #ifdef NS_ENABLE_TSF
     IMEContext.SetOpenState(open);
   }
 }
@@ -317,7 +315,9 @@ IMEHandler::InitInputContext(nsWindow* aWindow, InputContext& aInputContext)
 
 #ifdef NS_ENABLE_TSF
   if (sIsInTSFMode) {
-    nsTextStore::SetInputContext(aInputContext);
+    nsTextStore::SetInputContext(aWindow, aInputContext,
+      InputContextAction(InputContextAction::CAUSE_UNKNOWN,
+                         InputContextAction::GOT_FOCUS));
     aInputContext.mNativeIMEContext = nsTextStore::GetTextStore();
     MOZ_ASSERT(aInputContext.mNativeIMEContext);
     return;
@@ -369,13 +369,13 @@ IMEHandler::IsDoingKakuteiUndo(HWND aWnd)
   // https://bugzilla.mozilla.gr.jp/show_bug.cgi?id=2885 (written in Japanese)
   // https://bugzilla.mozilla.org/show_bug.cgi?id=194559 (written in English)
   MSG startCompositionMsg, compositionMsg, charMsg;
-  return ::PeekMessageW(&startCompositionMsg, aWnd,
-                        WM_IME_STARTCOMPOSITION, WM_IME_STARTCOMPOSITION,
-                        PM_NOREMOVE | PM_NOYIELD) &&
-         ::PeekMessageW(&compositionMsg, aWnd, WM_IME_COMPOSITION,
-                        WM_IME_COMPOSITION, PM_NOREMOVE | PM_NOYIELD) &&
-         ::PeekMessageW(&charMsg, aWnd, WM_CHAR, WM_CHAR,
-                        PM_NOREMOVE | PM_NOYIELD) &&
+  return WinUtils::PeekMessage(&startCompositionMsg, aWnd,
+                               WM_IME_STARTCOMPOSITION, WM_IME_STARTCOMPOSITION,
+                               PM_NOREMOVE | PM_NOYIELD) &&
+         WinUtils::PeekMessage(&compositionMsg, aWnd, WM_IME_COMPOSITION,
+                               WM_IME_COMPOSITION, PM_NOREMOVE | PM_NOYIELD) &&
+         WinUtils::PeekMessage(&charMsg, aWnd, WM_CHAR, WM_CHAR,
+                               PM_NOREMOVE | PM_NOYIELD) &&
          startCompositionMsg.wParam == 0x0 &&
          startCompositionMsg.lParam == 0x0 &&
          compositionMsg.wParam == 0x0 &&

@@ -116,6 +116,10 @@ using namespace mozilla::system;
 
 #include "Crypto.h"
 
+#ifdef MOZ_WEBSPEECH
+#include "mozilla/dom/SpeechSynthesisParent.h"
+#endif
+
 static NS_DEFINE_CID(kCClipboardCID, NS_CLIPBOARD_CID);
 static const char* sClipboardTextFlavors[] = { kUnicodeMime };
 
@@ -370,7 +374,7 @@ ContentParent::JoinAllSubprocesses()
     sCanLaunchSubprocesses = false;
 }
 
-/*static*/ ContentParent*
+/*static*/ already_AddRefed<ContentParent>
 ContentParent::GetNewOrUsed(bool aForBrowserElement)
 {
     if (!gNonAppContentParents)
@@ -382,9 +386,9 @@ ContentParent::GetNewOrUsed(bool aForBrowserElement)
 
     if (gNonAppContentParents->Length() >= uint32_t(maxContentProcesses)) {
         uint32_t idx = rand() % gNonAppContentParents->Length();
-        ContentParent* p = (*gNonAppContentParents)[idx];
+        nsRefPtr<ContentParent> p = (*gNonAppContentParents)[idx];
         NS_ASSERTION(p->IsAlive(), "Non-alive contentparent in gNonAppContentParents?");
-        return p;
+        return p.forget();
     }
 
     nsRefPtr<ContentParent> p =
@@ -394,7 +398,7 @@ ContentParent::GetNewOrUsed(bool aForBrowserElement)
                           PROCESS_PRIORITY_FOREGROUND);
     p->Init();
     gNonAppContentParents->AppendElement(p);
-    return p;
+    return p.forget();
 }
 
 namespace {
@@ -410,10 +414,7 @@ PrivilegesForApp(mozIApplication* aApp)
     const SpecialPermission specialPermissions[] = {
         // FIXME/bug 785592: implement a CameraBridge so we don't have
         // to hack around with OS permissions
-        { "camera", base::PRIVILEGES_CAMERA },
-        // FIXME/bug 793034: change our video architecture so that we
-        // can stream video from remote processes
-        { "deprecated-hwvideo", base::PRIVILEGES_VIDEO }
+        { "camera", base::PRIVILEGES_CAMERA }
     };
     for (size_t i = 0; i < ArrayLength(specialPermissions); ++i) {
         const char* const permission = specialPermissions[i].perm;
@@ -465,7 +466,7 @@ ContentParent::CreateBrowserOrApp(const TabContext& aContext,
     }
 
     if (aContext.IsBrowserElement() || !aContext.HasOwnApp()) {
-        if (ContentParent* cp = GetNewOrUsed(aContext.IsBrowserElement())) {
+        if (nsRefPtr<ContentParent> cp = GetNewOrUsed(aContext.IsBrowserElement())) {
             nsRefPtr<TabParent> tp(new TabParent(aContext));
             tp->SetOwnerElement(aFrameElement);
             PBrowserParent* browser = cp->SendPBrowserConstructor(
@@ -1508,7 +1509,8 @@ ContentParent::Observe(nsISupports* aSubject,
     }
     // listening for alert notifications
     else if (!strcmp(aTopic, "alertfinished") ||
-             !strcmp(aTopic, "alertclickcallback") ) {
+             !strcmp(aTopic, "alertclickcallback") ||
+             !strcmp(aTopic, "alertshow") ) {
         if (!SendNotifyAlertsObserver(nsDependentCString(aTopic),
                                       nsDependentString(aData)))
             return NS_ERROR_NOT_AVAILABLE;
@@ -2020,6 +2022,37 @@ ContentParent::RecvPBluetoothConstructor(PBluetoothParent* aActor)
 #endif
 }
 
+PSpeechSynthesisParent*
+ContentParent::AllocPSpeechSynthesis()
+{
+#ifdef MOZ_WEBSPEECH
+    return new mozilla::dom::SpeechSynthesisParent();
+#else
+    return nullptr;
+#endif
+}
+
+bool
+ContentParent::DeallocPSpeechSynthesis(PSpeechSynthesisParent* aActor)
+{
+#ifdef MOZ_WEBSPEECH
+    delete aActor;
+    return true;
+#else
+    return false;
+#endif
+}
+
+bool
+ContentParent::RecvPSpeechSynthesisConstructor(PSpeechSynthesisParent* aActor)
+{
+#ifdef MOZ_WEBSPEECH
+    return true;
+#else
+    return false;
+#endif
+}
+
 void
 ContentParent::ReportChildAlreadyBlocked()
 {
@@ -2242,7 +2275,8 @@ ContentParent::AfterProcessNextEvent(nsIThreadInternal *thread,
 bool
 ContentParent::RecvShowAlertNotification(const nsString& aImageUrl, const nsString& aTitle,
                                          const nsString& aText, const bool& aTextClickable,
-                                         const nsString& aCookie, const nsString& aName)
+                                         const nsString& aCookie, const nsString& aName,
+                                         const nsString& aBidi, const nsString& aLang)
 {
     if (!AssertAppProcessPermission(this, "desktop-notification")) {
         return false;
@@ -2250,8 +2284,39 @@ ContentParent::RecvShowAlertNotification(const nsString& aImageUrl, const nsStri
     nsCOMPtr<nsIAlertsService> sysAlerts(do_GetService(NS_ALERTSERVICE_CONTRACTID));
     if (sysAlerts) {
         sysAlerts->ShowAlertNotification(aImageUrl, aTitle, aText, aTextClickable,
-                                         aCookie, this, aName);
+                                         aCookie, this, aName, aBidi, aLang);
     }
+
+    return true;
+}
+
+bool
+ContentParent::RecvCloseAlert(const nsString& aName)
+{
+    if (!AssertAppProcessPermission(this, "desktop-notification")) {
+        return false;
+    }
+    nsCOMPtr<nsIAlertsService> sysAlerts(do_GetService(NS_ALERTSERVICE_CONTRACTID));
+    if (sysAlerts) {
+        sysAlerts->CloseAlert(aName);
+    }
+
+    return true;
+}
+
+bool
+ContentParent::RecvTestPermissionFromPrincipal(const IPC::Principal& aPrincipal,
+                                               const nsCString& aType,
+                                               uint32_t* permission)
+{
+    nsCOMPtr<nsIPermissionManager> permissionManager =
+        do_GetService(NS_PERMISSIONMANAGER_CONTRACTID);
+    NS_ENSURE_TRUE(permissionManager, false);
+
+    nsresult rv = permissionManager->TestPermissionFromPrincipal(aPrincipal,
+                                                                 aType.get(),
+                                                                 permission);
+    NS_ENSURE_SUCCESS(rv, false);
 
     return true;
 }

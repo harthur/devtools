@@ -18,12 +18,6 @@ SVGAnimateMotionElement::WrapNode(JSContext *aCx, JSObject *aScope)
 }
 
 //----------------------------------------------------------------------
-// nsISupports methods
-NS_IMPL_ISUPPORTS_INHERITED3(SVGAnimateMotionElement, SVGAnimationElement,
-                             nsIDOMNode,
-                             nsIDOMElement, nsIDOMSVGElement)
-
-//----------------------------------------------------------------------
 // Implementation
 
 SVGAnimateMotionElement::SVGAnimateMotionElement(already_AddRefed<nsINodeInfo> aNodeInfo)
@@ -37,7 +31,6 @@ SVGAnimateMotionElement::SVGAnimateMotionElement(already_AddRefed<nsINodeInfo> a
 NS_IMPL_ELEMENT_CLONE_WITH_INIT(SVGAnimateMotionElement)
 
 //----------------------------------------------------------------------
-// nsISMILAnimationElement methods
 
 nsSMILAnimationFunction&
 SVGAnimateMotionElement::AnimationFunction()

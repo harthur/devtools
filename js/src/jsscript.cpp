@@ -10,6 +10,9 @@
  */
 
 #include <string.h>
+
+#include "mozilla/PodOperations.h"
+
 #include "jstypes.h"
 #include "jsutil.h"
 #include "jscrashreport.h"
@@ -33,6 +36,7 @@
 #include "js/MemoryMetrics.h"
 #include "methodjit/MethodJIT.h"
 #include "ion/IonCode.h"
+#include "ion/BaselineJIT.h"
 #include "methodjit/Retcon.h"
 #include "vm/Debugger.h"
 #include "vm/Shape.h"
@@ -49,6 +53,9 @@
 using namespace js;
 using namespace js::gc;
 using namespace js::frontend;
+
+using mozilla::PodCopy;
+using mozilla::PodZero;
 
 typedef Rooted<GlobalObject *> RootedGlobalObject;
 
@@ -121,7 +128,8 @@ Bindings::initWithTemporaryStorage(JSContext *cx, InternalBindingsHandle self,
             return false;
 #endif
 
-        StackBaseShape base(&CallClass, cx->global(), BaseShape::VAROBJ | BaseShape::DELEGATE);
+        StackBaseShape base(cx->compartment, &CallClass, cx->global(),
+                            BaseShape::VAROBJ | BaseShape::DELEGATE);
 
         RawUnownedBaseShape nbase = BaseShape::getUnowned(cx, base);
         if (!nbase)
@@ -404,7 +412,8 @@ js::XDRScript(XDRState<mode> *xdr, HandleObject enclosingScope, HandleScript enc
         IsGenerator,
         IsGeneratorExp,
         OwnSource,
-        ExplicitUseStrict
+        ExplicitUseStrict,
+        SelfHosted
     };
 
     uint32_t length, lineno, nslots;
@@ -472,6 +481,8 @@ js::XDRScript(XDRState<mode> *xdr, HandleObject enclosingScope, HandleScript enc
             scriptBits |= (1 << Strict);
         if (script->explicitUseStrict)
             scriptBits |= (1 << ExplicitUseStrict);
+        if (script->selfHosted)
+            scriptBits |= (1 << SelfHosted);
         if (script->bindingsAccessedDynamically)
             scriptBits |= (1 << ContainsDynamicNameAccess);
         if (script->funHasExtensibleScope)
@@ -530,7 +541,8 @@ js::XDRScript(XDRState<mode> *xdr, HandleObject enclosingScope, HandleScript enc
         // staticLevel is set below.
         CompileOptions options(cx);
         options.setVersion(version_)
-               .setNoScriptRval(!!(scriptBits & (1 << NoScriptRval)));
+               .setNoScriptRval(!!(scriptBits & (1 << NoScriptRval)))
+               .setSelfHostingMode(!!(scriptBits & (1 << SelfHosted)));
         ScriptSource *ss;
         if (scriptBits & (1 << OwnSource)) {
             ss = cx->new_<ScriptSource>();
@@ -1179,17 +1191,19 @@ SourceDataCache::purge()
     map_ = NULL;
 }
 
-JSFlatString *
+JSStableString *
 ScriptSource::substring(JSContext *cx, uint32_t start, uint32_t stop)
 {
     const jschar *chars;
-#if USE_ZLIB
+#ifdef USE_ZLIB
     Rooted<JSStableString *> cached(cx, NULL);
+#endif
 #ifdef JS_THREADSAFE
     if (!ready()) {
         chars = cx->runtime->sourceCompressorThread.currentChars();
     } else
 #endif
+#ifdef USE_ZLIB
     if (compressed()) {
         cached = cx->runtime->sourceDataCache.lookup(this);
         if (!cached) {
@@ -1219,7 +1233,10 @@ ScriptSource::substring(JSContext *cx, uint32_t start, uint32_t stop)
 #else
     chars = data.source;
 #endif
-    return js_NewStringCopyN<CanGC>(cx, chars + start, stop - start);
+    JSFlatString *flatStr = js_NewStringCopyN<CanGC>(cx, chars + start, stop - start);
+    if (!flatStr)
+        return NULL;
+    return flatStr->ensureStable(cx);
 }
 
 bool
@@ -1480,7 +1497,7 @@ js::SaveSharedScriptData(JSContext *cx, Handle<JSScript *> script, SharedScriptD
      * old scripts or exceptions pointing to the bytecode may no longer be
      * reachable. This is effectively a read barrier.
      */
-    if (IsIncrementalGCInProgress(rt) && rt->gcIsFull)
+    if (JS::IsIncrementalGCInProgress(rt) && rt->gcIsFull)
         ssd->marked = true;
 #endif
 
@@ -1637,6 +1654,7 @@ JSScript::Create(JSContext *cx, HandleObject enclosingScope, bool savedCallerFun
 
     script->enclosingScopeOrOriginalFunction_ = enclosingScope;
     script->savedCallerFun = savedCallerFun;
+    script->compartment_ = cx->compartment;
 
     /* Establish invariant: principals implies originPrincipals. */
     if (options.principals) {
@@ -2510,6 +2528,11 @@ JSScript::recompileForStepMode(FreeOp *fop)
         mjit::ReleaseScriptCode(fop, this);
     }
 #endif
+
+#ifdef JS_ION
+    if (hasBaselineScript())
+        baseline->toggleDebugTraps(this, NULL);
+#endif
 }
 
 bool
@@ -2679,6 +2702,8 @@ JSScript::markChildren(JSTracer *trc)
         MarkObject(trc, &enclosingScopeOrOriginalFunction_, "enclosing");
 
     if (IS_GC_MARKING_TRACER(trc)) {
+        compartment()->mark();
+
         if (code)
             MarkScriptBytecode(trc->runtime, code);
     }
@@ -2776,6 +2801,16 @@ JSScript::argumentsOptimizationFailed(JSContext *cx, HandleScript script)
 
     script->needsArgsObj_ = true;
 
+#ifdef JS_ION
+    /*
+     * Since we can't invalidate baseline scripts, set a flag that's checked from
+     * JIT code to indicate the arguments optimization failed and JSOP_ARGUMENTS
+     * should create an arguments object next time.
+     */
+    if (script->hasBaselineScript())
+        script->baselineScript()->setNeedsArgsObj();
+#endif
+
     /*
      * By design, the arguments optimization is only made when there are no
      * outstanding cases of MagicValue(JS_OPTIMIZED_ARGUMENTS) at any points
@@ -2799,7 +2834,7 @@ JSScript::argumentsOptimizationFailed(JSContext *cx, HandleScript script)
          * safe since the engine avoids any observation of a StackFrame when it
          * beginsIonActivation (see StackIter::interpFrame comment).
          */
-        if (i.isIon())
+        if (i.isIonOptimizedJS())
             continue;
         AbstractFramePtr frame = i.abstractFramePtr();
         if (frame.isFunctionFrame() && frame.script() == script) {
@@ -2820,7 +2855,7 @@ JSScript::argumentsOptimizationFailed(JSContext *cx, HandleScript script)
 
 #ifdef JS_METHODJIT
     if (script->hasMJITInfo()) {
-        mjit::ExpandInlineFrames(cx->compartment);
+        mjit::ExpandInlineFrames(cx->zone());
         mjit::Recompiler::clearStackReferences(cx->runtime->defaultFreeOp(), script);
         mjit::ReleaseScriptCode(cx->runtime->defaultFreeOp(), script);
     }

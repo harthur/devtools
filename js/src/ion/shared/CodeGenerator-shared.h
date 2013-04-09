@@ -39,8 +39,11 @@ class CodeGeneratorShared : public LInstructionVisitor
     OutOfLineCode *oolIns;
     OutOfLineParallelAbort *oolParallelAbort_;
 
+    MacroAssembler &ensureMasm(MacroAssembler *masm);
+    mozilla::Maybe<MacroAssembler> maybeMasm_;
+
   public:
-    MacroAssembler masm;
+    MacroAssembler &masm;
 
   protected:
     MIRGenerator *gen;
@@ -105,7 +108,9 @@ class CodeGeneratorShared : public LInstructionVisitor
 
     // For arguments to the current function.
     inline int32_t ArgToStackOffset(int32_t slot) const {
-        return masm.framePushed() + sizeof(IonJSFrameLayout) + slot;
+        return masm.framePushed() +
+               (gen->compilingAsmJS() ? NativeFrameSize : sizeof(IonJSFrameLayout)) +
+               slot;
     }
 
     // For the callee of the current function.
@@ -311,13 +316,14 @@ class CodeGeneratorShared : public LInstructionVisitor
 
   protected:
     bool addOutOfLineCode(OutOfLineCode *code);
+    bool hasOutOfLineCode() { return !outOfLineCode_.empty(); }
     bool generateOutOfLineCode();
 
   private:
     void generateInvalidateEpilogue();
 
   public:
-    CodeGeneratorShared(MIRGenerator *gen, LIRGraph *graph);
+    CodeGeneratorShared(MIRGenerator *gen, LIRGraph *graph, MacroAssembler *masm);
 
   public:
     template <class ArgSeq, class StoreOutputTo>
@@ -333,13 +339,6 @@ class CodeGeneratorShared : public LInstructionVisitor
 
   protected:
     bool ensureOutOfLineParallelAbort(Label **result);
-};
-
-// Wrapper around Label, on the heap, to avoid a bogus assert with OOM.
-struct HeapLabel
-  : public TempObject,
-    public Label
-{
 };
 
 // An out-of-line path is generated at the end of the function.

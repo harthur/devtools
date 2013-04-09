@@ -160,13 +160,17 @@ ComparePolicy::adjustInputs(MInstruction *def)
         return true;
     }
 
+    if (compare->compareType() == MCompare::Compare_Undefined ||
+        compare->compareType() == MCompare::Compare_Null)
+    {
+        // Nothing to do for undefined and null, lowering handles all types.
+        return true;
+    }
+
     // Convert all inputs to the right input type
     MIRType type = compare->inputType();
-
-    // Nothing to do for undefined and null, lowering handles all types.
-    if (type == MIRType_Undefined || type == MIRType_Null)
-        return true;
-
+    JS_ASSERT(type == MIRType_Int32 || type == MIRType_Double ||
+              type == MIRType_Object || type == MIRType_String);
     for (size_t i = 0; i < 2; i++) {
         MDefinition *in = def->getOperand(i);
         if (in->type() == type)
@@ -175,11 +179,8 @@ ComparePolicy::adjustInputs(MInstruction *def)
         MInstruction *replace;
 
         // See BinaryArithPolicy::adjustInputs for an explanation of the following
-        if (in->type() == MIRType_Object || in->type() == MIRType_String ||
-            (in->type() == MIRType_Boolean && type != MIRType_Double && type != MIRType_Int32))
-        {
+        if (in->type() == MIRType_Object || in->type() == MIRType_String)
             in = boxAt(def, in);
-        }
 
         switch (type) {
           case MIRType_Double:
@@ -446,15 +447,10 @@ InstanceOfPolicy::adjustInputs(MInstruction *def)
 }
 
 bool
-StoreTypedArrayPolicy::adjustInputs(MInstruction *ins)
+StoreTypedArrayPolicy::adjustValueInput(MInstruction *ins, int arrayType,
+                                        MDefinition *value, int valueOperand)
 {
-    MStoreTypedArrayElement *store = ins->toStoreTypedArrayElement();
-    JS_ASSERT(store->elements()->type() == MIRType_Elements);
-    JS_ASSERT(store->index()->type() == MIRType_Int32);
-
-    int arrayType = store->arrayType();
-    MDefinition *value = store->value();
-
+    MDefinition *curValue = value;
     // First, ensure the value is int32, boolean, double or Value.
     // The conversion is based on TypedArrayTemplate::setElementTail.
     switch (value->type()) {
@@ -482,8 +478,10 @@ StoreTypedArrayPolicy::adjustInputs(MInstruction *ins)
         break;
     }
 
-    if (value != store->value())
-        ins->replaceOperand(2, value);
+    if (value != curValue) {
+        ins->replaceOperand(valueOperand, value);
+        curValue = value;
+    }
 
     JS_ASSERT(value->type() == MIRType_Int32 ||
               value->type() == MIRType_Boolean ||
@@ -518,9 +516,32 @@ StoreTypedArrayPolicy::adjustInputs(MInstruction *ins)
         break;
     }
 
-    if (value != store->value())
-        ins->replaceOperand(2, value);
+    if (value != curValue) {
+        ins->replaceOperand(valueOperand, value);
+        curValue = value;
+    }
     return true;
+}
+
+bool
+StoreTypedArrayPolicy::adjustInputs(MInstruction *ins)
+{
+    MStoreTypedArrayElement *store = ins->toStoreTypedArrayElement();
+    JS_ASSERT(store->elements()->type() == MIRType_Elements);
+    JS_ASSERT(store->index()->type() == MIRType_Int32);
+
+    return adjustValueInput(ins, store->arrayType(), store->value(), 2);
+}
+
+bool
+StoreTypedArrayHolePolicy::adjustInputs(MInstruction *ins)
+{
+    MStoreTypedArrayElementHole *store = ins->toStoreTypedArrayElementHole();
+    JS_ASSERT(store->elements()->type() == MIRType_Elements);
+    JS_ASSERT(store->index()->type() == MIRType_Int32);
+    JS_ASSERT(store->length()->type() == MIRType_Int32);
+
+    return adjustValueInput(ins, store->arrayType(), store->value(), 3);
 }
 
 bool

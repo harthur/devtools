@@ -577,17 +577,15 @@ public:
    * frame (the frame that was split).
    *
    * If you want a view associated with your frame, you should create the view
-   * now.
+   * after Init() has returned.
    *
    * @param   aContent the content object associated with the frame
-   * @param   aGeometricParent  the geometric parent frame
-   * @param   aContentParent  the content parent frame
-   * @param   aContext the style context associated with the frame
+   * @param   aParent the parent frame
    * @param   aPrevInFlow the prev-in-flow frame
    */
-  NS_IMETHOD  Init(nsIContent*      aContent,
-                   nsIFrame*        aParent,
-                   nsIFrame*        aPrevInFlow) = 0;
+  virtual void Init(nsIContent*      aContent,
+                    nsIFrame*        aParent,
+                    nsIFrame*        aPrevInFlow) = 0;
 
   /**
    * Destroys this frame and each of its child frames (recursively calls
@@ -794,13 +792,13 @@ public:
    */
 
 #ifdef _IMPL_NS_LAYOUT
-  #define STYLE_STRUCT(name_, checkdata_cb_, ctor_args_)                      \
+  #define STYLE_STRUCT(name_, checkdata_cb_)                                  \
     const nsStyle##name_ * Style##name_ () const {                            \
       NS_ASSERTION(mStyleContext, "No style context found!");                 \
       return mStyleContext->Style##name_ ();                                  \
     }
 #else
-  #define STYLE_STRUCT(name_, checkdata_cb_, ctor_args_)                      \
+  #define STYLE_STRUCT(name_, checkdata_cb_)                                  \
     const nsStyle##name_ * Style##name_ () const {                            \
       return static_cast<const nsStyle##name_*>(                              \
                             StyleDataExternal(eStyleStruct_##name_));         \
@@ -1207,25 +1205,6 @@ public:
                                           const nsRect&         aDirtyRect,
                                           nsDisplayList*        aList);
 
-  /**
-   * Clips the display items of aFromSet, putting the results in aToSet.
-   * Only items corresponding to frames which are descendants of this frame
-   * are clipped. In other words, descendant elements whose CSS boxes do not
-   * have this frame as a container are not clipped. Also,
-   * border/background/outline items for this frame are not clipped,
-   * unless aClipBorderBackground is set to true. (We need this because
-   * a scrollframe must overflow-clip its scrolled child's background/borders.)
-   *
-   * Indices into aClipRadii are the NS_CORNER_* constants in nsStyleConsts.h
-   */
-  nsresult OverflowClip(nsDisplayListBuilder*   aBuilder,
-                        const nsDisplayListSet& aFromSet,
-                        const nsDisplayListSet& aToSet,
-                        const nsRect&           aClipRect,
-                        const nscoord           aClipRadii[8],
-                        bool                    aClipBorderBackground = false,
-                        bool                    aClipAll = false);
-
   enum {
     DISPLAY_CHILD_FORCE_PSEUDO_STACKING_CONTEXT = 0x01,
     DISPLAY_CHILD_FORCE_STACKING_CONTEXT = 0x02,
@@ -1245,15 +1224,6 @@ public:
                                 const nsRect&           aDirtyRect,
                                 const nsDisplayListSet& aLists,
                                 uint32_t                aFlags = 0);
-
-  /**
-   * A helper for replaced elements that want to clip their content to a
-   * border radius, but only need clipping at all when they have a
-   * border radius.
-   */
-  void WrapReplacedContentForBorderRadius(nsDisplayListBuilder* aBuilder,
-                                          nsDisplayList* aFromList,
-                                          const nsDisplayListSet& aToLists);
 
   /**
    * Does this frame need a view?

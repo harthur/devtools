@@ -7,6 +7,7 @@
 #define Shape_inl_h__
 
 #include "mozilla/DebugOnly.h"
+#include "mozilla/PodOperations.h"
 
 #include "jsarray.h"
 #include "jsbool.h"
@@ -47,21 +48,22 @@ GetterSetterWriteBarrierPostRemove(JSRuntime *rt, JSObject **objp)
 }
 
 inline
-BaseShape::BaseShape(Class *clasp, JSObject *parent, uint32_t objectFlags)
+BaseShape::BaseShape(JSCompartment *comp, Class *clasp, JSObject *parent, uint32_t objectFlags)
 {
     JS_ASSERT(!(objectFlags & ~OBJECT_FLAG_MASK));
-    PodZero(this);
+    mozilla::PodZero(this);
     this->clasp = clasp;
     this->parent = parent;
     this->flags = objectFlags;
+    this->compartment_ = comp;
 }
 
 inline
-BaseShape::BaseShape(Class *clasp, JSObject *parent, uint32_t objectFlags,
+BaseShape::BaseShape(JSCompartment *comp, Class *clasp, JSObject *parent, uint32_t objectFlags,
                      uint8_t attrs, js::PropertyOp rawGetter, js::StrictPropertyOp rawSetter)
 {
     JS_ASSERT(!(objectFlags & ~OBJECT_FLAG_MASK));
-    PodZero(this);
+    mozilla::PodZero(this);
     this->clasp = clasp;
     this->parent = parent;
     this->flags = objectFlags;
@@ -75,12 +77,13 @@ BaseShape::BaseShape(Class *clasp, JSObject *parent, uint32_t objectFlags,
         this->flags |= HAS_SETTER_OBJECT;
         GetterSetterWriteBarrierPost(runtime(), &this->setterObj);
     }
+    this->compartment_ = comp;
 }
 
 inline
 BaseShape::BaseShape(const StackBaseShape &base)
 {
-    PodZero(this);
+    mozilla::PodZero(this);
     this->clasp = base.clasp;
     this->parent = base.parent;
     this->flags = base.flags;
@@ -90,6 +93,7 @@ BaseShape::BaseShape(const StackBaseShape &base)
         GetterSetterWriteBarrierPost(runtime(), &this->getterObj);
     if ((base.flags & HAS_SETTER_OBJECT) && base.rawSetter)
         GetterSetterWriteBarrierPost(runtime(), &this->setterObj);
+    this->compartment_ = base.compartment;
 }
 
 inline BaseShape &
@@ -103,16 +107,19 @@ BaseShape::operator=(const BaseShape &other)
         getterObj = other.getterObj;
         GetterSetterWriteBarrierPost(runtime(), &getterObj);
     } else {
+        if (rawGetter)
+            GetterSetterWriteBarrierPostRemove(runtime(), &getterObj);
         rawGetter = other.rawGetter;
-        GetterSetterWriteBarrierPostRemove(runtime(), &getterObj);
     }
     if (flags & HAS_SETTER_OBJECT) {
         setterObj = other.setterObj;
         GetterSetterWriteBarrierPost(runtime(), &setterObj);
     } else {
+        if (rawSetter)
+            GetterSetterWriteBarrierPostRemove(runtime(), &setterObj);
         rawSetter = other.rawSetter;
-        GetterSetterWriteBarrierPostRemove(runtime(), &setterObj);
     }
+    compartment_ = other.compartment_;
     return *this;
 }
 
@@ -126,7 +133,8 @@ inline
 StackBaseShape::StackBaseShape(RawShape shape)
   : flags(shape->getObjectFlags()),
     clasp(shape->getObjectClass()),
-    parent(shape->getObjectParent())
+    parent(shape->getObjectParent()),
+    compartment(shape->compartment())
 {
     updateGetterSetter(shape->attrs, shape->getter(), shape->setter());
 }
@@ -340,7 +348,7 @@ Shape::setParent(RawShape p)
 }
 
 inline void
-Shape::removeFromDictionary(JSObject *obj)
+Shape::removeFromDictionary(ObjectImpl *obj)
 {
     JS_ASSERT(inDictionary());
     JS_ASSERT(obj->inDictionaryMode());
@@ -399,7 +407,7 @@ inline void
 Shape::writeBarrierPre(RawShape shape)
 {
 #ifdef JSGC_INCREMENTAL
-    if (!shape)
+    if (!shape || !shape->runtime()->needsBarrier())
         return;
 
     JS::Zone *zone = shape->zone();
@@ -442,7 +450,7 @@ inline void
 BaseShape::writeBarrierPre(RawBaseShape base)
 {
 #ifdef JSGC_INCREMENTAL
-    if (!base)
+    if (!base || !base->runtime()->needsBarrier())
         return;
 
     JS::Zone *zone = base->zone();

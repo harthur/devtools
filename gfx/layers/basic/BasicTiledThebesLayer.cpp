@@ -6,7 +6,7 @@
 #include "mozilla/MathAlgorithms.h"
 #include "BasicTiledThebesLayer.h"
 #include "gfxImageSurface.h"
-#include "sampler.h"
+#include "GeckoProfiler.h"
 #include "gfxPlatform.h"
 
 #ifdef GFX_TILEDLAYER_DEBUG_OVERLAY
@@ -92,6 +92,8 @@ BasicTiledLayerBuffer::PaintThebes(BasicTiledThebesLayer* aLayer,
   NS_ASSERTION(!aPaintRegion.GetBounds().IsEmpty(), "Empty paint region\n");
 
   bool useSinglePaintBuffer = UseSinglePaintBuffer();
+  // XXX The single-tile case doesn't work at the moment, see bug 850396
+  /*
   if (useSinglePaintBuffer) {
     // Check if the paint only spans a single tile. If that's
     // the case there's no point in using a single paint buffer.
@@ -101,11 +103,12 @@ BasicTiledLayerBuffer::PaintThebes(BasicTiledThebesLayer* aLayer,
                            GetTileStart(paintBounds.y) !=
                            GetTileStart(paintBounds.YMost() - 1);
   }
+  */
 
   if (useSinglePaintBuffer) {
     const nsIntRect bounds = aPaintRegion.GetBounds();
     {
-      SAMPLE_LABEL("BasicTiledLayerBuffer", "PaintThebesSingleBufferAlloc");
+      PROFILER_LABEL("BasicTiledLayerBuffer", "PaintThebesSingleBufferAlloc");
       mSinglePaintBuffer = new gfxImageSurface(
         gfxIntSize(ceilf(bounds.width * mResolution),
                    ceilf(bounds.height * mResolution)),
@@ -122,7 +125,7 @@ BasicTiledLayerBuffer::PaintThebes(BasicTiledThebesLayer* aLayer,
     }
     start = PR_IntervalNow();
 #endif
-    SAMPLE_LABEL("BasicTiledLayerBuffer", "PaintThebesSingleBufferDraw");
+    PROFILER_LABEL("BasicTiledLayerBuffer", "PaintThebesSingleBufferDraw");
 
     mCallback(mThebesLayer, ctxt, aPaintRegion, nsIntRegion(), mCallbackData);
   }
@@ -142,7 +145,7 @@ BasicTiledLayerBuffer::PaintThebes(BasicTiledThebesLayer* aLayer,
   start = PR_IntervalNow();
 #endif
 
-  SAMPLE_LABEL("BasicTiledLayerBuffer", "PaintThebesUpdate");
+  PROFILER_LABEL("BasicTiledLayerBuffer", "PaintThebesUpdate");
   Update(aNewValidRegion, aPaintRegion);
 
 #ifdef GFX_TILEDLAYER_PREF_WARNINGS
@@ -218,7 +221,7 @@ BasicTiledLayerBuffer::ValidateTile(BasicTiledLayerTile aTile,
                                     const nsIntRegion& aDirtyRegion)
 {
 
-  SAMPLE_LABEL("BasicTiledLayerBuffer", "ValidateTile");
+  PROFILER_LABEL("BasicTiledLayerBuffer", "ValidateTile");
 
 #ifdef GFX_TILEDLAYER_PREF_WARNINGS
   if (aDirtyRegion.IsComplex()) {
@@ -308,7 +311,7 @@ BasicTiledThebesLayer::ComputeProgressiveUpdateRegion(BasicTiledLayerBuffer& aTi
   if (BasicManager()->ProgressiveUpdateCallback(!staleRegion.Contains(aInvalidRegion),
                                                 viewport,
                                                 scaleX, scaleY, !drawingLowPrecision)) {
-    SAMPLE_MARKER("Abort painting");
+    PROFILER_MARKER("Abort painting");
     aRegionToPaint.SetEmpty();
     return aIsRepeated;
   }

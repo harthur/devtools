@@ -219,3 +219,70 @@ LIRGeneratorX86::visitStoreTypedArrayElement(MStoreTypedArrayElement *ins)
         value = useRegisterOrNonDoubleConstant(ins->value());
     return add(new LStoreTypedArrayElement(elements, index, value), ins);
 }
+
+bool
+LIRGeneratorX86::visitStoreTypedArrayElementHole(MStoreTypedArrayElementHole *ins)
+{
+    JS_ASSERT(ins->elements()->type() == MIRType_Elements);
+    JS_ASSERT(ins->index()->type() == MIRType_Int32);
+    JS_ASSERT(ins->length()->type() == MIRType_Int32);
+
+    if (ins->isFloatArray())
+        JS_ASSERT(ins->value()->type() == MIRType_Double);
+    else
+        JS_ASSERT(ins->value()->type() == MIRType_Int32);
+
+    LUse elements = useRegister(ins->elements());
+    LAllocation length = useAnyOrConstant(ins->length());
+    LAllocation index = useRegisterOrConstant(ins->index());
+    LAllocation value;
+
+    // For byte arrays, the value has to be in a byte register on x86.
+    if (ins->isByteArray())
+        value = useFixed(ins->value(), eax);
+    else
+        value = useRegisterOrNonDoubleConstant(ins->value());
+    return add(new LStoreTypedArrayElementHole(elements, length, index, value), ins);
+}
+
+bool
+LIRGeneratorX86::visitAsmJSUnsignedToDouble(MAsmJSUnsignedToDouble *ins)
+{
+    JS_ASSERT(ins->input()->type() == MIRType_Int32);
+    LUInt32ToDouble *lir = new LUInt32ToDouble(useRegisterAtStart(ins->input()), temp());
+    return define(lir, ins);
+}
+
+bool
+LIRGeneratorX86::visitAsmJSStoreHeap(MAsmJSStoreHeap *ins)
+{
+    LAsmJSStoreHeap *lir;
+    switch (ins->viewType()) {
+      case ArrayBufferView::TYPE_INT8: case ArrayBufferView::TYPE_UINT8:
+        // It's a trap! On x86, the 1-byte store can only use one of
+        // {al,bl,cl,dl,ah,bh,ch,dh}. That means if the register allocator
+        // gives us one of {edi,esi,ebp,esp}, we're out of luck. (The formatter
+        // will assert on us.) Ideally, we'd just ask the register allocator to
+        // give us one of {al,bl,cl,dl}. For now, just useFixed(al).
+        lir = new LAsmJSStoreHeap(useRegister(ins->ptr()),
+                                  useFixed(ins->value(), eax));
+        break;
+      case ArrayBufferView::TYPE_INT16: case ArrayBufferView::TYPE_UINT16:
+      case ArrayBufferView::TYPE_INT32: case ArrayBufferView::TYPE_UINT32:
+      case ArrayBufferView::TYPE_FLOAT32: case ArrayBufferView::TYPE_FLOAT64:
+        // For now, don't allow constants. The immediate operand affects
+        // instruction layout which affects patching.
+        lir = new LAsmJSStoreHeap(useRegisterAtStart(ins->ptr()),
+                                  useRegisterAtStart(ins->value()));
+        break;
+      default: JS_NOT_REACHED("unexpected array type");
+    }
+
+    return add(lir, ins);
+}
+
+bool
+LIRGeneratorX86::visitAsmJSLoadFuncPtr(MAsmJSLoadFuncPtr *ins)
+{
+    return define(new LAsmJSLoadFuncPtr(useRegisterAtStart(ins->index())), ins);
+}

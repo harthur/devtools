@@ -141,11 +141,11 @@ class TypeOracle
     virtual bool elementWriteNeedsBarrier(RawScript script, jsbytecode *pc) {
         return true;
     }
+    virtual bool elementWriteNeedsBarrier(types::StackTypeSet *obj) {
+        return true;
+    }
     virtual MIRType elementWrite(RawScript script, jsbytecode *pc) {
         return MIRType_None;
-    }
-    virtual bool canInlineCalls() {
-        return false;
     }
 
     /* |pc| must be a |JSOP_CALL|. */
@@ -166,8 +166,26 @@ class TypeOracle
     virtual types::TypeBarrier *callArgsBarrier(HandleScript caller, jsbytecode *pc) {
         return NULL;
     }
-    virtual bool canEnterInlinedFunction(RawScript caller, jsbytecode *pc, RawFunction callee) {
+    virtual bool canEnterInlinedFunction(RawFunction callee) {
         return false;
+    }
+    virtual bool callReturnTypeSetMatches(RawScript callerScript, jsbytecode *callerPc,
+                                     RawFunction callee)
+    {
+        return false;
+    }
+    virtual bool callArgsTypeSetIntersects(types::StackTypeSet *thisType, Vector<types::StackTypeSet *> &argvType, RawFunction callee)
+    {
+        return false;
+    }
+    virtual bool callArgsTypeSetMatches(types::StackTypeSet *thisType, Vector<types::StackTypeSet *> &argvType, RawFunction callee)
+    {
+        return false;
+    }
+    virtual types::StackTypeSet *aliasedVarBarrier(RawScript script, jsbytecode *pc,
+                                                   types::StackTypeSet **barrier)
+    {
+        return NULL;
     }
 
     virtual LazyArgumentsType isArgumentObject(types::StackTypeSet *obj) {
@@ -181,11 +199,6 @@ class TypeOracle
     }
     virtual LazyArgumentsType elementWriteMagicArguments(RawScript script, jsbytecode *pc) {
         return MaybeArguments;
-    }
-    virtual types::StackTypeSet *aliasedVarBarrier(RawScript script, jsbytecode *pc,
-                                                   types::StackTypeSet **barrier)
-    {
-        return NULL;
     }
 };
 
@@ -228,10 +241,15 @@ class TypeInferenceOracle : public TypeOracle
     MIRType getMIRType(types::StackTypeSet *types);
     MIRType getMIRType(types::HeapTypeSet *types);
 
+    bool analyzeTypesForInlinableCallees(JSContext *cx, JSScript *script,
+                                         Vector<JSScript*> &seen);
+    bool analyzeTypesForInlinableCallees(JSContext *cx, types::StackTypeSet *calleeTypes,
+                                         Vector<JSScript*> &seen);
+
   public:
     TypeInferenceOracle() : cx(NULL), script_(NULL) {}
 
-    bool init(JSContext *cx, JSScript *script);
+    bool init(JSContext *cx, JSScript *script, bool inlinedCall);
 
     RawScript script() { return script_.get(); }
 
@@ -273,17 +291,21 @@ class TypeInferenceOracle : public TypeOracle
     bool propertyWriteCanSpecialize(RawScript script, jsbytecode *pc);
     bool propertyWriteNeedsBarrier(RawScript script, jsbytecode *pc, RawId id);
     bool elementWriteNeedsBarrier(RawScript script, jsbytecode *pc);
+    bool elementWriteNeedsBarrier(types::StackTypeSet *obj);
     MIRType elementWrite(RawScript script, jsbytecode *pc);
-    bool canInlineCalls();
     bool canInlineCall(HandleScript caller, jsbytecode *pc);
     types::TypeBarrier *callArgsBarrier(HandleScript caller, jsbytecode *pc);
-    bool canEnterInlinedFunction(RawScript caller, jsbytecode *pc, RawFunction callee);
+    bool canEnterInlinedFunction(RawFunction callee);
+    bool callReturnTypeSetMatches(RawScript callerScript, jsbytecode *callerPc, RawFunction callee);
+    bool callArgsTypeSetIntersects(types::StackTypeSet *thisType, Vector<types::StackTypeSet *> &argvType, RawFunction callee);
+    bool callArgsTypeSetMatches(types::StackTypeSet *thisType, Vector<types::StackTypeSet *> &argvType, RawFunction callee);
     types::StackTypeSet *aliasedVarBarrier(RawScript script, jsbytecode *pc, types::StackTypeSet **barrier);
 
     LazyArgumentsType isArgumentObject(types::StackTypeSet *obj);
     LazyArgumentsType propertyReadMagicArguments(RawScript script, jsbytecode *pc);
     LazyArgumentsType elementReadMagicArguments(RawScript script, jsbytecode *pc);
     LazyArgumentsType elementWriteMagicArguments(RawScript script, jsbytecode *pc);
+
 };
 
 static inline MIRType
@@ -372,8 +394,8 @@ StringFromMIRType(MIRType type)
       return "Slots";
     case MIRType_Elements:
       return "Elements";
-    case MIRType_StackFrame:
-      return "StackFrame";
+    case MIRType_Pointer:
+      return "Pointer";
     case MIRType_ForkJoinSlice:
       return "ForkJoinSlice";
     default:
@@ -398,4 +420,3 @@ IsNullOrUndefined(MIRType type)
 } /* js */
 
 #endif // js_ion_type_oracle_h__
-

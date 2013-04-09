@@ -7,8 +7,10 @@
 #include "AudioContext.h"
 #include "nsContentUtils.h"
 #include "nsIDOMWindow.h"
+#include "nsPIDOMWindow.h"
 #include "mozilla/ErrorResult.h"
 #include "MediaStreamGraph.h"
+#include "mozilla/dom/AnalyserNode.h"
 #include "AudioDestinationNode.h"
 #include "AudioBufferSourceNode.h"
 #include "AudioBuffer.h"
@@ -59,10 +61,9 @@ AudioContext::Constructor(const GlobalObject& aGlobal, ErrorResult& aRv)
     return nullptr;
   }
 
-  AudioContext* object = new AudioContext(window);
-  NS_ADDREF(object);
+  nsRefPtr<AudioContext> object = new AudioContext(window);
   window->AddAudioContext(object);
-  return object;
+  return object.forget();
 }
 
 already_AddRefed<AudioBufferSourceNode>
@@ -98,6 +99,13 @@ AudioContext::CreateBuffer(JSContext* aJSContext, uint32_t aNumberOfChannels,
   return buffer.forget();
 }
 
+already_AddRefed<AnalyserNode>
+AudioContext::CreateAnalyser()
+{
+  nsRefPtr<AnalyserNode> analyserNode = new AnalyserNode(this);
+  return analyserNode.forget();
+}
+
 already_AddRefed<GainNode>
 AudioContext::CreateGain()
 {
@@ -108,7 +116,7 @@ AudioContext::CreateGain()
 already_AddRefed<DelayNode>
 AudioContext::CreateDelay(double aMaxDelayTime, ErrorResult& aRv)
 {
-  if (aMaxDelayTime > 0. && aMaxDelayTime < 3.) {
+  if (aMaxDelayTime > 0. && aMaxDelayTime < 180.) {
     nsRefPtr<DelayNode> delayNode = new DelayNode(this, aMaxDelayTime);
     return delayNode.forget();
   }
@@ -189,6 +197,24 @@ MediaStream*
 AudioContext::DestinationStream() const
 {
   return Destination()->Stream();
+}
+
+double
+AudioContext::CurrentTime() const
+{
+  return MediaTimeToSeconds(Destination()->Stream()->GetCurrentTime());
+}
+
+void
+AudioContext::Suspend()
+{
+  DestinationStream()->ChangeExplicitBlockerCount(1);
+}
+
+void
+AudioContext::Resume()
+{
+  DestinationStream()->ChangeExplicitBlockerCount(-1);
 }
 
 }

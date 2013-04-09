@@ -12,7 +12,7 @@
 #include "mozilla/dom/HTMLImageElement.h"
 #include "mozilla/dom/HTMLOptionElement.h"
 #include "HTMLOptGroupElement.h"
-#include "nsHTMLVideoElement.h"
+#include "mozilla/dom/HTMLVideoElement.h"
 #include "nsHTMLDocument.h"
 #include "nsICSSDeclaration.h"
 #include "nsSVGElement.h"
@@ -57,7 +57,7 @@ NEW_BINDING(nsDOMEvent, Event);
 template <>                                                                   \
 MOZ_ALWAYS_INLINE JSBool                                                      \
 xpc_qsUnwrapThis<_interface>(JSContext *cx,                                   \
-                             JSObject *obj,                                   \
+                             JS::HandleObject obj,                            \
                              _interface **ppThis,                             \
                              nsISupports **pThisRef,                          \
                              jsval *pThisVal,                                 \
@@ -175,7 +175,7 @@ DEFINE_UNWRAP_CAST_HTML(form, nsHTMLFormElement)
 DEFINE_UNWRAP_CAST_HTML(img, mozilla::dom::HTMLImageElement)
 DEFINE_UNWRAP_CAST_HTML(optgroup, mozilla::dom::HTMLOptGroupElement)
 DEFINE_UNWRAP_CAST_HTML(option, mozilla::dom::HTMLOptionElement)
-DEFINE_UNWRAP_CAST_HTML(video, nsHTMLVideoElement)
+DEFINE_UNWRAP_CAST_HTML(video, mozilla::dom::HTMLVideoElement)
 
 inline nsISupports*
 ToSupports(nsContentList *p)

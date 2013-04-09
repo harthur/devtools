@@ -30,8 +30,21 @@ if (this.Components) {
        let data = msg.data;
        LOG("Received message", data);
        let id = data.id;
+
+       let start;
+       let options;
+       if (data.args) {
+         options = data.args[data.args.length - 1];
+       }
+       // If |outExecutionDuration| option was supplied, start measuring the
+       // duration of the operation.
+       if (typeof options === "object" && "outExecutionDuration" in options) {
+         start = Date.now();
+       }
+
        let result;
        let exn;
+       let durationMs;
        try {
          let method = data.fun;
          LOG("Calling method", method);
@@ -41,6 +54,13 @@ if (this.Components) {
          exn = ex;
          LOG("Error while calling agent method", exn, exn.stack);
        }
+
+       if (start) {
+         // Record duration
+         durationMs = Date.now() - start;
+         LOG("Method took", durationMs, "ms");
+       }
+
        // Now, post a reply, possibly as an uncaught error.
        // We post this message from outside the |try ... catch| block
        // to avoid capturing errors that take place during |postMessage| and
@@ -49,20 +69,21 @@ if (this.Components) {
          LOG("Sending positive reply", result, "id is", id);
          if (result instanceof Transfer) {
            // Take advantage of zero-copy transfers
-           self.postMessage({ok: result.data, id: id}, result.transfers);
+           self.postMessage({ok: result.data, id: id, durationMs: durationMs},
+             result.transfers);
          } else {
-           self.postMessage({ok: result, id:id});
+           self.postMessage({ok: result, id:id, durationMs: durationMs});
          }
        } else if (exn == StopIteration) {
          // StopIteration cannot be serialized automatically
          LOG("Sending back StopIteration");
-         self.postMessage({StopIteration: true, id: id});
+         self.postMessage({StopIteration: true, id: id, durationMs: durationMs});
        } else if (exn instanceof exports.OS.File.Error) {
          LOG("Sending back OS.File error", exn, "id is", id);
          // Instances of OS.File.Error know how to serialize themselves
          // (deserialization ensures that we end up with OS-specific
          // instances of |OS.File.Error|)
-         self.postMessage({fail: exports.OS.File.Error.toMsg(exn), id:id});
+         self.postMessage({fail: exports.OS.File.Error.toMsg(exn), id:id, durationMs: durationMs});
        } else {
          LOG("Sending back regular error", exn, exn.stack, "id is", id);
          // Other exceptions do not, and should be propagated through DOM's

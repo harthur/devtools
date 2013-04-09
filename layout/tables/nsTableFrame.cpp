@@ -163,7 +163,7 @@ nsTableFrame::nsTableFrame(nsStyleContext* aContext)
 NS_QUERYFRAME_HEAD(nsTableFrame)
 NS_QUERYFRAME_TAIL_INHERITING(nsContainerFrame)
 
-NS_IMETHODIMP
+void
 nsTableFrame::Init(nsIContent*      aContent,
                    nsIFrame*        aParent,
                    nsIFrame*        aPrevInFlow)
@@ -174,7 +174,7 @@ nsTableFrame::Init(nsIContent*      aContent,
                   "prev-in-flow must be of same type");
 
   // Let the base class do its processing
-  nsresult rv = nsContainerFrame::Init(aContent, aParent, aPrevInFlow);
+  nsContainerFrame::Init(aContent, aParent, aPrevInFlow);
 
   // see if border collapse is on, if so set it
   const nsStyleTableBorder* tableStyle = StyleTableBorder();
@@ -184,8 +184,6 @@ nsTableFrame::Init(nsIContent*      aContent,
   // Create the cell map if this frame is the first-in-flow.
   if (!aPrevInFlow) {
     mCellMap = new nsTableCellMap(*this, borderCollapse);
-    if (!mCellMap)
-      return NS_ERROR_OUT_OF_MEMORY;
   }
 
   if (aPrevInFlow) {
@@ -200,11 +198,7 @@ nsTableFrame::Init(nsIContent*      aContent,
       mTableLayoutStrategy = new BasicTableLayoutStrategy(this);
     else
       mTableLayoutStrategy = new FixedTableLayoutStrategy(this);
-    if (!mTableLayoutStrategy)
-      return NS_ERROR_OUT_OF_MEMORY;
   }
-
-  return rv;
 }
 
 nsTableFrame::~nsTableFrame()
@@ -1792,7 +1786,7 @@ NS_METHOD nsTableFrame::Reflow(nsPresContext*           aPresContext,
   // make sure the table overflow area does include the table rect.
   nsRect tableRect(0, 0, aDesiredSize.width, aDesiredSize.height) ;
 
-  if (!ApplyOverflowClipping(this, aReflowState.mStyleDisplay)) {
+  if (!ShouldApplyOverflowClipping(this, aReflowState.mStyleDisplay)) {
     // collapsed border may leak out
     nsMargin bcMargin = GetExcludedOuterBCBorder();
     tableRect.Inflate(bcMargin);
@@ -1816,7 +1810,7 @@ nsTableFrame::UpdateOverflow()
 
   // As above in Reflow, make sure the table overflow area includes the table
   // rect, and check for collapsed borders leaking out.
-  if (!ApplyOverflowClipping(this, StyleDisplay())) {
+  if (!ShouldApplyOverflowClipping(this, StyleDisplay())) {
     nsMargin bcMargin = GetExcludedOuterBCBorder();
     bounds.Inflate(bcMargin);
   }
@@ -2694,8 +2688,7 @@ nsTableFrame::PlaceRepeatedFooter(nsTableReflowState& aReflowState,
   nsHTMLReflowMetrics desiredSize;
   desiredSize.width = desiredSize.height = 0;
   ReflowChild(aTfoot, presContext, desiredSize, footerReflowState,
-              aReflowState.x, aReflowState.y,
-              NS_FRAME_INVALIDATE_ON_MOVE, footerStatus);
+              aReflowState.x, aReflowState.y, 0, footerStatus);
   PlaceChild(aReflowState, aTfoot, desiredSize, origTfootRect,
              origTfootVisualOverflow);
 }
@@ -2826,8 +2819,7 @@ nsTableFrame::ReflowChildren(nsTableReflowState& aReflowState,
         reorder = true;
 
       rv = ReflowChild(kidFrame, presContext, desiredSize, kidReflowState,
-                       aReflowState.x, aReflowState.y,
-                       NS_FRAME_INVALIDATE_ON_MOVE, aStatus);
+                       aReflowState.x, aReflowState.y, 0, aStatus);
 
       if (reorder) {
         // reorder row groups the reflow may have changed the nextinflows
@@ -2924,12 +2916,8 @@ nsTableFrame::ReflowChildren(nsTableReflowState& aReflowState,
         if (!kidNextInFlow) {
           // The child doesn't have a next-in-flow so create a continuing
           // frame. This hooks the child into the flow
-          rv = presContext->PresShell()->FrameConstructor()->
-            CreateContinuingFrame(presContext, kidFrame, this, &kidNextInFlow);
-          if (NS_FAILED(rv)) {
-            aStatus = NS_FRAME_COMPLETE;
-            break;
-          }
+          kidNextInFlow = presContext->PresShell()->FrameConstructor()->
+            CreateContinuingFrame(presContext, kidFrame, this);
 
           // Insert the kid's new next-in-flow into our sibling list...
           mFrames.InsertFrame(nullptr, kidFrame, kidNextInFlow);
@@ -6246,7 +6234,7 @@ BCPaintBorderIterator::SetDamageArea(const nsRect& aDirtyRect)
   if (!haveIntersect)
     return false;
   mDamageArea = nsIntRect(startColIndex, startRowIndex,
-                          1 + Abs<int32_t>(endColIndex - startColIndex),
+                          1 + DeprecatedAbs<int32_t>(endColIndex - startColIndex),
                           1 + endRowIndex - startRowIndex);
 
   Reset();

@@ -1513,7 +1513,7 @@ nsTextEditorState::UnbindFromFrame(nsTextControlFrame* aFrame)
   {
     mTextListener->SetFrame(nullptr);
 
-    nsCOMPtr<nsIDOMEventTarget> target = do_QueryInterface(mTextCtrlElement);
+    nsCOMPtr<EventTarget> target = do_QueryInterface(mTextCtrlElement);
     nsEventListenerManager* manager =
       target->GetListenerManager(false);
     if (manager) {
@@ -1747,7 +1747,9 @@ nsTextEditorState::GetValue(nsAString& aValue, bool aIgnoreWrap) const
       mCachedValue.Truncate();
     }
   } else {
-    if (mValue) {
+    if (!mTextCtrlElement->ValueChanged() || !mValue) {
+      mTextCtrlElement->GetDefaultValueFromContent(aValue);
+    } else {
       aValue = NS_ConvertUTF8toUTF16(*mValue);
     }
   }
@@ -1924,7 +1926,7 @@ void
 nsTextEditorState::InitializeKeyboardEventListeners()
 {
   //register key listeners
-  nsCOMPtr<nsIDOMEventTarget> target = do_QueryInterface(mTextCtrlElement);
+  nsCOMPtr<EventTarget> target = do_QueryInterface(mTextCtrlElement);
   nsEventListenerManager* manager = target->GetListenerManager(true);
   if (manager) {
     manager->AddEventListenerByType(mTextListener,

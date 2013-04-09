@@ -86,9 +86,25 @@ FrameworkView::Uninitialize()
 {
   LogFunction();
   mShuttingDown = true;
+
+  if (mAutomationProvider) {
+    ComPtr<IUIABridge> provider;
+    mAutomationProvider.As(&provider);
+    if (provider) {
+      provider->Disconnect();
+    }
+  }
+  mAutomationProvider = nullptr;
+
+  mMetroInput = nullptr;
   mD2DWindowSurface = nullptr;
   delete sSettingsArray;
   sSettingsArray = nullptr;
+  mWidget = nullptr;
+  mMetroApp = nullptr;
+  mDispatcher = nullptr;
+  mWindow = nullptr;
+
   return S_OK;
 }
 
@@ -106,10 +122,7 @@ FrameworkView::Run()
   // XPCOM is initialized here. mWidget is also created.
   mMetroApp->Initialize();
 
-  if (mDeferredActivationEventArgs) {
-    RunStartupArgs(mDeferredActivationEventArgs.Get());
-    mDeferredActivationEventArgs = nullptr;
-  }
+  ProcessLaunchArguments();
 
   // Activate the window
   mWindow->Activate();
@@ -195,17 +208,6 @@ FrameworkView::AddEventHandlers() {
 void
 FrameworkView::ShutdownXPCOM()
 {
-  mShuttingDown = true;
-  mWidget = nullptr;
-  ComPtr<IUIABridge> provider;
-  if (mAutomationProvider) {
-    mAutomationProvider.As(&provider);
-    if (provider) {
-      provider->Disconnect();
-    }
-  }
-  mAutomationProvider = nullptr;
-  mMetroInput = nullptr;
   Uninitialize();
 }
 
@@ -252,9 +254,7 @@ FrameworkView::GetBounds(nsIntRect &aRect)
   if (mShuttingDown) {
     return;
   }
-  nsIntRect mozrect(0, 0, (uint32_t)ceil(mWindowBounds.Width),
-                    (uint32_t)ceil(mWindowBounds.Height));
-  aRect = mozrect;
+  aRect = mWindowBounds;
 }
 
 void
@@ -267,8 +267,7 @@ FrameworkView::UpdateWidgetSizeAndPosition()
   NS_ASSERTION(mWidget, "SetWidget must be called before UpdateWidgetSizeAndPosition!");
 
   mWidget->Move(0, 0);
-  mWidget->Resize(0, 0, (uint32_t)ceil(mWindowBounds.Width),
-                  (uint32_t)ceil(mWindowBounds.Height), true);
+  mWidget->Resize(0, 0, mWindowBounds.width, mWindowBounds.height, true);
   mWidget->SizeModeChanged();
 }
 
@@ -290,10 +289,19 @@ FrameworkView::IsVisible() const
 void FrameworkView::SetDpi(float aDpi)
 {
   if (aDpi != mDPI) {
-      mDPI = aDpi;
-      // Often a DPI change implies a window size change.
-      NS_ASSERTION(mWindow, "SetWindow must be called before SetDpi!");
-      mWindow->get_Bounds(&mWindowBounds);
+    mDPI = aDpi;
+    // Often a DPI change implies a window size change.
+    NS_ASSERTION(mWindow, "SetWindow must be called before SetDpi!");
+    Rect logicalBounds;
+    mWindow->get_Bounds(&logicalBounds);
+
+    // convert to physical (device) pixels
+    mWindowBounds = MetroUtils::LogToPhys(logicalBounds);
+
+    // notify the widget that dpi has changed
+    if (mWidget) {
+      mWidget->ChangedDPI();
+    }
   }
 }
 
@@ -343,13 +351,10 @@ FrameworkView::OnActivated(ICoreApplicationView* aApplicationView,
 
   ApplicationExecutionState state;
   aArgs->get_PreviousExecutionState(&state);
-  if (state != ApplicationExecutionState::ApplicationExecutionState_Terminated &&
-      state != ApplicationExecutionState::ApplicationExecutionState_ClosedByUser &&
-      state != ApplicationExecutionState::ApplicationExecutionState_NotRunning) {
-    RunStartupArgs(aArgs);
-  } else {
-    mDeferredActivationEventArgs = aArgs;
-  }
+  bool startup = state == ApplicationExecutionState::ApplicationExecutionState_Terminated ||
+                 state == ApplicationExecutionState::ApplicationExecutionState_ClosedByUser ||
+                 state == ApplicationExecutionState::ApplicationExecutionState_NotRunning;
+  ProcessActivationArgs(aArgs, startup);
   return S_OK;
 }
 
@@ -426,7 +431,9 @@ FrameworkView::OnWindowSizeChanged(ICoreWindow* aSender, IWindowSizeChangedEvent
   }
 
   NS_ASSERTION(mWindow, "SetWindow must be called before OnWindowSizeChanged!");
-  mWindow->get_Bounds(&mWindowBounds);
+  Rect logicalBounds;
+  mWindow->get_Bounds(&logicalBounds);
+  mWindowBounds = MetroUtils::LogToPhys(logicalBounds);
 
   UpdateWidgetSizeAndPosition();
   FireViewStateObservers();

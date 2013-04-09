@@ -11,8 +11,6 @@ include $(DEPTH)/config/autoconf.mk
 include $(topsrcdir)/config/config.mk
 
 # metro/components.manifest
-MODULE = components
-
 EXTRA_PP_COMPONENTS = \
         components.manifest \
         AboutRedirector.js \
@@ -31,7 +29,6 @@ EXTRA_COMPONENTS = \
         PromptService.js \
         ContentDispatchChooser.js \
         FormAutoComplete.js \
-        LoginManager.js \
         LoginManagerPrompter.js \
         CapturePicker.js \
         $(NULL)

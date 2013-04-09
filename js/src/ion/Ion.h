@@ -81,15 +81,26 @@ struct IonOptions
     // Default: true
     bool uce;
 
+    // Toggles whether Effective Address Analysis is performed.
+    //
+    // Default: true
+    bool eaa;
+
     // Toggles whether compilation occurs off the main thread.
     //
     // Default: true iff there are at least two CPUs available
     bool parallelCompilation;
 
     // How many invocations or loop iterations are needed before functions
+    // are compiled with the baseline compiler.
+    //
+    // Default: 10
+    uint32_t baselineUsesBeforeCompile;
+
+    // How many invocations or loop iterations are needed before functions
     // are compiled.
     //
-    // Default: 10,240
+    // Default: 1,000
     uint32_t usesBeforeCompile;
 
     // How many invocations or loop iterations are needed before functions
@@ -174,6 +185,7 @@ struct IonOptions
     void setEagerCompilation() {
         eagerCompilation = true;
         usesBeforeCompile = usesBeforeCompileNoJaeger = 0;
+        baselineUsesBeforeCompile = 0;
 
         parallelCompilation = false;
     }
@@ -189,8 +201,10 @@ struct IonOptions
         edgeCaseAnalysis(true),
         rangeAnalysis(true),
         uce(true),
+        eaa(true),
         parallelCompilation(false),
-        usesBeforeCompile(10240),
+        baselineUsesBeforeCompile(10),
+        usesBeforeCompile(1000),
         usesBeforeCompileNoJaeger(40),
         usesBeforeInliningFactor(.125),
         maxStackArgs(4096),
@@ -235,9 +249,12 @@ enum AbortReason {
 class IonContext
 {
   public:
-    IonContext(JSContext *cx, JSCompartment *compartment, TempAllocator *temp);
+    IonContext(JSContext *cx, TempAllocator *temp);
+    IonContext(JSCompartment *comp, TempAllocator *temp);
+    IonContext(JSRuntime *rt);
     ~IonContext();
 
+    JSRuntime *runtime;
     JSContext *cx;
     JSCompartment *compartment;
     TempAllocator *temp;
@@ -259,9 +276,13 @@ IonContext *GetIonContext();
 
 bool SetIonContext(IonContext *ctx);
 
+bool CanIonCompileScript(JSContext *cx, HandleScript script);
+
 MethodStatus CanEnterAtBranch(JSContext *cx, JSScript *script,
                               AbstractFramePtr fp, jsbytecode *pc, bool isConstructing);
 MethodStatus CanEnter(JSContext *cx, JSScript *script, AbstractFramePtr fp, bool isConstructing);
+MethodStatus CompileFunctionForBaseline(JSContext *cx, HandleScript script, AbstractFramePtr fp,
+                                        bool isConstructing);
 MethodStatus CanEnterUsingFastInvoke(JSContext *cx, HandleScript script, uint32_t numActualArgs);
 
 enum IonExecStatus
@@ -304,13 +325,18 @@ bool Invalidate(JSContext *cx, RawScript script, bool resetUses = true);
 void MarkValueFromIon(JSRuntime *rt, Value *vp);
 void MarkShapeFromIon(JSRuntime *rt, Shape **shapep);
 
-void ToggleBarriers(JSCompartment *comp, bool needs);
+void ToggleBarriers(JS::Zone *zone, bool needs);
 
 class IonBuilder;
 class MIRGenerator;
+class LIRGraph;
 class CodeGenerator;
 
-CodeGenerator *CompileBackEnd(MIRGenerator *mir);
+bool OptimizeMIR(MIRGenerator *mir);
+LIRGraph *GenerateLIR(MIRGenerator *mir);
+CodeGenerator *GenerateCode(MIRGenerator *mir, LIRGraph *lir, MacroAssembler *maybeMasm = NULL);
+CodeGenerator *CompileBackEnd(MIRGenerator *mir, MacroAssembler *maybeMasm = NULL);
+
 void AttachFinishedCompilations(JSContext *cx);
 void FinishOffThreadBuilder(IonBuilder *builder);
 
@@ -323,8 +349,8 @@ void ForbidCompilation(JSContext *cx, RawScript script);
 void ForbidCompilation(JSContext *cx, RawScript script, ExecutionMode mode);
 uint32_t UsesBeforeIonRecompile(RawScript script, jsbytecode *pc);
 
-void PurgeCaches(RawScript script, JSCompartment *c);
-size_t MemoryUsed(RawScript script, JSMallocSizeOfFun mallocSizeOf);
+void PurgeCaches(RawScript script, JS::Zone *zone);
+size_t SizeOfIonData(RawScript script, JSMallocSizeOfFun mallocSizeOf);
 void DestroyIonScripts(FreeOp *fop, RawScript script);
 void TraceIonScripts(JSTracer* trc, RawScript script);
 

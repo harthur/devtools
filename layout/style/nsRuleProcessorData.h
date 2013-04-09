@@ -14,7 +14,6 @@
 #include "nsPresContext.h" // for nsCompatibility
 #include "nsString.h"
 #include "nsChangeHint.h"
-#include "nsIContent.h"
 #include "nsCSSPseudoElements.h"
 #include "nsRuleWalker.h"
 #include "nsNthIndexCache.h"
@@ -23,10 +22,11 @@
 #include "mozilla/BloomFilter.h"
 #include "mozilla/GuardObjects.h"
 
-class nsIStyleSheet;
-class nsIAtom;
-class nsICSSPseudoComparator;
 class nsAttrValue;
+class nsIAtom;
+class nsIContent;
+class nsICSSPseudoComparator;
+class nsIStyleSheet;
 struct TreeMatchContext;
 
 /**
@@ -243,15 +243,24 @@ struct NS_STACK_CLASS TreeMatchContext {
   };
 
   /* Helper class for tracking whether we're skipping the ApplyStyleFixups
-   * code for flex items. */
+   * code for flex items.
+   *
+   * The optional second parameter aSkipFlexItemStyleFixup allows this
+   * class to be instantiated but only conditionally activated (e.g.
+   * in cases where we may or may not want to be skipping flex-item
+   * style fixup for a particular chunk of code).
+   */
   class NS_STACK_CLASS AutoFlexItemStyleFixupSkipper {
   public:
-    AutoFlexItemStyleFixupSkipper(TreeMatchContext& aTreeMatchContext
+    AutoFlexItemStyleFixupSkipper(TreeMatchContext& aTreeMatchContext,
+                                  bool aSkipFlexItemStyleFixup = true
                                   MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
       : mAutoRestorer(aTreeMatchContext.mSkippingFlexItemStyleFixup)
     {
       MOZ_GUARD_OBJECT_NOTIFIER_INIT;
-      aTreeMatchContext.mSkippingFlexItemStyleFixup = true;
+      if (aSkipFlexItemStyleFixup) {
+        aTreeMatchContext.mSkippingFlexItemStyleFixup = true;
+      }
     }
 
   private:

@@ -141,6 +141,10 @@ RangeAnalysis::addBetaNobes()
 
         MCompare *compare = test->getOperand(0)->toCompare();
 
+        // TODO: support unsigned comparisons
+        if (compare->compareType() == MCompare::Compare_UInt32)
+            continue;
+
         MDefinition *left = compare->getOperand(0);
         MDefinition *right = compare->getOperand(1);
         int32_t bound;
@@ -703,7 +707,7 @@ MSub::computeRange()
 void
 MMul::computeRange()
 {
-    if (specialization() != MIRType_Int32 && specialization() != MIRType_Double)
+    if ((specialization() != MIRType_Int32 && specialization() != MIRType_Double) || isTruncated())
         return;
     Range left(getOperand(0));
     Range right(getOperand(1));
@@ -1034,10 +1038,15 @@ RangeAnalysis::analyzeLoopPhi(MBasicBlock *header, LoopIterationBound *loopBound
     if (!SafeSub(0, modified.constant, &negativeConstant) || !limitSum.add(negativeConstant))
         return;
 
+    Range *initRange = initial->range();
     if (modified.constant > 0) {
+        if (initRange && !initRange->isLowerInfinite())
+            phi->range()->setLower(initRange->lower());
         phi->range()->setSymbolicLower(new SymbolicBound(NULL, initialSum));
         phi->range()->setSymbolicUpper(new SymbolicBound(loopBound, limitSum));
     } else {
+        if (initRange && !initRange->isUpperInfinite())
+            phi->range()->setUpper(initRange->upper());
         phi->range()->setSymbolicUpper(new SymbolicBound(NULL, initialSum));
         phi->range()->setSymbolicLower(new SymbolicBound(loopBound, limitSum));
     }

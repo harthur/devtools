@@ -50,19 +50,11 @@ nsSVGElement::StringInfo SVGPatternElement::sStringInfo[1] =
 };
 
 //----------------------------------------------------------------------
-// nsISupports methods
-
-NS_IMPL_ISUPPORTS_INHERITED3(SVGPatternElement, SVGPatternElementBase,
-                             nsIDOMNode, nsIDOMElement,
-                             nsIDOMSVGElement)
-
-//----------------------------------------------------------------------
 // Implementation
 
 SVGPatternElement::SVGPatternElement(already_AddRefed<nsINodeInfo> aNodeInfo)
   : SVGPatternElementBase(aNodeInfo)
 {
-  SetIsDOMBinding();
 }
 
 //----------------------------------------------------------------------

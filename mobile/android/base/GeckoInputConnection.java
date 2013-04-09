@@ -6,6 +6,7 @@
 package org.mozilla.gecko;
 
 import org.mozilla.gecko.gfx.InputConnectionHandler;
+import org.mozilla.gecko.util.ThreadUtils;
 
 import android.R;
 import android.content.Context;
@@ -16,6 +17,7 @@ import android.os.SystemClock;
 import android.text.Editable;
 import android.text.InputType;
 import android.text.Selection;
+import android.text.SpannableString;
 import android.text.method.KeyListener;
 import android.text.method.TextKeyListener;
 import android.util.DisplayMetrics;
@@ -45,14 +47,14 @@ class GeckoInputConnection
 
     private static Handler sBackgroundHandler;
 
-    private class ThreadUtils {
+    private class InputThreadUtils {
         private Editable mUiEditable;
         private Object mUiEditableReturn;
         private Exception mUiEditableException;
         private final SynchronousQueue<Runnable> mIcRunnableSync;
         private final Runnable mIcSignalRunnable;
 
-        public ThreadUtils() {
+        public InputThreadUtils() {
             mIcRunnableSync = new SynchronousQueue<Runnable>();
             mIcSignalRunnable = new Runnable() {
                 @Override public void run() {
@@ -62,7 +64,7 @@ class GeckoInputConnection
 
         private void runOnIcThread(Handler icHandler, final Runnable runnable) {
             if (DEBUG) {
-                GeckoApp.assertOnUiThread();
+                ThreadUtils.assertOnUiThread();
                 Log.d(LOGTAG, "runOnIcThread() on thread " +
                               icHandler.getLooper().getThread().getName());
             }
@@ -92,7 +94,7 @@ class GeckoInputConnection
 
         public void endWaitForUiThread() {
             if (DEBUG) {
-                GeckoApp.assertOnUiThread();
+                ThreadUtils.assertOnUiThread();
                 Log.d(LOGTAG, "endWaitForUiThread()");
             }
             try {
@@ -103,7 +105,7 @@ class GeckoInputConnection
 
         public void waitForUiThread(Handler icHandler) {
             if (DEBUG) {
-                GeckoApp.assertOnThread(icHandler.getLooper().getThread());
+                ThreadUtils.assertOnThread(icHandler.getLooper().getThread());
                 Log.d(LOGTAG, "waitForUiThread() blocking on thread " +
                               icHandler.getLooper().getThread().getName());
             }
@@ -120,7 +122,7 @@ class GeckoInputConnection
         public Editable getEditableForUiThread(final Handler uiHandler,
                                                final Handler icHandler) {
             if (DEBUG) {
-                GeckoApp.assertOnThread(uiHandler.getLooper().getThread());
+                ThreadUtils.assertOnThread(uiHandler.getLooper().getThread());
             }
             if (icHandler.getLooper() == uiHandler.getLooper()) {
                 // IC thread is UI thread; safe to use Editable directly
@@ -136,7 +138,7 @@ class GeckoInputConnection
                                                final Method method,
                                                final Object[] args) throws Throwable {
                     if (DEBUG) {
-                        GeckoApp.assertOnThread(uiHandler.getLooper().getThread());
+                        ThreadUtils.assertOnThread(uiHandler.getLooper().getThread());
                         Log.d(LOGTAG, "UiEditable." + method.getName() + "() blocking");
                     }
                     synchronized (icHandler) {
@@ -177,9 +179,9 @@ class GeckoInputConnection
         }
     }
 
-    private final ThreadUtils mThreadUtils = new ThreadUtils();
+    private final InputThreadUtils mThreadUtils = new InputThreadUtils();
 
-    // Managed only by notifyIMEEnabled; see comments in notifyIMEEnabled
+    // Managed only by notifyIMEContext; see comments in notifyIMEContext
     private int mIMEState;
     private String mIMETypeHint = "";
     private String mIMEModeHint = "";
@@ -312,8 +314,11 @@ class GeckoInputConnection
         extract.selectionStart = selStart;
         extract.selectionEnd = selEnd;
         extract.startOffset = 0;
-        extract.text = editable;
-
+        if ((req.flags & GET_TEXT_WITH_STYLES) != 0) {
+            extract.text = new SpannableString(editable);
+        } else {
+            extract.text = editable.toString();
+        }
         return extract;
     }
 
@@ -392,7 +397,7 @@ class GeckoInputConnection
 
         mCurrentInputMethod = "";
 
-        // Do not reset mIMEState here; see comments in notifyIMEEnabled
+        // Do not reset mIMEState here; see comments in notifyIMEContext
     }
 
     @Override
@@ -427,8 +432,11 @@ class GeckoInputConnection
         mUpdateExtract.selectionEnd =
                 Selection.getSelectionEnd(editable);
         mUpdateExtract.startOffset = 0;
-        mUpdateExtract.text = editable;
-
+        if ((mUpdateRequest.flags & GET_TEXT_WITH_STYLES) != 0) {
+            mUpdateExtract.text = new SpannableString(editable);
+        } else {
+            mUpdateExtract.text = editable.toString();
+        }
         imm.updateExtractedText(v, mUpdateRequest.token,
                                 mUpdateExtract);
     }
@@ -715,7 +723,7 @@ class GeckoInputConnection
 
         View view = getView();
         if (view == null) {
-            mEditableClient.sendEvent(GeckoEvent.createKeyEvent(event));
+            mEditableClient.sendEvent(GeckoEvent.createKeyEvent(event, 0));
             return true;
         }
 
@@ -726,17 +734,23 @@ class GeckoInputConnection
         Handler icHandler = mEditableClient.getInputConnectionHandler();
         Editable uiEditable = mThreadUtils.getEditableForUiThread(uiHandler, icHandler);
         boolean skip = shouldSkipKeyListener(keyCode, event);
-
+        if (down) {
+            mEditableClient.setSuppressKeyUp(true);
+        }
         if (skip ||
             (down && !keyListener.onKeyDown(view, uiEditable, keyCode, event)) ||
             (!down && !keyListener.onKeyUp(view, uiEditable, keyCode, event))) {
-            mEditableClient.sendEvent(GeckoEvent.createKeyEvent(event));
+            mEditableClient.sendEvent(
+                GeckoEvent.createKeyEvent(event, TextKeyListener.getMetaState(uiEditable)));
             if (skip && down) {
                 // Usually, the down key listener call above adjusts meta states for us.
                 // However, if we skip that call above, we have to manually adjust meta
                 // states so the meta states remain consistent
                 TextKeyListener.adjustMetaAfterKeypress(uiEditable);
             }
+        }
+        if (down) {
+            mEditableClient.setSuppressKeyUp(false);
         }
         return true;
     }
@@ -788,22 +802,23 @@ class GeckoInputConnection
     }
 
     @Override
-    public void notifyIME(final int type, final int state) {
+    public void notifyIME(int type) {
         switch (type) {
 
-            case NOTIFY_IME_CANCELCOMPOSITION:
+            case NOTIFY_IME_TO_CANCEL_COMPOSITION:
                 // Set composition to empty and end composition
                 setComposingText("", 0);
                 // Fall through
 
-            case NOTIFY_IME_RESETINPUTSTATE:
+            case NOTIFY_IME_TO_COMMIT_COMPOSITION:
                 // Commit and end composition
                 finishComposingText();
                 tryRestartInput();
                 break;
 
-            case NOTIFY_IME_FOCUSCHANGE:
-                // Showing/hiding vkb is done in notifyIMEEnabled
+            case NOTIFY_IME_OF_FOCUS:
+            case NOTIFY_IME_OF_BLUR:
+                // Showing/hiding vkb is done in notifyIMEContext
                 resetInputConnection();
                 break;
 
@@ -816,7 +831,7 @@ class GeckoInputConnection
     }
 
     @Override
-    public void notifyIMEEnabled(int state, String typeHint, String modeHint, String actionHint) {
+    public void notifyIMEContext(int state, String typeHint, String modeHint, String actionHint) {
         // For some input type we will use a widget to display the ui, for those we must not
         // display the ime. We can display a widget for date and time types and, if the sdk version
         // is 11 or greater, for datetime/month/week as well.
@@ -831,13 +846,13 @@ class GeckoInputConnection
             return;
         }
 
-        // mIMEState and the mIME*Hint fields should only be changed by notifyIMEEnabled,
-        // and not reset anywhere else. Usually, notifyIMEEnabled is called right after a
+        // mIMEState and the mIME*Hint fields should only be changed by notifyIMEContext,
+        // and not reset anywhere else. Usually, notifyIMEContext is called right after a
         // focus or blur, so resetting mIMEState during the focus or blur seems harmless.
-        // However, this behavior is not guaranteed. Gecko may call notifyIMEEnabled
+        // However, this behavior is not guaranteed. Gecko may call notifyIMEContext
         // independent of focus change; that is, a focus change may not be accompanied by
-        // a notifyIMEEnabled call. So if we reset mIMEState inside focus, there may not
-        // be another notifyIMEEnabled call to set mIMEState to a proper value (bug 829318)
+        // a notifyIMEContext call. So if we reset mIMEState inside focus, there may not
+        // be another notifyIMEContext call to set mIMEState to a proper value (bug 829318)
         /* When IME is 'disabled', IME processing is disabled.
            In addition, the IME UI is hidden */
         mIMEState = state;
@@ -847,7 +862,7 @@ class GeckoInputConnection
 
         View v = getView();
         if (v == null || !v.hasFocus()) {
-            // When using Find In Page, we can still receive notifyIMEEnabled calls due to the
+            // When using Find In Page, we can still receive notifyIMEContext calls due to the
             // selection changing when highlighting. However in this case we don't want to reset/
             // show/hide the keyboard because the find box has the focus and is taking input from
             // the keyboard.
@@ -899,7 +914,7 @@ final class DebugGeckoInputConnection
             if ("notifyIME".equals(method.getName()) && arg == args[0]) {
                 log.append(GeckoEditable.getConstantName(
                     GeckoEditableListener.class, "NOTIFY_IME_", arg));
-            } else if ("notifyIMEEnabled".equals(method.getName()) && arg == args[0]) {
+            } else if ("notifyIMEContext".equals(method.getName()) && arg == args[0]) {
                 log.append(GeckoEditable.getConstantName(
                     GeckoEditableListener.class, "IME_STATE_", arg));
             } else {

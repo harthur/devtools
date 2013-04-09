@@ -21,6 +21,12 @@
 #include "MediaStreamGraph.h"
 #include "nsIDOMWindow.h"
 
+// X11 has a #define for CurrentTime. Unbelievable :-(.
+// See content/media/DOMMediaStream.h for more fun!
+#ifdef CurrentTime
+#undef CurrentTime
+#endif
+
 struct JSContext;
 class JSObject;
 class nsIDOMWindow;
@@ -32,6 +38,7 @@ struct WebAudioDecodeJob;
 
 namespace dom {
 
+class AnalyserNode;
 class AudioBuffer;
 class AudioBufferSourceNode;
 class AudioDestinationNode;
@@ -60,8 +67,12 @@ public:
 
   void Shutdown()
   {
+    Suspend();
     mDecoder.Shutdown();
   }
+
+  void Suspend();
+  void Resume();
 
   virtual JSObject* WrapObject(JSContext* aCx, JSObject* aScope) MOZ_OVERRIDE;
 
@@ -78,6 +89,8 @@ public:
     return float(IdealAudioRate());
   }
 
+  double CurrentTime() const;
+
   AudioListener* Listener();
 
   already_AddRefed<AudioBufferSourceNode> CreateBufferSource();
@@ -86,6 +99,9 @@ public:
   CreateBuffer(JSContext* aJSContext, uint32_t aNumberOfChannels,
                uint32_t aLength, float aSampleRate,
                ErrorResult& aRv);
+
+  already_AddRefed<AnalyserNode>
+  CreateAnalyser();
 
   already_AddRefed<GainNode>
   CreateGain();

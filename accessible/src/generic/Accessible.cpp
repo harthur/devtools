@@ -11,10 +11,10 @@
 #include "AccGroupInfo.h"
 #include "AccIterator.h"
 #include "nsAccUtils.h"
-#include "nsAccEvent.h"
 #include "nsAccessibleRelation.h"
 #include "nsAccessibilityService.h"
 #include "nsIAccessibleRelation.h"
+#include "nsIAccessibleRole.h"
 #include "nsEventShell.h"
 #include "nsTextEquivUtils.h"
 #include "Relation.h"
@@ -843,7 +843,7 @@ Accessible::ChildAtPoint(int32_t aX, int32_t aY,
   DocAccessible* contentDocAcc = GetAccService()->
     GetDocAccessible(content->OwnerDoc());
 
-  // contentDocAcc in some circumstances can be NULL. See bug 729861
+  // contentDocAcc in some circumstances can be nullptr. See bug 729861
   NS_ASSERTION(contentDocAcc, "could not get the document accessible");
   if (!contentDocAcc)
     return fallbackAnswer;
@@ -1161,8 +1161,7 @@ Accessible::HandleAccEvent(AccEvent* aEvent)
 {
   NS_ENSURE_ARG_POINTER(aEvent);
 
-  nsCOMPtr<nsIObserverService> obsService =
-    mozilla::services::GetObserverService();
+  nsCOMPtr<nsIObserverService> obsService = services::GetObserverService();
   NS_ENSURE_TRUE(obsService, NS_ERROR_FAILURE);
 
   nsCOMPtr<nsISimpleEnumerator> observers;
@@ -1174,8 +1173,8 @@ Accessible::HandleAccEvent(AccEvent* aEvent)
   bool hasObservers = false;
   observers->HasMoreElements(&hasObservers);
   if (hasObservers) {
-    nsRefPtr<nsAccEvent> evnt(aEvent->CreateXPCOMObject());
-    return obsService->NotifyObservers(evnt, NS_ACCESSIBLE_EVENT_TOPIC, nullptr);
+    nsCOMPtr<nsIAccessibleEvent> event = MakeXPCEvent(aEvent);
+    return obsService->NotifyObservers(event, NS_ACCESSIBLE_EVENT_TOPIC, nullptr);
   }
 
   return NS_OK;
@@ -1602,7 +1601,9 @@ Accessible::ApplyARIAState(uint64_t* aState) const
 
   // ARIA gridcell inherits editable/readonly states from the grid until it's
   // overridden.
-  if (mRoleMapEntry->Is(nsGkAtoms::gridcell) &&
+  if ((mRoleMapEntry->Is(nsGkAtoms::gridcell) ||
+       mRoleMapEntry->Is(nsGkAtoms::columnheader) ||
+       mRoleMapEntry->Is(nsGkAtoms::rowheader)) &&
       !(*aState & (states::READONLY | states::EDITABLE))) {
     const TableCellAccessible* cell = AsTableCell();
     if (cell) {
@@ -2642,39 +2643,30 @@ Accessible::InvalidateChildren()
 }
 
 bool
-Accessible::AppendChild(Accessible* aChild)
-{
-  if (!aChild)
-    return false;
-
-  if (!mChildren.AppendElement(aChild))
-    return false;
-
-  if (!nsAccUtils::IsEmbeddedObject(aChild))
-    SetChildrenFlag(eMixedChildren);
-
-  aChild->BindToParent(this, mChildren.Length() - 1);
-  return true;
-}
-
-bool
 Accessible::InsertChildAt(uint32_t aIndex, Accessible* aChild)
 {
   if (!aChild)
     return false;
 
-  if (!mChildren.InsertElementAt(aIndex, aChild))
-    return false;
+  if (aIndex == mChildren.Length()) {
+    if (!mChildren.AppendElement(aChild))
+      return false;
 
-  for (uint32_t idx = aIndex + 1; idx < mChildren.Length(); idx++) {
-    NS_ASSERTION(mChildren[idx]->mIndexInParent == idx - 1, "Accessible child index doesn't match");
-    mChildren[idx]->mIndexInParent = idx;
+  } else {
+    if (!mChildren.InsertElementAt(aIndex, aChild))
+      return false;
+
+    for (uint32_t idx = aIndex + 1; idx < mChildren.Length(); idx++) {
+      NS_ASSERTION(static_cast<uint32_t>(mChildren[idx]->mIndexInParent) == idx - 1,
+                   "Accessible child index doesn't match");
+      mChildren[idx]->mIndexInParent = idx;
+    }
+
+    mEmbeddedObjCollector = nullptr;
   }
 
-  if (nsAccUtils::IsText(aChild))
+  if (!nsAccUtils::IsEmbeddedObject(aChild))
     SetChildrenFlag(eMixedChildren);
-
-  mEmbeddedObjCollector = nullptr;
 
   aChild->BindToParent(this, aIndex);
   return true;
@@ -2697,7 +2689,8 @@ Accessible::RemoveChild(Accessible* aChild)
   }
 
   for (uint32_t idx = index + 1; idx < mChildren.Length(); idx++) {
-    NS_ASSERTION(mChildren[idx]->mIndexInParent == idx, "Accessible child index doesn't match");
+    NS_ASSERTION(static_cast<uint32_t>(mChildren[idx]->mIndexInParent) == idx,
+                 "Accessible child index doesn't match");
     mChildren[idx]->mIndexInParent = idx - 1;
   }
 
@@ -3038,7 +3031,7 @@ Accessible::ContainerWidget() const
       }
 
       // Don't cross DOM document boundaries.
-      if (parent->IsDocumentNode())
+      if (parent->IsDoc())
         break;
     }
   }

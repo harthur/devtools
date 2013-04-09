@@ -83,7 +83,7 @@
 #include "mozilla/dom/Element.h"
 #include "mozilla/layout/RenderFrameParent.h"
 #include "nsIAppsService.h"
-#include "sampler.h"
+#include "GeckoProfiler.h"
 
 #include "jsapi.h"
 #include "mozilla/dom/HTMLIFrameElement.h"
@@ -256,19 +256,7 @@ nsContentView::GetId(nsContentViewId* aId)
 // we'd need to re-institute a fixed version of bug 98158.
 #define MAX_DEPTH_CONTENT_FRAMES 10
 
-NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(nsFrameLoader)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mDocShell)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mMessageManager)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mChildMessageManager)
-NS_IMPL_CYCLE_COLLECTION_UNLINK_END
-
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(nsFrameLoader)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDocShell)
-  NS_CYCLE_COLLECTION_NOTE_EDGE_NAME(cb, "nsFrameLoader::mMessageManager");
-  cb.NoteXPCOMChild(static_cast<nsIContentFrameMessageManager*>(tmp->mMessageManager.get()));
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mChildMessageManager)
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
-
+NS_IMPL_CYCLE_COLLECTION_3(nsFrameLoader, mDocShell, mMessageManager, mChildMessageManager)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(nsFrameLoader)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(nsFrameLoader)
 
@@ -410,7 +398,7 @@ nsFrameLoader::ReallyStartLoadingInternal()
 {
   NS_ENSURE_STATE(mURIToLoad && mOwnerContent && mOwnerContent->IsInDoc());
 
-  SAMPLE_LABEL("nsFrameLoader", "ReallyStartLoading");
+  PROFILER_LABEL("nsFrameLoader", "ReallyStartLoading");
 
   nsresult rv = MaybeCreateDocShell();
   if (NS_FAILED(rv)) {
@@ -448,30 +436,27 @@ nsFrameLoader::ReallyStartLoadingInternal()
   mDocShell->CreateLoadInfo(getter_AddRefs(loadInfo));
   NS_ENSURE_TRUE(loadInfo, NS_ERROR_FAILURE);
 
-  // Is this an <iframe> with a sandbox attribute or a parent which is
-  // sandboxed ?
-  HTMLIFrameElement* iframe =
-    HTMLIFrameElement::FromContent(mOwnerContent);
-
+  // Does this frame have a parent which is already sandboxed or is this
+  // an <iframe> with a sandbox attribute?
   uint32_t sandboxFlags = 0;
+  uint32_t parentSandboxFlags = mOwnerContent->OwnerDoc()->GetSandboxFlags();
+
+  HTMLIFrameElement* iframe = HTMLIFrameElement::FromContent(mOwnerContent);
 
   if (iframe) {
     sandboxFlags = iframe->GetSandboxFlags();
-
-    uint32_t parentSandboxFlags = iframe->OwnerDoc()->GetSandboxFlags();
-
-    if (sandboxFlags || parentSandboxFlags) {
-      // The child can only add restrictions, not remove them.
-      sandboxFlags |= parentSandboxFlags;
-
-      mDocShell->SetSandboxFlags(sandboxFlags);
-    }
   }
 
-  // If this is an <iframe> and it's sandboxed with respect to origin
-  // we will set it up with a null principal later in nsDocShell::DoURILoad.
+  if (sandboxFlags || parentSandboxFlags) {
+    // The child can only add restrictions, never remove them.
+    sandboxFlags |= parentSandboxFlags;
+    mDocShell->SetSandboxFlags(sandboxFlags);
+  }
+
+  // If this frame is sandboxed with respect to origin we will set it up with
+  // a null principal later in nsDocShell::DoURILoad.
   // We do it there to correctly sandbox content that was loaded into
-  // the iframe via other methods than the src attribute.
+  // the frame via other methods than the src attribute.
   // We'll use our principal, not that of the document loaded inside us.  This
   // is very important; needed to prevent XSS attacks on documents loaded in
   // subframes!
@@ -583,7 +568,7 @@ nsFrameLoader::Finalize()
 
 static void
 FirePageHideEvent(nsIDocShellTreeItem* aItem,
-                  nsIDOMEventTarget* aChromeEventHandler)
+                  EventTarget* aChromeEventHandler)
 {
   nsCOMPtr<nsIDOMDocument> doc = do_GetInterface(aItem);
   nsCOMPtr<nsIDocument> internalDoc = do_QueryInterface(doc);
@@ -611,7 +596,7 @@ FirePageHideEvent(nsIDocShellTreeItem* aItem,
 // loaded.
 static void
 FirePageShowEvent(nsIDocShellTreeItem* aItem,
-                  nsIDOMEventTarget* aChromeEventHandler,
+                  EventTarget* aChromeEventHandler,
                   bool aFireIfShowing)
 {
   int32_t childCount = 0;
@@ -639,7 +624,7 @@ FirePageShowEvent(nsIDocShellTreeItem* aItem,
 static void
 SetTreeOwnerAndChromeEventHandlerOnDocshellTree(nsIDocShellTreeItem* aItem,
                                                 nsIDocShellTreeOwner* aOwner,
-                                                nsIDOMEventTarget* aHandler)
+                                                EventTarget* aHandler)
 {
   NS_PRECONDITION(aItem, "Must have item");
 
@@ -945,7 +930,7 @@ nsFrameLoader::ShowRemoteFrame(const nsIntSize& size,
     nsCOMPtr<nsIObserverService> os = services::GetObserverService();
     if (OwnerIsBrowserOrAppFrame() && os && !mRemoteBrowserInitialized) {
       os->NotifyObservers(NS_ISUPPORTS_CAST(nsIFrameLoader*, this),
-                          "remote-browser-frame-shown", NULL);
+                          "remote-browser-frame-shown", nullptr);
       mRemoteBrowserInitialized = true;
     }
   } else {
@@ -1098,9 +1083,9 @@ nsFrameLoader::SwapWithOtherLoader(nsFrameLoader* aOther,
   nsCOMPtr<nsIDOMElement> otherFrameElement =
     otherWindow->GetFrameElementInternal();
 
-  nsCOMPtr<nsIDOMEventTarget> ourChromeEventHandler =
+  nsCOMPtr<EventTarget> ourChromeEventHandler =
     do_QueryInterface(ourWindow->GetChromeEventHandler());
-  nsCOMPtr<nsIDOMEventTarget> otherChromeEventHandler =
+  nsCOMPtr<EventTarget> otherChromeEventHandler =
     do_QueryInterface(otherWindow->GetChromeEventHandler());
 
   NS_ASSERTION(SameCOMIdentity(ourFrameElement, ourContent) &&
@@ -1575,7 +1560,7 @@ nsFrameLoader::MaybeCreateDocShell()
   }
 
   if (!frameName.IsEmpty()) {
-    mDocShell->SetName(frameName.get());
+    mDocShell->SetName(frameName);
   }
 
   // If our container is a web-shell, inform it that it has a new
@@ -1682,7 +1667,7 @@ nsFrameLoader::MaybeCreateDocShell()
     nsCOMPtr<nsIObserverService> os = services::GetObserverService();
     if (os) {
       os->NotifyObservers(NS_ISUPPORTS_CAST(nsIFrameLoader*, this),
-                          "in-process-browser-or-app-frame-shown", NULL);
+                          "in-process-browser-or-app-frame-shown", nullptr);
     }
 
     if (mMessageManager) {
@@ -2027,7 +2012,7 @@ nsFrameLoader::TryRemoteBrowser()
     return false;
   }
 
-  SAMPLE_LABEL("nsFrameLoader", "CreateRemoteBrowser");
+  PROFILER_LABEL("nsFrameLoader", "CreateRemoteBrowser");
 
   MutableTabContext context;
   nsCOMPtr<mozIApplication> ownApp = GetOwnApp();
@@ -2211,7 +2196,7 @@ public:
     nsInProcessTabChildGlobal* tabChild =
       static_cast<nsInProcessTabChildGlobal*>(mFrameLoader->mChildMessageManager.get());
     if (tabChild && tabChild->GetInnerManager()) {
-      nsFrameScriptCx cx(static_cast<nsIDOMEventTarget*>(tabChild), tabChild);
+      nsFrameScriptCx cx(static_cast<EventTarget*>(tabChild), tabChild);
 
       StructuredCloneData data;
       data.mData = mData.data();
@@ -2219,7 +2204,7 @@ public:
       data.mClosure = mClosure;
 
       nsRefPtr<nsFrameMessageManager> mm = tabChild->GetInnerManager();
-      mm->ReceiveMessage(static_cast<nsIDOMEventTarget*>(tabChild), mMessage,
+      mm->ReceiveMessage(static_cast<EventTarget*>(tabChild), mMessage,
                          false, &data, nullptr, nullptr, nullptr);
     }
     return NS_OK;
@@ -2392,7 +2377,7 @@ nsFrameLoader::EnsureMessageManager()
   return NS_OK;
 }
 
-nsIDOMEventTarget*
+EventTarget*
 nsFrameLoader::GetTabChildGlobalAsEventTarget()
 {
   return static_cast<nsInProcessTabChildGlobal*>(mChildMessageManager.get());

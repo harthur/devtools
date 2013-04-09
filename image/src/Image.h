@@ -26,7 +26,8 @@ public:
     eDecoderType_bmp     = 3,
     eDecoderType_ico     = 4,
     eDecoderType_icon    = 5,
-    eDecoderType_unknown = 6
+    eDecoderType_wbmp    = 6,
+    eDecoderType_unknown = 7
   };
   static eDecoderType GetDecoderType(const char *aMimeType);
 
@@ -75,7 +76,7 @@ public:
 
   /**
    * The components that make up SizeOfData().
-   */      
+   */
   virtual size_t HeapSizeOfSourceWithComputedFallback(nsMallocSizeOfFun aMallocSizeOf) const = 0;
   virtual size_t HeapSizeOfDecodedWithComputedFallback(nsMallocSizeOfFun aMallocSizeOf) const = 0;
   virtual size_t NonHeapSizeOfDecoded() const = 0;

@@ -81,7 +81,8 @@ const RIL_IPC_MSG_NAMES = [
   "RIL:CfStateChanged",
   "RIL:IccOpenChannel",
   "RIL:IccCloseChannel",
-  "RIL:IccExchangeAPDU"
+  "RIL:IccExchangeAPDU",
+  "RIL:UpdateIccContact"
 ];
 
 XPCOMUtils.defineLazyServiceGetter(this, "cpmm",
@@ -309,6 +310,7 @@ CellBroadcastEtwsInfo.prototype = {
 function RILContentHelper() {
   this.rilContext = {
     cardState:            RIL.GECKO_CARDSTATE_UNKNOWN,
+    networkSelectionMode: RIL.GECKO_NETWORK_SELECTION_UNKNOWN,
     iccInfo:              new MobileICCInfo(),
     voiceConnectionInfo:  new MobileConnectionInfo(),
     dataConnectionInfo:   new MobileConnectionInfo()
@@ -381,8 +383,6 @@ RILContentHelper.prototype = {
 
   // nsIRILContentHelper
 
-  networkSelectionMode: RIL.GECKO_NETWORK_SELECTION_UNKNOWN,
-
   rilContext: null,
 
   getRilContext: function getRilContext() {
@@ -399,6 +399,7 @@ RILContentHelper.prototype = {
       return;
     }
     this.rilContext.cardState = rilContext.cardState;
+    this.rilContext.networkSelectionMode = rilContext.networkSelectionMode;
     this.updateInfo(rilContext.iccInfo, this.rilContext.iccInfo);
     this.updateConnectionInfo(rilContext.voice, this.rilContext.voiceConnectionInfo);
     this.updateConnectionInfo(rilContext.data, this.rilContext.dataConnectionInfo);
@@ -420,6 +421,10 @@ RILContentHelper.prototype = {
 
   get cardState() {
     return this.getRilContext().cardState;
+  },
+
+  get networkSelectionMode() {
+    return this.getRilContext().networkSelectionMode;
   },
 
   /**
@@ -466,8 +471,8 @@ RILContentHelper.prototype = {
     let request = Services.DOMRequest.createRequest(window);
     let requestId = this.getRequestId(request);
 
-    if (this.networkSelectionMode == RIL.GECKO_NETWORK_SELECTION_MANUAL
-        && this.rilContext.voiceConnectionInfo.network === network) {
+    if (this.rilContext.networkSelectionMode == RIL.GECKO_NETWORK_SELECTION_MANUAL &&
+        this.rilContext.voiceConnectionInfo.network === network) {
 
       // Already manually selected this network, so schedule
       // onsuccess to be fired on the next tick
@@ -500,7 +505,7 @@ RILContentHelper.prototype = {
     let request = Services.DOMRequest.createRequest(window);
     let requestId = this.getRequestId(request);
 
-    if (this.networkSelectionMode == RIL.GECKO_NETWORK_SELECTION_AUTOMATIC) {
+    if (this.rilContext.networkSelectionMode == RIL.GECKO_NETWORK_SELECTION_AUTOMATIC) {
       // Already using automatic selection mode, so schedule
       // onsuccess to be be fired on the next tick
       this.dispatchFireRequestSuccess(requestId, null);
@@ -652,6 +657,34 @@ RILContentHelper.prototype = {
 
     cpmm.sendAsyncMessage("RIL:IccCloseChannel", {requestId: requestId,
                                                     channel: channel});
+    return request;
+  },
+
+  updateContact: function updateContact(window, contactType, contact, pin2) {
+    if (window == null) {
+      throw Components.Exception("Can't get window object",
+                                  Cr.NS_ERROR_UNEXPECTED);
+    }
+
+    let request = Services.DOMRequest.createRequest(window);
+    let requestId = this.getRequestId(request);
+
+    // Parsing nsDOMContact to Icc Contact format
+    let iccContact = {};
+
+    if (contact.name) {
+      iccContact.alphaId = contact.name[0];
+    }
+
+    if (contact.tel) {
+      iccContact.number = contact.tel[0].value;
+    }
+
+    cpmm.sendAsyncMessage("RIL:UpdateIccContact", {requestId: requestId,
+                                                   contactType: contactType,
+                                                   contact: iccContact,
+                                                   pin2: pin2});
+
     return request;
   },
 
@@ -982,7 +1015,7 @@ RILContentHelper.prototype = {
         this.handleGetAvailableNetworks(msg.json);
         break;
       case "RIL:NetworkSelectionModeChanged":
-        this.networkSelectionMode = msg.json.mode;
+        this.rilContext.networkSelectionMode = msg.json.mode;
         break;
       case "RIL:SelectNetwork":
         this.handleSelectNetwork(msg.json,
@@ -1056,6 +1089,9 @@ RILContentHelper.prototype = {
         break;
       case "RIL:IccExchangeAPDU":
         this.handleIccExchangeAPDU(msg.json);
+        break;
+      case "RIL:UpdateIccContact":
+        this.handleUpdateIccContact(msg.json);
         break;
       case "RIL:DataError":
         this.updateConnectionInfo(msg.json, this.rilContext.dataConnectionInfo);
@@ -1134,7 +1170,7 @@ RILContentHelper.prototype = {
 
   handleSelectNetwork: function handleSelectNetwork(message, mode) {
     this._selectingNetwork = null;
-    this.networkSelectionMode = mode;
+    this.rilContext.networkSelectionMode = mode;
 
     if (message.errorMsg) {
       this.fireRequestError(message.requestId, message.errorMsg);
@@ -1165,6 +1201,14 @@ RILContentHelper.prototype = {
     } else {
       var result = [message.sw1, message.sw2, message.simResponse];
       this.fireRequestSuccess(message.requestId, result);
+    }
+  },
+
+  handleUpdateIccContact: function handleUpdateIccContact(message) {
+    if (message.errorMsg) {
+      this.fireRequestError(message.requestId, message.errorMsg);
+    } else {
+      this.fireRequestSuccess(message.requestId, null);
     }
   },
 

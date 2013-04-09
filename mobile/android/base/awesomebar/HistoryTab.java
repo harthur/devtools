@@ -9,6 +9,8 @@ import org.mozilla.gecko.AwesomeBar.ContextMenuSubject;
 import org.mozilla.gecko.db.BrowserContract.Combined;
 import org.mozilla.gecko.db.BrowserDB;
 import org.mozilla.gecko.db.BrowserDB.URLColumns;
+import org.mozilla.gecko.util.GamepadUtils;
+import org.mozilla.gecko.util.ThreadUtils;
 
 import android.app.Activity;
 import android.content.ContentResolver;
@@ -24,6 +26,7 @@ import android.util.Log;
 import android.util.Pair;
 import android.view.ContextMenu;
 import android.view.ContextMenu.ContextMenuInfo;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.MenuInflater;
 import android.view.View;
@@ -87,6 +90,25 @@ public class HistoryTab extends AwesomeBarTab {
                 @Override
                 public boolean onGroupClick(ExpandableListView parent, View v, int groupPosition, long id) {
                     return true;
+                }
+            });
+            list.setOnKeyListener(new View.OnKeyListener() {
+                @Override public boolean onKey(View v, int keyCode, KeyEvent event) {
+                    if (GamepadUtils.isActionKeyDown(event)) {
+                        ExpandableListView expando = (ExpandableListView)v;
+                        long selected = expando.getSelectedPosition();
+                        switch (ExpandableListView.getPackedPositionType(selected)) {
+                        case ExpandableListView.PACKED_POSITION_TYPE_CHILD:
+                            return handleItemClick(ExpandableListView.getPackedPositionGroup(selected),
+                                                   ExpandableListView.getPackedPositionChild(selected));
+                        case ExpandableListView.PACKED_POSITION_TYPE_GROUP:
+                            int group = ExpandableListView.getPackedPositionGroup(selected);
+                            return (expando.isGroupExpanded(group)
+                                ? expando.collapseGroup(group)
+                                : expando.expandGroup(group));
+                        }
+                    }
+                    return false;
                 }
             });
 
@@ -355,7 +377,7 @@ public class HistoryTab extends AwesomeBarTab {
 
             if (mContentObserver == null) {
                 // Register an observer to update the history tab contents if they change.
-                mContentObserver = new ContentObserver(GeckoAppShell.getHandler()) {
+                mContentObserver = new ContentObserver(ThreadUtils.getBackgroundHandler()) {
                     @Override
                     public void onChange(boolean selfChange) {
                         mQueryTask = new HistoryQueryTask();
@@ -368,7 +390,7 @@ public class HistoryTab extends AwesomeBarTab {
             final ExpandableListView historyList = (ExpandableListView)getView();
 
             // Hack: force this to the main thread, even though it should already be on it
-            GeckoApp.mAppContext.mMainHandler.post(new Runnable() {
+            ThreadUtils.postToUiThread(new Runnable() {
                 @Override
                 public void run() {
                     historyList.setAdapter(mCursorAdapter);

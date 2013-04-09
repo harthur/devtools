@@ -46,7 +46,7 @@
 #include "harfbuzz/hb.h"
 
 #include "nsCRT.h"
-#include "sampler.h"
+#include "GeckoProfiler.h"
 
 #include <algorithm>
 
@@ -790,7 +790,7 @@ CalcStyleMatch(gfxFontEntry *aFontEntry, const gfxFontStyle *aStyle)
          }
 
         // measure of closeness of weight to the desired value
-        rank += 9 - Abs(aFontEntry->Weight() / 100 - aStyle->ComputeWeight());
+        rank += 9 - DeprecatedAbs(aFontEntry->Weight() / 100 - aStyle->ComputeWeight());
     } else {
         // if no font to match, prefer non-bold, non-italic fonts
         if (!aFontEntry->IsItalic()) {
@@ -1536,7 +1536,7 @@ struct GlyphBuffer {
                 FlushStroke(aCR, aObjectPaint, aGlobalMatrix);
             }
             if (aDrawMode & gfxFont::GLYPH_FILL) {
-                SAMPLE_LABEL("GlyphBuffer", "cairo_show_glyphs");
+                PROFILER_LABEL("GlyphBuffer", "cairo_show_glyphs");
                 nsRefPtr<gfxPattern> pattern;
                 if (aObjectPaint &&
                     !!(pattern = aObjectPaint->GetFillPattern(aGlobalMatrix))) {

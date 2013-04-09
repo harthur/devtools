@@ -69,16 +69,44 @@ if (!("profileDir" in OS.Constants.Path) || !("localProfileDir" in OS.Constants.
 }
 
 /**
+ * A global constant used as a default refs parameter value when cloning.
+ */
+const noRefs = [];
+
+/**
  * Return a shallow clone of the enumerable properties of an object.
  *
- * We use this whenever normalizing options requires making (shallow)
+ * Utility used whenever normalizing options requires making (shallow)
  * changes to an option object. The copy ensures that we do not modify
  * a client-provided object by accident.
+ *
+ * Note: to reference and not copy specific fields, provide an optional
+ * |refs| argument containing their names.
+ *
+ * @param {JSON} object Options to be cloned.
+ * @param {Array} refs An optional array of field names to be passed by
+ * reference instead of copying.
  */
-let clone = function clone(object) {
+let clone = function clone(object, refs = noRefs) {
   let result = {};
+  // Make a reference between result[key] and object[key].
+  let refer = function refer(result, key, object) {
+    Object.defineProperty(result, key, {
+        enumerable: true,
+        get: function() {
+            return object[key];
+        },
+        set: function(value) {
+            object[key] = value;
+        }
+    });
+  };
   for (let k in object) {
-    result[k] = object[k];
+    if (refs.indexOf(k) < 0) {
+      result[k] = object[k];
+    } else {
+      refer(result, k, object);
+    }
   }
   return result;
 };
@@ -88,14 +116,38 @@ let clone = function clone(object) {
  */
 const noOptions = {};
 
-
 let worker = new PromiseWorker(
   "resource://gre/modules/osfile/osfile_async_worker.js", LOG);
 let Scheduler = {
   post: function post(...args) {
+    // By convention, the last argument of any message may be an |options| object.
+    let methodArgs = args[1];
+    let options = methodArgs ? methodArgs[methodArgs.length - 1] : null;
     let promise = worker.post.apply(worker, args);
     return promise.then(
-      null,
+      function onSuccess(data) {
+        // Check for duration and return result.
+        if (!options) {
+          return data.ok;
+        }
+        // Check for options.outExecutionDuration.
+        if (typeof options !== "object" ||
+          !("outExecutionDuration" in options)) {
+          return data.ok;
+        }
+        // If data.durationMs is not present, return data.ok (there was an
+        // exception applying the method).
+        if (!("durationMs" in data)) {
+          return data.ok;
+        }
+        // Accumulate (or initialize) outExecutionDuration
+        if (typeof options.outExecutionDuration == "number") {
+          options.outExecutionDuration += data.durationMs;
+        } else {
+          options.outExecutionDuration = data.durationMs;
+        }
+        return data.ok;
+      },
       function onError(error) {
         // Decode any serialized error
         if (error instanceof PromiseWorker.WorkerError) {
@@ -222,12 +274,14 @@ File.prototype = {
    * @resolves {number} The number of bytes effectively read.
    * @rejects {OS.File.Error}
    */
-  readTo: function readTo(buffer, options) {
+  readTo: function readTo(buffer, options = noOptions) {
     // If |buffer| is a typed array and there is no |bytes| options, we
     // need to extract the |byteLength| now, as it will be lost by
     // communication
-    if (isTypedArray(buffer) && (!options || !"bytes" in options)) {
-      options = clone(options || noOptions);
+    if (isTypedArray(buffer) && (!options || !("bytes" in options))) {
+      // Preserve the reference to |outExecutionDuration| option if it is
+      // passed.
+      options = clone(options, ["outExecutionDuration"]);
       options.bytes = buffer.byteLength;
     }
     // Note: Type.void_t.out_ptr.toMsg ensures that
@@ -258,12 +312,14 @@ File.prototype = {
    *
    * @return {number} The number of bytes actually written.
    */
-  write: function write(buffer, options) {
+  write: function write(buffer, options = noOptions) {
     // If |buffer| is a typed array and there is no |bytes| options,
     // we need to extract the |byteLength| now, as it will be lost
     // by communication
-    if (isTypedArray(buffer) && (!options || !"bytes" in options)) {
-      options = clone(options || noOptions);
+    if (isTypedArray(buffer) && (!options || !("bytes" in options))) {
+      // Preserve the reference to |outExecutionDuration| option if it is
+      // passed.
+      options = clone(options, ["outExecutionDuration"]);
       options.bytes = buffer.byteLength;
     }
     // Note: Type.void_t.out_ptr.toMsg ensures that
@@ -556,9 +612,10 @@ File.exists = function exists(path) {
  * @return {promise}
  * @resolves {number} The number of bytes actually written.
  */
-File.writeAtomic = function writeAtomic(path, buffer, options) {
-  // Copy |options| to avoid modifying the original object
-  options = clone(options || noOptions);
+File.writeAtomic = function writeAtomic(path, buffer, options = noOptions) {
+  // Copy |options| to avoid modifying the original object but preserve the
+  // reference to |outExecutionDuration| option if it is passed.
+  options = clone(options, ["outExecutionDuration"]);
   // As options.tmpPath is a path, we need to encode it as |Type.path| message
   if ("tmpPath" in options) {
     options.tmpPath = Type.path.toMsg(options.tmpPath);

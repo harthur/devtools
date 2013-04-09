@@ -177,6 +177,14 @@ GetBuildConfiguration(JSContext *cx, unsigned argc, jsval *vp)
     if (!JS_SetProperty(cx, info, "methodjit", &value))
         return false;
 
+#ifdef ENABLE_PARALLEL_JS
+    value = BooleanValue(true);
+#else
+    value = BooleanValue(false);
+#endif
+    if (!JS_SetProperty(cx, info, "parallelJS", &value))
+        return false;
+
     *vp = ObjectValue(*info);
     return true;
 }
@@ -575,8 +583,8 @@ NondeterminsticGetWeakMapKeys(JSContext *cx, unsigned argc, jsval *vp)
                              InformalValueTypeName(args[0]));
         return false;
     }
-    JSObject *arr;
-    if (!JS_NondeterministicGetWeakMapKeys(cx, &args[0].toObject(), &arr))
+    RootedObject arr(cx);
+    if (!JS_NondeterministicGetWeakMapKeys(cx, &args[0].toObject(), arr.address()))
         return false;
     if (!arr) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL, JSMSG_NOT_EXPECTED_TYPE,
@@ -652,8 +660,6 @@ static const struct TraceKindPair {
 static JSBool
 CountHeap(JSContext *cx, unsigned argc, jsval *vp)
 {
-    void* startThing;
-    JSGCTraceKind startTraceKind;
     jsval v;
     int32_t traceKind;
     JSString *str;
@@ -661,13 +667,11 @@ CountHeap(JSContext *cx, unsigned argc, jsval *vp)
     JSCountHeapNode *node;
     size_t counter;
 
-    startThing = NULL;
-    startTraceKind = JSTRACE_OBJECT;
+    Value startValue = UndefinedValue();
     if (argc > 0) {
         v = JS_ARGV(cx, vp)[0];
         if (JSVAL_IS_TRACEABLE(v)) {
-            startThing = JSVAL_TO_TRACEABLE(v);
-            startTraceKind = JSVAL_TRACE_KIND(v);
+            startValue = v;
         } else if (!JSVAL_IS_NULL(v)) {
             JS_ReportError(cx,
                            "the first argument is not null or a heap-allocated "
@@ -707,11 +711,10 @@ CountHeap(JSContext *cx, unsigned argc, jsval *vp)
     countTracer.traceList = NULL;
     countTracer.recycleList = NULL;
 
-    if (!startThing) {
+    if (startValue.isUndefined()) {
         JS_TraceRuntime(&countTracer.base);
     } else {
-        JS_SET_TRACING_NAME(&countTracer.base, "root");
-        JS_CallTracer(&countTracer.base, startThing, startTraceKind);
+        JS_CallValueTracer(&countTracer.base, startValue, "root");
     }
 
     counter = 0;
@@ -880,6 +883,14 @@ EnableSPSProfilingAssertions(JSContext *cx, unsigned argc, jsval *vp)
 }
 
 static JSBool
+DisableSPSProfiling(JSContext *cx, unsigned argc, jsval *vp)
+{
+    if (cx->runtime->spsProfiler.installed())
+        cx->runtime->spsProfiler.enable(false);
+    return true;
+}
+
+static JSBool
 DisplayName(JSContext *cx, unsigned argc, jsval *vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
@@ -904,6 +915,16 @@ js::testingFunc_inParallelSection(JSContext *cx, unsigned argc, jsval *vp)
     JS_SET_RVAL(cx, vp, JSVAL_FALSE);
     return true;
 }
+
+#ifndef JS_ION
+JSBool
+js::IsAsmJSCompilationAvailable(JSContext *cx, unsigned argc, Value *vp)
+{
+    CallArgs args = CallArgsFromVp(argc, vp);
+    args.rval().set(BooleanValue(false));
+    return true;
+}
+#endif
 
 static JSFunctionSpecWithHelp TestingFunctions[] = {
     JS_FN_HELP("gc", ::GC, 0, 0,
@@ -1034,11 +1055,20 @@ static JSFunctionSpecWithHelp TestingFunctions[] = {
 "  When 'slow' is false, then instrumentation is enabled, but the slow\n"
 "  assertions are disabled."),
 
+    JS_FN_HELP("disableSPSProfiling", DisableSPSProfiling, 1, 0,
+"disableSPSProfiling()",
+"  Disables SPS instrumentation"),
+
     JS_FN_HELP("displayName", DisplayName, 1, 0,
 "displayName(fn)",
 "  Gets the display name for a function, which can possibly be a guessed or\n"
 "  inferred name based on where the function was defined. This can be\n"
 "  different from the 'name' property on the function."),
+
+    JS_FN_HELP("isAsmJSCompilationAvailable", IsAsmJSCompilationAvailable, 0, 0,
+"isAsmJSCompilationAvailable",
+"  Returns whether asm.js compilation is currently available or whether it is disabled\n"
+"  (e.g., by the debugger)."),
 
     JS_FN_HELP("inParallelSection", testingFunc_inParallelSection, 0, 0,
 "inParallelSection()",

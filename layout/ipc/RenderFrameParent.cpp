@@ -948,25 +948,22 @@ RenderFrameParent::BuildDisplayList(nsDisplayListBuilder* aBuilder,
 {
   // We're the subdoc for <browser remote="true"> and it has
   // painted content.  Display its shadow layer tree.
-  nsDisplayList shadowTree;
+  DisplayListClipState::AutoSaveRestore clipState(aBuilder);
+
+  nsPoint offset = aBuilder->ToReferenceFrame(aFrame);
+  nsRect bounds = aFrame->EnsureInnerView()->GetBounds() + offset;
+  clipState.ClipContentDescendants(bounds);
+
   ContainerLayer* container = GetRootLayer();
   if (aBuilder->IsForEventDelivery() && container) {
     ViewTransform offset =
       ViewTransform(GetContentRectLayerOffset(aFrame, aBuilder), 1, 1);
     BuildListForLayer(container, mFrameLoader, offset,
-                      aBuilder, shadowTree, aFrame);
+                      aBuilder, *aLists.Content(), aFrame);
   } else {
-    shadowTree.AppendToTop(
+    aLists.Content()->AppendToTop(
       new (aBuilder) nsDisplayRemote(aBuilder, aFrame, this));
   }
-
-  // Clip the shadow layers to subdoc bounds
-  nsPoint offset = aBuilder->ToReferenceFrame(aFrame);
-  nsRect bounds = aFrame->EnsureInnerView()->GetBounds() + offset;
-
-  aLists.Content()->AppendNewToTop(
-    new (aBuilder) nsDisplayClip(aBuilder, aFrame, &shadowTree,
-                                 bounds));
 }
 
 void

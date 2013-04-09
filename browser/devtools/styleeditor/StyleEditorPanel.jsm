@@ -88,9 +88,10 @@ StyleEditorPanel.prototype = {
   /**
    * Before navigating to a new page or reloading the page.
    */
-  beforeNavigate: function(event, request) {
+  beforeNavigate: function(event, payload) {
     dump("HEATHER: before navigate" + "\n");
     dump("HEATHER: before navigate isDirty " + this.UI.isDirty + "\n");
+    let request = payload._navPayload || payload;
     if (this.UI.isDirty) {
       this.preventNavigate(request);
     }

@@ -255,7 +255,7 @@ class RelocatablePtr : public EncapsulatedPtr<T>
         if (v)
             post();
     }
-    explicit RelocatablePtr(const RelocatablePtr<T> &v) : EncapsulatedPtr<T>(v) {
+    RelocatablePtr(const RelocatablePtr<T> &v) : EncapsulatedPtr<T>(v) {
         if (this->value)
             post();
     }
@@ -331,6 +331,7 @@ typedef RelocatablePtr<JSScript> RelocatablePtrScript;
 typedef HeapPtr<JSObject> HeapPtrObject;
 typedef HeapPtr<JSFunction> HeapPtrFunction;
 typedef HeapPtr<JSString> HeapPtrString;
+typedef HeapPtr<PropertyName> HeapPtrPropertyName;
 typedef HeapPtr<JSScript> HeapPtrScript;
 typedef HeapPtr<Shape> HeapPtrShape;
 typedef HeapPtr<BaseShape> HeapPtrBaseShape;
@@ -374,7 +375,6 @@ class EncapsulatedValue : public ValueOperations<EncapsulatedValue>
      * implementations.
      */
     EncapsulatedValue() MOZ_DELETE;
-
 
   public:
     EncapsulatedValue(const Value &v) : value(v) {
@@ -459,8 +459,7 @@ class RelocatableValue : public EncapsulatedValue
 
   private:
     inline void post();
-    inline void post(JSRuntime *rt);
-    inline void relocate();
+    inline void relocate(JSRuntime *rt);
 };
 
 class HeapSlot : public EncapsulatedValue

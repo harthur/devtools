@@ -144,11 +144,12 @@
 .devtools-searchinput {
   -moz-appearance: none;
   margin: 0 3px;
+  min-height: 22px;
   background-color: transparent;
   border: 1px solid hsla(210,8%,5%,.6);
   border-radius: 20px;
   background-image: -moz-linear-gradient(hsla(210,16%,76%,.15), hsla(210,16%,76%,.35));
-  padding: 3px;
+  padding: 3px 8px;
   box-shadow: 0 1px 1px hsla(210,8%,5%,.3) inset,
               0 0 0 1px hsla(210,16%,76%,.1) inset,
               0 1px 0 hsla(210,16%,76%,.15);
@@ -233,6 +234,10 @@
 
 /* In-tools sidebar */
 
+.devtools-toolbox-side-iframe {
+  min-width: 465px;
+}
+
 .devtools-sidebar-tabs {
   -moz-appearance: none;
   margin: 0;
@@ -264,7 +269,7 @@
 
 .devtools-sidebar-tabs > tabs > tab {
   -moz-appearance: none;
-  /* We want to match the height of a toolbar with a toolbarbutton 
+  /* We want to match the height of a toolbar with a toolbarbutton
    * First, we need to replicated the padding of toolbar (4px),
    * then, the padding of the button itself from toolbarbutton.css (3px),
    * Also, we need to take the border of the buttons into accout (1px).
@@ -350,32 +355,4 @@
   box-shadow: 0 1px 0 hsla(0,0%,100%,.05) inset, 0 -2px 0 hsla(206,37%,4%,.05) inset, 0 -1px 1px hsla(206,37%,4%,.1) inset;
 }
 
-/* Theme */
-
-.devtools-theme-background {
-  background-color: white;
-}
-
-.devtools-theme-comment {
-  color: hsl(90,2%,46%); /* grey */
-}
-
-.devtools-theme-keyword {
-  color: hsl(276,44%,45%); /* purple */
-}
-
-.devtools-theme-string {
-  color: hsl(72,100%,27%); /* green */
-}
-
-.devtools-theme-tagname {
-  color: hsl(208,81%,21%); /* dark blue */
-}
-
-.devtools-theme-attrname {
-  color: hsl(208,56%,40%); /* blue */
-}
-
-.devtools-theme-attrvalue {
-  color: hsl(24,85%,39%); /* orange */
-}
+%include ../../shared/devtools/common.inc.css

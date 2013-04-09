@@ -27,8 +27,10 @@
 #include "nsIOService.h"
 #include "nsCharSeparatedTokenizer.h"
 #include "nsNetAddr.h"
+#include "nsProxyRelease.h"
 
 #include "mozilla/Attributes.h"
+#include "mozilla/VisualEventTracer.h"
 
 using namespace mozilla;
 using namespace mozilla::net;
@@ -284,6 +286,8 @@ nsDNSAsyncRequest::OnLookupComplete(nsHostResolver *resolver,
             status = NS_ERROR_OUT_OF_MEMORY;
     }
 
+    MOZ_EVENT_TRACER_DONE(this, "net::dns::lookup");
+
     mListener->OnLookupComplete(this, rec, status);
     mListener = nullptr;
 
@@ -516,15 +520,13 @@ class DNSListenerProxy MOZ_FINAL : public nsIDNSListener
 {
 public:
   DNSListenerProxy(nsIDNSListener* aListener, nsIEventTarget* aTargetThread)
-    : mListener(aListener)
+    // Sometimes aListener is a main-thread only object like XPCWrappedJS, and
+    // sometimes it's a threadsafe object like nsSOCKSSocketInfo. Use a main-
+    // thread pointer holder, but disable strict enforcement of thread invariants.
+    // The AddRef implementation of XPCWrappedJS will assert if we go wrong here.
+    : mListener(new nsMainThreadPtrHolder<nsIDNSListener>(aListener, false))
     , mTargetThread(aTargetThread)
   { }
-
-  ~DNSListenerProxy()
-  {
-    nsCOMPtr<nsIThread> mainThread(do_GetMainThread());
-    NS_ProxyRelease(mainThread, mListener);
-  }
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSIDNSLISTENER
@@ -532,7 +534,7 @@ public:
   class OnLookupCompleteRunnable : public nsRunnable
   {
   public:
-    OnLookupCompleteRunnable(nsIDNSListener* aListener,
+    OnLookupCompleteRunnable(nsMainThreadPtrHolder<nsIDNSListener>* aListener,
                              nsICancelable* aRequest,
                              nsIDNSRecord* aRecord,
                              nsresult aStatus)
@@ -542,23 +544,17 @@ public:
       , mStatus(aStatus)
     { }
 
-    ~OnLookupCompleteRunnable()
-    {
-      nsCOMPtr<nsIThread> mainThread(do_GetMainThread());
-      NS_ProxyRelease(mainThread, mListener);
-    }
-
     NS_DECL_NSIRUNNABLE
 
   private:
-    nsCOMPtr<nsIDNSListener> mListener;
+    nsMainThreadPtrHandle<nsIDNSListener> mListener;
     nsCOMPtr<nsICancelable> mRequest;
     nsCOMPtr<nsIDNSRecord> mRecord;
     nsresult mStatus;
   };
 
 private:
-  nsCOMPtr<nsIDNSListener> mListener;
+  nsMainThreadPtrHandle<nsIDNSListener> mListener;
   nsCOMPtr<nsIEventTarget> mTargetThread;
 };
 
@@ -635,6 +631,9 @@ nsDNSService::AsyncResolve(const nsACString  &hostname,
     if (!req)
         return NS_ERROR_OUT_OF_MEMORY;
     NS_ADDREF(*result = req);
+
+    MOZ_EVENT_TRACER_NAME_OBJECT(req, hostname.BeginReading());
+    MOZ_EVENT_TRACER_WAIT(req, "net::dns::lookup");
 
     // addref for resolver; will be released when OnLookupComplete is called.
     NS_ADDREF(req);

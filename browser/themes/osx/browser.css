@@ -309,6 +309,13 @@ toolbarbutton.bookmark-item > menupopup {
   opacity: 0.7;
 }
 
+@media (min-resolution: 2dppx) {
+  .bookmark-item > .toolbarbutton-icon,
+  .bookmark-item > .menu-iconic-left > .menu-iconic-icon {
+    image-rendering: -moz-crisp-edges;
+  }
+}
+
 #wrapper-personal-bookmarks[place="palette"] > .toolbarpaletteitem-box {
   background: url("chrome://browser/skin/places/bookmarksToolbar.png") no-repeat center;
 }
@@ -3139,6 +3146,26 @@ toolbarbutton.chevron > .toolbarbutton-menu-dropmarker {
   }
 }
 
+#web-notifications-notification-icon {
+  list-style-image: url(chrome://browser/skin/notification-16.png);
+}
+@media (min-resolution: 2dppx) {
+  #web-notifications-notification-icon {
+    list-style-image: url(chrome://browser/skin/notification-16@2x.png);
+  }
+}
+
+#pointerLock-notification-icon {
+  list-style-image: url(chrome://browser/skin/pointerLock-16.png);
+}
+@media (min-resolution: 2dppx) {
+  #pointerLock-notification-icon {
+    list-style-image: url(chrome://browser/skin/pointerLock-16@2x.png);
+  }
+}
+
+
+
 .popup-notification-icon {
   width: 64px;
   height: 64px;
@@ -3151,6 +3178,15 @@ toolbarbutton.chevron > .toolbarbutton-menu-dropmarker {
 @media (min-resolution: 2dppx) {
   .popup-notification-icon[popupid="geolocation"] {
     list-style-image: url(chrome://browser/skin/Geolocation-64@2x.png);
+  }
+}
+
+.popup-notification-icon[popupid="web-notifications"] {
+  list-style-image: url(chrome://browser/skin/notification-64.png);
+}
+@media (min-resolution: 2dppx) {
+  .popup-notification-icon[popupid="web-notifications"] {
+    list-style-image: url(chrome://browser/skin/notification-64@2x.png);
   }
 }
 
@@ -3222,6 +3258,19 @@ toolbarbutton.chevron > .toolbarbutton-menu-dropmarker {
     list-style-image: url(chrome://browser/skin/mixed-content-blocked-64@2x.png);
   }
 }
+
+.popup-notification-icon[popupid="pointerLock"] {
+  list-style-image: url(chrome://browser/skin/pointerLock-64.png);
+}
+@media (min-resolution: 2dppx) {
+  .popup-notification-icon[popupid="pointerLock"] {
+    list-style-image: url(chrome://browser/skin/pointerLock-64@2x.png);
+  }
+}
+#pointerLock-cancel {
+  margin: 0px;
+}
+
 
 #mixed-content-blocked-helplink {
   margin: 0px;
@@ -3611,6 +3660,45 @@ toolbar[mode="icons"] > *|* > .social-notification-container > .toolbarbutton-1[
 
 toolbar[mode="icons"] > *|* > .social-notification-container > .toolbarbutton-1[badge]:not([badge=""]):-moz-locale-dir(rtl)::after {
   left: -2px;
+}
+
+.popup-notification-icon[popupid="servicesInstall"] {
+  list-style-image: url("chrome://global/skin/icons/information-64.png");
+}
+#servicesInstall-notification-icon {
+  list-style-image: url(chrome://global/skin/icons/information-16.png);
+}
+#social-undoactivation-button,
+#servicesInstall-learnmore-link {
+  -moz-margin-start: 0; /* override default label margin to match description margin */
+}
+
+.social-activation-icon {
+  width: auto;
+  height: auto;
+  max-height: 64px;
+  max-width: 64px;
+}
+
+#social-activation-message {
+  max-width: 250px;
+}
+
+#social-activation-message > label {
+  margin: 0;
+}
+
+#social-activation-button {
+  @hudButton@
+  min-height: 0px;
+}
+
+#social-activation-button:focus {
+  @hudButtonFocused@
+}
+
+#social-activation-button:hover:active {
+  @hudButtonPressed@
 }
 
 /* === end of social toolbar button === */

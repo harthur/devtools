@@ -8,6 +8,7 @@
 #include "jswatchpoint.h"
 
 #include "gc/Marking.h"
+#include "gc/StoreBuffer.h"
 
 #include "jsobjinlines.h"
 
@@ -48,6 +49,15 @@ WatchpointMap::init()
 {
     return map.init();
 }
+
+#ifdef JSGC_GENERATIONAL
+void
+Mark(JSTracer *trc, WatchKey *key, const char *name)
+{
+    MarkId(trc, &key->id, "WatchKey id");
+    MarkObject(trc, &key->object, "WatchKey id");
+}
+#endif
 
 static void
 WatchpointWriteBarrierPost(JSRuntime *rt, WatchpointMap::Map *map, const WatchKey &key,
@@ -96,7 +106,7 @@ WatchpointMap::unwatch(JSObject *obj, jsid id,
         if (closurep) {
             // Read barrier to prevent an incorrectly gray closure from escaping the
             // watchpoint. See the comment before UnmarkGrayChildren in gc/Marking.cpp
-            ExposeGCThingToActiveJS(p->value.closure, JSTRACE_OBJECT);
+            JS::ExposeGCThingToActiveJS(p->value.closure, JSTRACE_OBJECT);
             *closurep = p->value.closure;
         }
         map.remove(p);
@@ -144,7 +154,7 @@ WatchpointMap::triggerWatchpoint(JSContext *cx, HandleObject obj, HandleId id, M
 
     // Read barrier to prevent an incorrectly gray closure from escaping the
     // watchpoint. See the comment before UnmarkGrayChildren in gc/Marking.cpp
-    ExposeGCThingToActiveJS(closure, JSTRACE_OBJECT);
+    JS::ExposeGCThingToActiveJS(closure, JSTRACE_OBJECT);
 
     /* Call the handler. */
     return handler(cx, obj, id, old, vp.address(), closure);
@@ -237,8 +247,8 @@ void
 WatchpointMap::traceAll(WeakMapTracer *trc)
 {
     JSRuntime *rt = trc->runtime;
-    for (JSCompartment **c = rt->compartments.begin(); c != rt->compartments.end(); ++c) {
-        if (WatchpointMap *wpmap = (*c)->watchpointMap)
+    for (CompartmentsIter comp(rt); !comp.done(); comp.next()) {
+        if (WatchpointMap *wpmap = comp->watchpointMap)
             wpmap->trace(trc);
     }
 }

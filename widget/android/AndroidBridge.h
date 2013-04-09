@@ -25,7 +25,7 @@
 #include "gfxRect.h"
 
 #include "nsIAndroidBridge.h"
-#include "nsISmsRequest.h"
+#include "nsIMobileMessageCallback.h"
 
 #include "mozilla/Likely.h"
 #include "mozilla/StaticPtr.h"
@@ -39,13 +39,6 @@ class nsIDOMMozSmsMessage;
 
 /* See the comment in AndroidBridge about this function before using it */
 extern "C" JNIEnv * GetJNIForThread();
-extern "C" jclass jsjni_FindClass(const char *className);
-extern "C" jmethodID jsjni_GetStaticMethodID(jclass methodClass,
-                                       const char *methodName,
-                                       const char *signature);
-extern "C" bool jsjni_ExceptionCheck();
-extern "C" void jsjni_CallStaticVoidMethodA(jclass cls, jmethodID method, jvalue *values);
-extern "C" int jsjni_CallStaticIntMethodA(jclass cls, jmethodID method, jvalue *values);
 
 extern bool mozilla_AndroidBridge_SetMainThread(void *);
 extern jclass GetGeckoAppShellClass();
@@ -103,10 +96,9 @@ class AndroidBridge
 {
 public:
     enum {
-        NOTIFY_IME_RESETINPUTSTATE = 0,
-        NOTIFY_IME_REPLY_EVENT = 1,
-        NOTIFY_IME_CANCELCOMPOSITION = 2,
-        NOTIFY_IME_FOCUSCHANGE = 3
+        // Values for NotifyIME, in addition to values from the Gecko
+        // NotificationToIME enum; use negative values here to prevent conflict
+        NOTIFY_IME_REPLY_EVENT = -1,
     };
 
     enum {
@@ -152,9 +144,9 @@ public:
     bool SetMainThread(void *thr);
 
     /* These are all implemented in Java */
-    static void NotifyIME(int aType, int aState);
+    static void NotifyIME(int aType);
 
-    static void NotifyIMEEnabled(int aState, const nsAString& aTypeHint,
+    static void NotifyIMEContext(int aState, const nsAString& aTypeHint,
                                  const nsAString& aModeHint, const nsAString& aActionHint);
 
     static void NotifyIMEChange(const PRUnichar *aText, uint32_t aTextLen, int aStart, int aEnd, int aNewEnd);
@@ -222,7 +214,7 @@ public:
                                            int64_t aProgressMax,
                                            const nsAString& aAlertText);
 
-    void AlertsProgressListener_OnCancel(const nsAString& aAlertName);
+    void CloseNotification(const nsAString& aAlertName);
 
     int GetDPI();
 
@@ -276,6 +268,11 @@ public:
 
     void *LockBitmap(jobject bitmap);
 
+    // Returns a global reference to the Context for Fennec's Activity. The
+    // caller is responsible for ensuring this doesn't leak by calling
+    // DeleteGlobalRef() when the context is no longer needed.
+    jobject GetGlobalContextRef(void);
+
     void UnlockBitmap(jobject bitmap);
 
     bool UnlockProfile();
@@ -314,14 +311,17 @@ public:
     void DisableBatteryNotifications();
     void GetCurrentBatteryInformation(hal::BatteryInformation* aBatteryInfo);
 
-    nsresult GetSegmentInfoForText(const nsAString& aText, dom::mobilemessage::SmsSegmentInfoData* aData);
-    void SendMessage(const nsAString& aNumber, const nsAString& aText, nsISmsRequest* aRequest);
-    void GetMessage(int32_t aMessageId, nsISmsRequest* aRequest);
-    void DeleteMessage(int32_t aMessageId, nsISmsRequest* aRequest);
-    void CreateMessageList(const dom::mobilemessage::SmsFilterData& aFilter, bool aReverse, nsISmsRequest* aRequest);
-    void GetNextMessageInList(int32_t aListId, nsISmsRequest* aRequest);
+    nsresult GetSegmentInfoForText(const nsAString& aText,
+                                   dom::mobilemessage::SmsSegmentInfoData* aData);
+    void SendMessage(const nsAString& aNumber, const nsAString& aText,
+                     nsIMobileMessageCallback* aRequest);
+    void GetMessage(int32_t aMessageId, nsIMobileMessageCallback* aRequest);
+    void DeleteMessage(int32_t aMessageId, nsIMobileMessageCallback* aRequest);
+    void CreateMessageList(const dom::mobilemessage::SmsFilterData& aFilter,
+                           bool aReverse, nsIMobileMessageCallback* aRequest);
+    void GetNextMessageInList(int32_t aListId, nsIMobileMessageCallback* aRequest);
     void ClearMessageList(int32_t aListId);
-    already_AddRefed<nsISmsRequest> DequeueSmsRequest(uint32_t aRequestId);
+    already_AddRefed<nsIMobileMessageCallback> DequeueSmsRequest(uint32_t aRequestId);
 
     bool IsTablet();
 
@@ -367,7 +367,7 @@ public:
                             nsACString & aResult);
 protected:
     static AndroidBridge *sBridge;
-    static StaticAutoPtr<nsTArray<nsCOMPtr<nsISmsRequest> > > sSmsRequests;
+    static StaticAutoPtr<nsTArray<nsCOMPtr<nsIMobileMessageCallback> > > sSmsRequests;
 
     // the global JavaVM
     JavaVM *mJavaVM;
@@ -398,11 +398,11 @@ protected:
 
     int mAPIVersion;
 
-    bool QueueSmsRequest(nsISmsRequest* aRequest, uint32_t* aRequestIdOut);
+    bool QueueSmsRequest(nsIMobileMessageCallback* aRequest, uint32_t* aRequestIdOut);
 
     // other things
     jmethodID jNotifyIME;
-    jmethodID jNotifyIMEEnabled;
+    jmethodID jNotifyIMEContext;
     jmethodID jNotifyIMEChange;
     jmethodID jAcknowledgeEvent;
     jmethodID jEnableLocation;
@@ -428,7 +428,7 @@ protected:
     jmethodID jUnlockProfile;
     jmethodID jKillAnyZombies;
     jmethodID jAlertsProgressListener_OnProgress;
-    jmethodID jAlertsProgressListener_OnCancel;
+    jmethodID jCloseNotification;
     jmethodID jGetDpi;
     jmethodID jSetFullScreen;
     jmethodID jShowInputMethodPicker;
@@ -490,6 +490,8 @@ protected:
 
     jclass jThumbnailHelperClass;
     jmethodID jNotifyThumbnail;
+
+    jmethodID jGetContext;
 
     // for GfxInfo (gfx feature detection and blacklisting)
     jmethodID jGetGfxInfoData;

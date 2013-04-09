@@ -95,7 +95,7 @@ treechildren.autocomplete-treebody::-moz-tree-cell-text(selected) {
 .autocomplete-richlistitem[selected="true"] {
   background-color: Highlight;
   color: HighlightText;
-  background-image: -moz-linear-gradient(rgba(255,255,255,0.3), transparent);
+  background-image: linear-gradient(rgba(255,255,255,0.3), transparent);
 }
 
 .autocomplete-richlistitem {
@@ -112,6 +112,12 @@ treechildren.autocomplete-treebody::-moz-tree-cell-text(selected) {
   margin-bottom: -1px;
   -moz-margin-start: 7px;
   -moz-margin-end: 5px;
+}
+
+@media (min-resolution: 2dppx) {
+  image.ac-site-icon {
+    image-rendering: -moz-crisp-edges;
+  }
 }
 
 .ac-type-icon {

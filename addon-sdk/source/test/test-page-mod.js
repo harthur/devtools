@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 "use strict";
 
-const pageMod = require("sdk/page-mod");
+const { PageMod } = require("sdk/page-mod");
 const testPageMod = require("./pagemod-test-helpers").testPageMod;
 const { Loader } = require('sdk/test/loader');
 const tabs = require("sdk/tabs");
@@ -11,9 +11,14 @@ const timer = require("sdk/timers");
 const { Cc, Ci } = require("chrome");
 const { open, getFrames, getMostRecentBrowserWindow } = require('sdk/window/utils');
 const windowUtils = require('sdk/deprecated/window-utils');
-const { getTabContentWindow, getActiveTab, openTab, closeTab } = require('sdk/tabs/utils');
-const { is } = require('sdk/system/xul-app');
-const { data } = require('sdk/self');
+const { getTabContentWindow, getActiveTab, setTabURL, openTab, closeTab } = require('sdk/tabs/utils');
+const xulApp = require("sdk/system/xul-app");
+const { data, isPrivateBrowsingSupported } = require('sdk/self');
+const { isPrivate } = require('sdk/private-browsing');
+const { openWebpage } = require('./private-browsing/helper');
+const { isTabPBSupported, isWindowPBSupported, isGlobalPBSupported } = require('sdk/private-browsing/utils');
+const promise = require("sdk/core/promise");
+const { pb } = require('./private-browsing/helper');
 
 /* XXX This can be used to delay closing the test Firefox instance for interactive
  * testing or visual inspection. This test is registered first so that it runs
@@ -136,7 +141,7 @@ exports.testPageModIncludes = function(test) {
 
 exports.testPageModErrorHandling = function(test) {
   test.assertRaises(function() {
-      new pageMod.PageMod();
+      new PageMod();
     },
     'pattern is undefined',
     "PageMod() throws when 'include' option is not specified.");
@@ -339,7 +344,6 @@ exports.testRelatedTab = function(test) {
   test.waitUntilDone();
 
   let tab;
-  let { PageMod } = require("sdk/page-mod");
   let pageMod = new PageMod({
     include: "about:*",
     onAttach: function(worker) {
@@ -548,7 +552,7 @@ exports.testAttachToTabsOnly = function(test) {
           element.removeEventListener('DOMContentLoaded', onload, false);
           hiddenFrames.remove(hiddenFrame);
 
-          if (!is("Fennec")) {
+          if (!xulApp.is("Fennec")) {
             openToplevelWindow();
           }
           else {
@@ -955,7 +959,7 @@ exports.testExistingOnFrames = function(test) {
       return;
     }
 
-    let pagemodOnExisting = pageMod.PageMod({
+    let pagemodOnExisting = PageMod({
       include: ["*", "data:*"],
       attachTo: ["existing", "frame"],
       contentScriptWhen: 'ready',
@@ -990,7 +994,7 @@ exports.testExistingOnFrames = function(test) {
       }
     });
 
-    let pagemodOffExisting = pageMod.PageMod({
+    let pagemodOffExisting = PageMod({
       include: ["*", "data:*"],
       attachTo: ["frame"],
       contentScriptWhen: 'ready',
@@ -1051,3 +1055,75 @@ exports.testEvents = function(test) {
     }
   );
 };
+
+exports["test page-mod on private tab"] = function (test) {
+  test.waitUntilDone();
+  let privateUri = "data:text/html;charset=utf-8," +
+                   "<iframe src=\"data:text/html;charset=utf-8,frame\" />";
+  let nonPrivateUri = "data:text/html;charset=utf-8,non-private";
+
+  let pageMod = new PageMod({
+    include: "data:*",
+    onAttach: function(worker) {
+      if (isTabPBSupported || isWindowPBSupported) {
+        // When PB isn't supported, the page-mod will apply to all document
+        // as all of them will be non-private
+        test.assertEqual(worker.tab.url,
+                         nonPrivateUri,
+                         "page-mod should only attach to the non-private tab");
+      }
+      test.assert(!isPrivate(worker),
+                  "The worker is really non-private");
+      test.assert(!isPrivate(worker.tab),
+                  "The document is really non-private");
+      pageMod.destroy();
+      page1.close().then(page2.close).then(test.done.bind(test));
+    }
+  });
+
+  let page1 = openWebpage(privateUri, true);
+  let page2 = openWebpage(nonPrivateUri, false);
+}
+
+exports["test page-mod on private tab in global pb"] = function (test) {
+  test.waitUntilDone();
+  if (!isGlobalPBSupported) {
+    test.pass();
+    return test.done();
+  }
+
+  let privateUri = "data:text/html;charset=utf-8," +
+                   "<iframe%20src=\"data:text/html;charset=utf-8,frame\"/>";
+
+  let pageMod = new PageMod({
+    include: privateUri,
+    onAttach: function(worker) {
+      test.assertEqual(worker.tab.url,
+                       privateUri,
+                       "page-mod should attach");
+      test.assertEqual(isPrivateBrowsingSupported,
+                       false,
+                       "private browsing is not supported");
+      test.assert(isPrivate(worker),
+                  "The worker is really non-private");
+      test.assert(isPrivate(worker.tab),
+                  "The document is really non-private");
+      pageMod.destroy();
+
+      worker.tab.close(function() {
+        pb.once('stop', function() {
+          test.pass('global pb stop');
+          test.done();
+        });
+        pb.deactivate();
+      });
+    }
+  });
+
+  let page1;
+  pb.once('start', function() {
+    test.pass('global pb start');
+    tabs.open({ url: privateUri });
+  });
+  pb.activate();
+}

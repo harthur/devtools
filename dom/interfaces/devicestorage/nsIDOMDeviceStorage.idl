@@ -6,7 +6,7 @@
 #include "nsIDOMEventTarget.idl"
 interface nsIDOMBlob;
 interface nsIDOMDOMRequest;
-interface nsIDOMDeviceStorageCursor;
+interface nsIDOMDOMCursor;
 interface nsIDOMDeviceStorageChangeEvent;
 interface nsIDOMEventListener;
 interface nsIFile;
@@ -16,7 +16,7 @@ dictionary DeviceStorageEnumerationParameters
   jsval since;
 };
 
-[scriptable, uuid(c611b701-ddfc-456d-893a-3b3fcb30d9fd), builtinclass]
+[scriptable, uuid(b6274c63-daa2-4c7a-aa45-b72e45b5f2d2), builtinclass]
 interface nsIDOMDeviceStorage : nsIDOMEventTarget
 {
     [implicit_jscontext] attribute jsval onchange;
@@ -33,16 +33,20 @@ interface nsIDOMDeviceStorage : nsIDOMEventTarget
     nsIDOMDOMRequest delete(in jsval aName);
 
     [optional_argc, implicit_jscontext]
-    nsIDOMDeviceStorageCursor enumerate([optional] in jsval aName, /* DeviceStorageEnumerationParameters */ [optional] in jsval options);
+    nsIDOMDOMCursor enumerate([optional] in jsval aName, /* DeviceStorageEnumerationParameters */ [optional] in jsval options);
 
     [optional_argc, implicit_jscontext]
-    nsIDOMDeviceStorageCursor enumerateEditable([optional] in jsval aName, /* DeviceStorageEnumerationParameters */ [optional] in jsval options);
+    nsIDOMDOMCursor enumerateEditable([optional] in jsval aName, /* DeviceStorageEnumerationParameters */ [optional] in jsval options);
 
     nsIDOMDOMRequest freeSpace();
 
     nsIDOMDOMRequest usedSpace();
 
     nsIDOMDOMRequest available();
+
+    // Note that the volumeName is just a name (like sdcard), and doesn't
+    // include any path information.
+    readonly attribute DOMString volumeName;
 
     [noscript] readonly attribute nsIFile rootDirectory;
 };

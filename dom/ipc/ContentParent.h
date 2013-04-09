@@ -81,7 +81,8 @@ public:
      */
     static void JoinAllSubprocesses();
 
-    static ContentParent* GetNewOrUsed(bool aForBrowserElement = false);
+    static already_AddRefed<ContentParent>
+    GetNewOrUsed(bool aForBrowserElement = false);
 
     /**
      * Get or create a content process for the given TabContext.  aFrameElement
@@ -291,6 +292,10 @@ private:
     virtual bool DeallocPBluetooth(PBluetoothParent* aActor);
     virtual bool RecvPBluetoothConstructor(PBluetoothParent* aActor);
 
+    virtual PSpeechSynthesisParent* AllocPSpeechSynthesis();
+    virtual bool DeallocPSpeechSynthesis(PSpeechSynthesisParent* aActor);
+    virtual bool RecvPSpeechSynthesisConstructor(PSpeechSynthesisParent* aActor);
+
     virtual bool RecvReadPrefsArray(InfallibleTArray<PrefSetting>* aPrefs);
     virtual bool RecvReadFontList(InfallibleTArray<FontListEntry>* retValue);
 
@@ -328,7 +333,14 @@ private:
 
     virtual bool RecvShowAlertNotification(const nsString& aImageUrl, const nsString& aTitle,
                                            const nsString& aText, const bool& aTextClickable,
-                                           const nsString& aCookie, const nsString& aName);
+                                           const nsString& aCookie, const nsString& aName,
+                                           const nsString& aBidi, const nsString& aLang);
+
+    virtual bool RecvCloseAlert(const nsString& aName);
+
+    virtual bool RecvTestPermissionFromPrincipal(const IPC::Principal& aPrincipal,
+                                                 const nsCString& aType,
+                                                 uint32_t* permission);
 
     virtual bool RecvLoadURIExternal(const URIParams& uri);
 

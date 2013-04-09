@@ -10,6 +10,7 @@
 #include "prprf.h"
 #include "nsString.h"
 #include "nsStreamUtils.h"
+#include "nsTArray.h"
 
 using namespace mozilla;
 using namespace mozilla::image;
@@ -429,9 +430,7 @@ nsICOEncoder::NotifyListener()
        mFinished)) {
     nsCOMPtr<nsIInputStreamCallback> callback;
     if (mCallbackTarget) {
-      NS_NewInputStreamReadyEvent(getter_AddRefs(callback),
-                                  mCallback,
-                                  mCallbackTarget);
+      callback = NS_NewInputStreamReadyEvent(mCallback, mCallbackTarget);
     } else {
       callback = mCallback;
     }

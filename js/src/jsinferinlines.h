@@ -6,12 +6,15 @@
 
 /* Inline members for javascript type inference. */
 
+#include "mozilla/PodOperations.h"
+
 #include "jsarray.h"
 #include "jsanalyze.h"
 #include "jscompartment.h"
 #include "jsinfer.h"
 #include "jsprf.h"
 
+#include "builtin/ParallelArray.h"
 #ifdef JS_ION
 #include "ion/IonFrames.h"
 #endif
@@ -173,6 +176,8 @@ CompilerOutput::isValid() const
 inline CompilerOutput*
 RecompileInfo::compilerOutput(TypeCompartment &types) const
 {
+    if (!types.constrainedOutputs || outputIndex >= types.constrainedOutputs->length())
+        return NULL;
     return &(*types.constrainedOutputs)[outputIndex];
 }
 
@@ -290,7 +295,7 @@ IdToTypeId(RawId id)
      */
     if (JSID_IS_STRING(id)) {
         JSFlatString *str = JSID_TO_FLAT_STRING(id);
-        TwoByteChars cp = str->range();
+        JS::TwoByteChars cp = str->range();
         if (JS7_ISDEC(cp[0]) || cp[0] == '-') {
             for (size_t i = 1; i < cp.length(); ++i) {
                 if (!JS7_ISDEC(cp[i]))
@@ -378,8 +383,8 @@ struct AutoEnterAnalysis
          */
         if (!compartment->activeAnalysis) {
             TypeCompartment *types = &compartment->types;
-            if (types->pendingNukeTypes)
-                types->nukeTypes(freeOp);
+            if (compartment->zone()->types.pendingNukeTypes)
+                compartment->zone()->types.nukeTypes(freeOp);
             else if (types->pendingRecompiles)
                 types->processPendingRecompiles(freeOp);
         }
@@ -520,6 +525,9 @@ GetClassForProtoKey(JSProtoKey key)
       case JSProto_DataView:
         return &DataViewClass;
 
+      case JSProto_ParallelArray:
+        return &ParallelArrayObject::class_;
+
       default:
         JS_NOT_REACHED("Bad proto key");
         return NULL;
@@ -598,6 +606,24 @@ TrackPropertyTypes(JSContext *cx, RawObject obj, RawId id)
         return false;
 
     return true;
+}
+
+inline void
+EnsureTrackPropertyTypes(JSContext *cx, RawObject obj, RawId id)
+{
+    JS_ASSERT(!obj->hasLazyType());
+
+    if (!cx->typeInferenceEnabled() || obj->type()->unknownProperties())
+        return;
+
+    id = IdToTypeId(id);
+
+    if (obj->hasSingletonType()) {
+        AutoEnterAnalysis enter(cx);
+        obj->type()->getProperty(cx, id, true);
+    }
+
+    JS_ASSERT(obj->type()->unknownProperties() || TrackPropertyTypes(cx, obj, id));
 }
 
 /* Add a possible type for a property of obj. */
@@ -724,6 +750,9 @@ UseNewTypeForClone(JSFunction *fun)
     if (fun->nonLazyScript()->shouldCloneAtCallsite)
         return true;
 
+    if (fun->isArrow())
+        return true;
+
     if (fun->hasSingletonType())
         return false;
 
@@ -846,7 +875,7 @@ struct AllocationSiteKey {
 
     static const uint32_t OFFSET_LIMIT = (1 << 23);
 
-    AllocationSiteKey() { PodZero(this); }
+    AllocationSiteKey() { mozilla::PodZero(this); }
 
     typedef AllocationSiteKey Lookup;
 
@@ -1224,7 +1253,7 @@ HashSetInsertTry(LifoAlloc &alloc, U **&values, unsigned &count, T key)
     U **newValues = alloc.newArray<U*>(newCapacity);
     if (!newValues)
         return NULL;
-    PodZero(newValues, newCapacity);
+    mozilla::PodZero(newValues, newCapacity);
 
     for (unsigned i = 0; i < capacity; i++) {
         if (values[i]) {
@@ -1267,7 +1296,7 @@ HashSetInsert(LifoAlloc &alloc, U **&values, unsigned &count, T key)
             values = (U **) oldData;
             return NULL;
         }
-        PodZero(values, SET_ARRAY_SIZE);
+        mozilla::PodZero(values, SET_ARRAY_SIZE);
         count++;
 
         values[0] = oldData;
@@ -1410,7 +1439,7 @@ TypeSet::addType(JSContext *cx, Type type)
             goto unknownObject;
 
         LifoAlloc &alloc =
-            purged() ? cx->compartment->analysisLifoAlloc : cx->compartment->typeLifoAlloc;
+            purged() ? cx->compartment->analysisLifoAlloc : cx->typeLifoAlloc();
 
         uint32_t objectCount = baseObjectCount();
         TypeObjectKey *object = type.objectKey();
@@ -1539,7 +1568,7 @@ TypeCallsite::TypeCallsite(JSContext *cx, RawScript script, jsbytecode *pc,
 
 inline TypeObject::TypeObject(Class *clasp, TaggedProto proto, bool function, bool unknown)
 {
-    PodZero(this);
+    mozilla::PodZero(this);
 
     /* Inner objects may not appear on prototype chains. */
     JS_ASSERT_IF(proto.isObject(), !proto.toObject()->getClass()->ext.outerObject);
@@ -1580,7 +1609,7 @@ TypeObject::getProperty(JSContext *cx, RawId id, bool own)
 
     uint32_t propertyCount = basePropertyCount();
     Property **pprop = HashSetInsert<jsid,Property,Property>
-                           (cx->compartment->typeLifoAlloc, propertySet, propertyCount, id);
+        (cx->typeLifoAlloc(), propertySet, propertyCount, id);
     if (!pprop) {
         cx->compartment->types.setPendingNukeTypes(cx);
         return NULL;
@@ -1655,7 +1684,7 @@ inline void
 TypeObject::writeBarrierPre(TypeObject *type)
 {
 #ifdef JSGC_INCREMENTAL
-    if (!type)
+    if (!type || !type->runtime()->needsBarrier())
         return;
 
     JS::Zone *zone = type->zone();
@@ -1689,7 +1718,7 @@ inline void
 TypeNewScript::writeBarrierPre(TypeNewScript *newScript)
 {
 #ifdef JSGC_INCREMENTAL
-    if (!newScript)
+    if (!newScript || !newScript->fun->runtime()->needsBarrier())
         return;
 
     JS::Zone *zone = newScript->fun->zone();
@@ -1747,8 +1776,7 @@ JSScript::ensureRanInference(JSContext *cx)
         js::types::AutoEnterAnalysis enter(cx);
         analysis()->analyzeTypes(cx);
     }
-    return !analysis()->OOM() &&
-        !cx->compartment->types.pendingNukeTypes;
+    return !analysis()->OOM() && !cx->zone()->types.pendingNukeTypes;
 }
 
 inline bool

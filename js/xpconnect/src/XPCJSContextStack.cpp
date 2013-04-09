@@ -124,8 +124,9 @@ SafeGlobalResolve(JSContext *cx, JSHandleObject obj, JSHandleId id)
 static void
 SafeFinalize(JSFreeOp *fop, JSObject* obj)
 {
-    nsIScriptObjectPrincipal* sop =
-        static_cast<nsIScriptObjectPrincipal*>(xpc_GetJSPrivate(obj));
+    SandboxPrivate* sop =
+        static_cast<SandboxPrivate*>(xpc_GetJSPrivate(obj));
+    sop->ForgetGlobalObject();
     NS_IF_RELEASE(sop);
     DestroyProtoAndIfaceCache(obj);
 }
@@ -156,8 +157,6 @@ XPCJSContextStack::GetSafeJSContext()
     if (NS_FAILED(rv))
         return NULL;
 
-    nsCOMPtr<nsIScriptObjectPrincipal> sop = new PrincipalHolder(principal);
-
     nsRefPtr<nsXPConnect> xpc = nsXPConnect::GetXPConnect();
     if (!xpc)
         return NULL;
@@ -181,7 +180,7 @@ XPCJSContextStack::GetSafeJSContext()
 
         JS_SetErrorReporter(mSafeJSContext, mozJSLoaderErrorReporter);
 
-        glob = xpc::CreateGlobalObject(mSafeJSContext, &global_class, principal);
+        glob = xpc::CreateGlobalObject(mSafeJSContext, &global_class, principal, JS::SystemZone);
 
         if (glob) {
             // Make sure the context is associated with a proper compartment
@@ -190,9 +189,8 @@ XPCJSContextStack::GetSafeJSContext()
 
             // Note: make sure to set the private before calling
             // InitClasses
-            nsIScriptObjectPrincipal* priv = nullptr;
-            sop.swap(priv);
-            JS_SetPrivate(glob, priv);
+            nsCOMPtr<nsIScriptObjectPrincipal> sop = new SandboxPrivate(principal, glob);
+            JS_SetPrivate(glob, sop.forget().get());
         }
 
         // After this point either glob is null and the

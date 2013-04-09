@@ -15,8 +15,8 @@
 #include "nsEventStates.h"
 #include "nsTArray.h"
 #include "nsITimer.h"
+#include "nsIContent.h"
 
-class nsIContent;
 class nsIFrame;
 class nsIPresShell;
 class nsPresContext;
@@ -170,6 +170,8 @@ class nsNativeTheme : public nsITimerCallback
 
   nsIFrame* GetAdjacentSiblingFrameWithSameAppearance(nsIFrame* aFrame,
                                                       bool aNextSibling);
+
+  bool IsRangeHorizontal(nsIFrame* aFrame);
 
  private:
   uint32_t mAnimatedContentTimeout;

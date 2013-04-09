@@ -6,6 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/GuardObjects.h"
+#include "mozilla/PodOperations.h"
 #include "mozilla/StandardInteger.h"
 
 #include "jscntxt.h"
@@ -22,6 +23,8 @@
 
 using namespace js;
 using namespace JS;
+
+using mozilla::PodArrayZero;
 
 // Required by PerThreadDataFriendFields::getMainThread()
 JS_STATIC_ASSERT(offsetof(JSRuntime, mainThread) ==
@@ -146,7 +149,7 @@ JS::PrepareForFullGC(JSRuntime *rt)
 JS_FRIEND_API(void)
 JS::PrepareForIncrementalGC(JSRuntime *rt)
 {
-    if (!IsIncrementalGCInProgress(rt))
+    if (!JS::IsIncrementalGCInProgress(rt))
         return;
 
     for (ZonesIter zone(rt); !zone.done(); zone.next()) {
@@ -222,7 +225,7 @@ JS_SetCompartmentPrincipals(JSCompartment *compartment, JSPrincipals *principals
         // with the old one, but JSPrincipals doesn't give us a way to do that.
         // But we can at least assert that we're not switching between system
         // and non-system.
-        JS_ASSERT(compartment->zone()->isSystem == isSystem);
+        JS_ASSERT(compartment->isSystem == isSystem);
     }
 
     // Set up the new principals.
@@ -232,7 +235,7 @@ JS_SetCompartmentPrincipals(JSCompartment *compartment, JSPrincipals *principals
     }
 
     // Update the system flag.
-    compartment->zone()->isSystem = isSystem;
+    compartment->isSystem = isSystem;
 }
 
 JS_FRIEND_API(JSBool)
@@ -316,19 +319,31 @@ AutoSwitchCompartment::AutoSwitchCompartment(JSContext *cx, JSHandleObject targe
 AutoSwitchCompartment::~AutoSwitchCompartment()
 {
     /* The old compartment may have been destroyed, so we can't use cx->setCompartment. */
-    cx->compartment = oldCompartment;
+    cx->setCompartment(oldCompartment);
+}
+
+JS_FRIEND_API(JS::Zone *)
+js::GetCompartmentZone(JSCompartment *comp)
+{
+    return comp->zone();
 }
 
 JS_FRIEND_API(bool)
-js::IsSystemCompartment(const JSCompartment *c)
+js::IsSystemCompartment(JSCompartment *comp)
 {
-    return c->zone()->isSystem;
+    return comp->isSystem;
 }
 
 JS_FRIEND_API(bool)
-js::IsAtomsCompartment(const JSCompartment *c)
+js::IsSystemZone(Zone *zone)
 {
-    return c == c->rt->atomsCompartment;
+    return zone->isSystem;
+}
+
+JS_FRIEND_API(bool)
+js::IsAtomsCompartment(JSCompartment *comp)
+{
+    return comp == comp->rt->atomsCompartment;
 }
 
 JS_FRIEND_API(bool)
@@ -556,12 +571,14 @@ js::GCThingTraceKind(void *thing)
 }
 
 JS_FRIEND_API(void)
-js::VisitGrayWrapperTargets(JSCompartment *comp, GCThingCallback callback, void *closure)
+js::VisitGrayWrapperTargets(Zone *zone, GCThingCallback callback, void *closure)
 {
-    for (JSCompartment::WrapperEnum e(comp); !e.empty(); e.popFront()) {
-        gc::Cell *thing = e.front().key.wrapped;
-        if (thing->isMarked(gc::GRAY))
-            callback(closure, thing);
+    for (CompartmentsInZoneIter comp(zone); !comp.done(); comp.next()) {
+        for (JSCompartment::WrapperEnum e(comp); !e.empty(); e.popFront()) {
+            gc::Cell *thing = e.front().key.wrapped;
+            if (thing->isMarked(gc::GRAY))
+                callback(closure, thing);
+        }
     }
 }
 
@@ -637,6 +654,13 @@ MarkDescriptor(void *thing)
 }
 
 static void
+DumpHeapVisitZone(JSRuntime *rt, void *data, Zone *zone)
+{
+    JSDumpHeapTracer *dtrc = static_cast<JSDumpHeapTracer *>(data);
+    fprintf(dtrc->output, "# zone %p\n", (void *)zone);
+}
+
+static void
 DumpHeapVisitCompartment(JSRuntime *rt, void *data, JSCompartment *comp)
 {
     char name[1024];
@@ -646,7 +670,7 @@ DumpHeapVisitCompartment(JSRuntime *rt, void *data, JSCompartment *comp)
         strcpy(name, "<unknown>");
 
     JSDumpHeapTracer *dtrc = static_cast<JSDumpHeapTracer *>(data);
-    fprintf(dtrc->output, "# compartment %s\n", name);
+    fprintf(dtrc->output, "# compartment %s [in zone %p]\n", name, (void *)comp->zone());
 }
 
 static void
@@ -698,10 +722,11 @@ js::DumpHeapComplete(JSRuntime *rt, FILE *fp)
     fprintf(dtrc.output, "==========\n");
 
     JS_TracerInit(&dtrc, rt, DumpHeapVisitChild);
-    IterateCompartmentsArenasCells(rt, &dtrc,
-                                   DumpHeapVisitCompartment,
-                                   DumpHeapVisitArena,
-                                   DumpHeapVisitCell);
+    IterateZonesCompartmentsArenasCells(rt, &dtrc,
+                                        DumpHeapVisitZone,
+                                        DumpHeapVisitCompartment,
+                                        DumpHeapVisitArena,
+                                        DumpHeapVisitCell);
 
     fflush(dtrc.output);
 }
@@ -761,16 +786,10 @@ js::IsContextRunningJS(JSContext *cx)
     return !cx->stack.empty();
 }
 
-JS_FRIEND_API(const CompartmentVector&)
-js::GetRuntimeCompartments(JSRuntime *rt)
-{
-    return rt->compartments;
-}
-
-JS_FRIEND_API(GCSliceCallback)
+JS_FRIEND_API(JS::GCSliceCallback)
 JS::SetGCSliceCallback(JSRuntime *rt, GCSliceCallback callback)
 {
-    GCSliceCallback old = rt->gcSliceCallback;
+    JS::GCSliceCallback old = rt->gcSliceCallback;
     rt->gcSliceCallback = callback;
     return old;
 }
@@ -820,8 +839,8 @@ JS::NotifyDidPaint(JSRuntime *rt)
         return;
     }
 
-    if (IsIncrementalGCInProgress(rt) && !rt->gcInterFrameGC) {
-        PrepareForIncrementalGC(rt);
+    if (JS::IsIncrementalGCInProgress(rt) && !rt->gcInterFrameGC) {
+        JS::PrepareForIncrementalGC(rt);
         GCSlice(rt, GC_NORMAL, gcreason::REFRESH_FRAME);
     }
 
@@ -887,7 +906,9 @@ JS::IncrementalReferenceBarrier(void *ptr, JSGCTraceKind kind)
         return;
 
     gc::Cell *cell = static_cast<gc::Cell *>(ptr);
-    Zone *zone = cell->zone();
+    Zone *zone = kind == JSTRACE_OBJECT
+                 ? static_cast<JSObject *>(cell)->zone()
+                 : cell->tenuredZone();
 
     JS_ASSERT(!zone->rt->isHeapBusy());
 
@@ -919,6 +940,14 @@ JS_FRIEND_API(void)
 JS::PokeGC(JSRuntime *rt)
 {
     rt->gcPoke = true;
+}
+
+JS_FRIEND_API(JSCompartment *)
+js::GetAnyCompartmentInZone(JS::Zone *zone)
+{
+    CompartmentsInZoneIter comp(zone);
+    JS_ASSERT(!comp.done());
+    return comp.get();
 }
 
 JS_FRIEND_API(JSObject *)
@@ -1010,4 +1039,21 @@ js::AutoCTypesActivityCallback::AutoCTypesActivityCallback(JSContext *cx,
 
     if (callback)
         callback(cx, beginType);
+}
+
+JS_FRIEND_API(JSBool)
+js_DefineOwnProperty(JSContext *cx, JSObject *objArg, jsid idArg,
+                     const js::PropertyDescriptor& descriptor, JSBool *bp)
+{
+    RootedObject obj(cx, objArg);
+    RootedId id(cx, idArg);
+    JS_ASSERT(cx->runtime->heapState == js::Idle);
+    CHECK_REQUEST(cx);
+    assertSameCompartment(cx, obj, id, descriptor.value);
+    if (descriptor.attrs & JSPROP_GETTER)
+        assertSameCompartment(cx, CastAsObjectJsval(descriptor.getter));
+    if (descriptor.attrs & JSPROP_SETTER)
+        assertSameCompartment(cx, CastAsObjectJsval(descriptor.setter));
+
+    return js_DefineOwnProperty(cx, HandleObject(obj), id, descriptor, bp);
 }

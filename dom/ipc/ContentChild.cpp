@@ -93,6 +93,10 @@
 #include "mozilla/dom/bluetooth/PBluetoothChild.h"
 #include "mozilla/ipc/InputStreamUtils.h"
 
+#ifdef MOZ_WEBSPEECH
+#include "mozilla/dom/PSpeechSynthesisChild.h"
+#endif
+
 #include "nsDOMFile.h"
 #include "nsIRemoteBlob.h"
 #include "ProcessUtils.h"
@@ -308,21 +312,6 @@ ContentChild::Init(MessageLoop* aIOLoop,
 #ifdef MOZ_CRASHREPORTER
     SendPCrashReporterConstructor(CrashReporter::CurrentThreadId(),
                                   XRE_GetProcessType());
-#if defined(MOZ_WIDGET_ANDROID)
-    PCrashReporterChild* crashreporter = ManagedPCrashReporterChild()[0];
-
-    InfallibleTArray<Mapping> mappings;
-    const struct mapping_info *info = getLibraryMapping();
-    while (info && info->name) {
-        mappings.AppendElement(Mapping(nsDependentCString(info->name),
-                                       nsDependentCString(info->file_id),
-                                       info->base,
-                                       info->len,
-                                       info->offset));
-        info++;
-    }
-    crashreporter->SendAddLibraryMappings(mappings);
-#endif
 #endif
 
     SendGetProcessAttributes(&mID, &mIsForApp, &mIsForBrowser);
@@ -888,6 +877,28 @@ ContentChild::DeallocPBluetooth(PBluetoothChild* aActor)
 #endif
 }
 
+PSpeechSynthesisChild*
+ContentChild::AllocPSpeechSynthesis()
+{
+#ifdef MOZ_WEBSPEECH
+    MOZ_NOT_REACHED("No one should be allocating PSpeechSynthesisChild actors");
+    return nullptr;
+#else
+    return nullptr;
+#endif
+}
+
+bool
+ContentChild::DeallocPSpeechSynthesis(PSpeechSynthesisChild* aActor)
+{
+#ifdef MOZ_WEBSPEECH
+    delete aActor;
+    return true;
+#else
+    return false;
+#endif
+}
+
 bool
 ContentChild::RecvRegisterChrome(const InfallibleTArray<ChromePackage>& packages,
                                  const InfallibleTArray<ResourceMapping>& resources,
@@ -1116,14 +1127,14 @@ ContentChild::RecvActivateA11y()
 bool
 ContentChild::RecvGarbageCollect()
 {
-    nsJSContext::GarbageCollectNow(js::gcreason::DOM_IPC);
+    nsJSContext::GarbageCollectNow(JS::gcreason::DOM_IPC);
     return true;
 }
 
 bool
 ContentChild::RecvCycleCollect()
 {
-    nsJSContext::GarbageCollectNow(js::gcreason::DOM_IPC);
+    nsJSContext::GarbageCollectNow(JS::gcreason::DOM_IPC);
     nsJSContext::CycleCollectNow();
     return true;
 }

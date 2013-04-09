@@ -8,6 +8,8 @@
 #ifndef String_inl_h__
 #define String_inl_h__
 
+#include "mozilla/PodOperations.h"
+
 #include "jscntxt.h"
 #include "jsprobes.h"
 
@@ -23,7 +25,7 @@ namespace js {
 
 template <AllowGC allowGC>
 static JS_ALWAYS_INLINE JSInlineString *
-NewShortString(JSContext *cx, Latin1Chars chars)
+NewShortString(JSContext *cx, JS::Latin1Chars chars)
 {
     size_t len = chars.length();
     JS_ASSERT(JSShortString::lengthFits(len));
@@ -37,13 +39,12 @@ NewShortString(JSContext *cx, Latin1Chars chars)
     for (size_t i = 0; i < len; ++i)
         p[i] = static_cast<jschar>(chars[i]);
     p[len] = '\0';
-    Probes::createString(cx, str, len);
     return str;
 }
 
 template <AllowGC allowGC>
 static JS_ALWAYS_INLINE JSInlineString *
-NewShortString(JSContext *cx, StableTwoByteChars chars)
+NewShortString(JSContext *cx, JS::StableTwoByteChars chars)
 {
     size_t len = chars.length();
 
@@ -59,15 +60,14 @@ NewShortString(JSContext *cx, StableTwoByteChars chars)
         return NULL;
 
     jschar *storage = str->init(len);
-    PodCopy(storage, chars.start().get(), len);
+    mozilla::PodCopy(storage, chars.start().get(), len);
     storage[len] = 0;
-    Probes::createString(cx, str, len);
     return str;
 }
 
 template <AllowGC allowGC>
 static JS_ALWAYS_INLINE JSInlineString *
-NewShortString(JSContext *cx, TwoByteChars chars)
+NewShortString(JSContext *cx, JS::TwoByteChars chars)
 {
     size_t len = chars.length();
 
@@ -83,14 +83,13 @@ NewShortString(JSContext *cx, TwoByteChars chars)
         if (!allowGC)
             return NULL;
         jschar tmp[JSShortString::MAX_SHORT_LENGTH];
-        PodCopy(tmp, chars.start().get(), len);
-        return NewShortString<CanGC>(cx, StableTwoByteChars(tmp, len));
+        mozilla::PodCopy(tmp, chars.start().get(), len);
+        return NewShortString<CanGC>(cx, JS::StableTwoByteChars(tmp, len));
     }
 
     jschar *storage = str->init(len);
-    PodCopy(storage, chars.start().get(), len);
+    mozilla::PodCopy(storage, chars.start().get(), len);
     storage[len] = 0;
-    Probes::createString(cx, str, len);
     return str;
 }
 
@@ -110,7 +109,7 @@ inline void
 JSString::writeBarrierPre(JSString *str)
 {
 #ifdef JSGC_INCREMENTAL
-    if (!str)
+    if (!str || !str->runtime()->needsBarrier())
         return;
 
     JS::Zone *zone = str->zone();
@@ -233,7 +232,7 @@ JSDependentString::new_(JSContext *cx, JSLinearString *baseArg, const jschar *ch
      * is more efficient to immediately undepend here.
      */
     if (JSShortString::lengthFits(length))
-        return js::NewShortString<js::CanGC>(cx, js::TwoByteChars(chars, length));
+        return js::NewShortString<js::CanGC>(cx, JS::TwoByteChars(chars, length));
 
     JSDependentString *str = (JSDependentString *)js_NewGCString<js::NoGC>(cx);
     if (str) {

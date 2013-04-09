@@ -23,7 +23,7 @@
 #include "nsIStreamListener.h"
 #include "nsIScriptSecurityManager.h"
 #include "nsCrossSiteListenerProxy.h"
-#include "nsHTMLMediaElement.h"
+#include "mozilla/dom/HTMLMediaElement.h"
 #include "nsError.h"
 #include "nsICachingChannel.h"
 #include "nsURILoader.h"
@@ -60,11 +60,13 @@ ChannelMediaResource::ChannelMediaResource(MediaDecoder* aDecoder,
     mLock("ChannelMediaResource.mLock"),
     mIgnoreResume(false),
     mSeekingForMetadata(false),
+#ifdef MOZ_DASH
     mByteRangeDownloads(false),
     mByteRangeFirstOpen(true),
-    mIsTransportSeekable(true),
     mSeekOffsetMonitor("media.dashseekmonitor"),
-    mSeekOffset(-1)
+    mSeekOffset(-1),
+#endif
+    mIsTransportSeekable(true)
 {
 #ifdef PR_LOGGING
   if (!gMediaResourceLog) {
@@ -152,7 +154,7 @@ ChannelMediaResource::OnStartRequest(nsIRequest* aRequest)
 
   MediaDecoderOwner* owner = mDecoder->GetMediaOwner();
   NS_ENSURE_TRUE(owner, NS_ERROR_FAILURE);
-  nsHTMLMediaElement* element = owner->GetMediaElement();
+  HTMLMediaElement* element = owner->GetMediaElement();
   NS_ENSURE_TRUE(element, NS_ERROR_FAILURE);
   nsresult status;
   nsresult rv = aRequest->GetStatus(&status);
@@ -403,6 +405,7 @@ ChannelMediaResource::OnStopRequest(nsIRequest* aRequest, nsresult aStatus)
     mChannelStatistics->Stop();
   }
 
+#ifdef MOZ_DASH
   // If we were loading a byte range, notify decoder and return.
   // Skip this for unterminated byte range requests, e.g. seeking for whole
   // file downloads.
@@ -410,6 +413,7 @@ ChannelMediaResource::OnStopRequest(nsIRequest* aRequest, nsresult aStatus)
     mDecoder->NotifyDownloadEnded(aStatus);
     return NS_OK;
   }
+#endif
 
   // Note that aStatus might have succeeded --- this might be a normal close
   // --- even in situations where the server cut us off because we were
@@ -474,6 +478,7 @@ ChannelMediaResource::CopySegmentToCache(nsIInputStream *aInStream,
 
   closure->mResource->mDecoder->NotifyDataArrived(aFromSegment, aCount, closure->mResource->mOffset);
 
+#ifdef MOZ_DASH
   // For byte range downloads controlled by |DASHDecoder|, there are cases in
   // which the reader's offset is different enough from the channel offset that
   // |MediaCache| requests a |CacheClientSeek| to the reader's offset. This
@@ -483,6 +488,7 @@ ChannelMediaResource::CopySegmentToCache(nsIInputStream *aInStream,
   if (closure->mResource->mByteRangeDownloads) {
     closure->mResource->mCacheStream.NotifyDataStarted(closure->mResource->mOffset);
   }
+#endif
 
   // Keep track of where we're up to.
   LOG("%p [ChannelMediaResource]: CopySegmentToCache at mOffset [%lld] add "
@@ -530,6 +536,7 @@ ChannelMediaResource::OnDataAvailable(nsIRequest* aRequest,
   return NS_OK;
 }
 
+#ifdef MOZ_DASH
 /* |OpenByteRange|
  * For terminated byte range requests, use this function.
  * Callback is |MediaDecoder|::|NotifyByteRangeDownloaded|().
@@ -560,6 +567,7 @@ ChannelMediaResource::OpenByteRange(nsIStreamListener** aStreamListener,
 
   return OpenChannel(aStreamListener);
 }
+#endif
 
 nsresult ChannelMediaResource::Open(nsIStreamListener **aStreamListener)
 {
@@ -610,7 +618,7 @@ nsresult ChannelMediaResource::OpenChannel(nsIStreamListener** aStreamListener)
     // an authorizing Access-Control header.
     MediaDecoderOwner* owner = mDecoder->GetMediaOwner();
     NS_ENSURE_TRUE(owner, NS_ERROR_FAILURE);
-    nsHTMLMediaElement* element = owner->GetMediaElement();
+    HTMLMediaElement* element = owner->GetMediaElement();
     NS_ENSURE_TRUE(element, NS_ERROR_FAILURE);
     if (element->ShouldCheckAllowOrigin()) {
       nsRefPtr<nsCORSListenerProxy> crossSiteListener =
@@ -669,7 +677,7 @@ void ChannelMediaResource::SetupChannelHeaders()
     if (!owner) {
       return;
     }
-    nsHTMLMediaElement* element = owner->GetMediaElement();
+    HTMLMediaElement* element = owner->GetMediaElement();
     if (!element) {
       return;
     }
@@ -778,12 +786,13 @@ nsresult ChannelMediaResource::Seek(int32_t aWhence, int64_t aOffset)
 
   CMLOG("Seek requested for aOffset [%lld] for decoder [%p]",
         aOffset, mDecoder);
+#ifdef MOZ_DASH
   // Remember |aOffset|, because Media Cache may request a diff offset later.
   if (mByteRangeDownloads) {
     ReentrantMonitorAutoEnter mon(mSeekOffsetMonitor);
     mSeekOffset = aOffset;
   }
-
+#endif
   return mCacheStream.Seek(aWhence, aOffset);
 }
 
@@ -818,7 +827,7 @@ void ChannelMediaResource::Suspend(bool aCloseImmediately)
     // Shutting down; do nothing.
     return;
   }
-  nsHTMLMediaElement* element = owner->GetMediaElement();
+  HTMLMediaElement* element = owner->GetMediaElement();
   if (!element) {
     // Shutting down; do nothing.
     return;
@@ -853,7 +862,7 @@ void ChannelMediaResource::Resume()
     // Shutting down; do nothing.
     return;
   }
-  nsHTMLMediaElement* element = owner->GetMediaElement();
+  HTMLMediaElement* element = owner->GetMediaElement();
   if (!element) {
     // Shutting down; do nothing.
     return;
@@ -902,7 +911,7 @@ ChannelMediaResource::RecreateChannel()
     // The decoder is being shut down, so don't bother opening a new channel
     return NS_OK;
   }
-  nsHTMLMediaElement* element = owner->GetMediaElement();
+  HTMLMediaElement* element = owner->GetMediaElement();
   if (!element) {
     // The decoder is being shut down, so don't bother opening a new channel
     return NS_OK;
@@ -990,6 +999,9 @@ ChannelMediaResource::CacheClientSeek(int64_t aOffset, bool aResume)
   CMLOG("CacheClientSeek requested for aOffset [%lld] for decoder [%p]",
         aOffset, mDecoder);
 
+#ifndef MOZ_DASH
+  CloseChannel();
+#else
   // |CloseChannel| immediately for non-byte-range downloads.
   if (!mByteRangeDownloads) {
     CloseChannel();
@@ -1002,6 +1014,7 @@ ChannelMediaResource::CacheClientSeek(int64_t aOffset, bool aResume)
       CloseChannel();
     }
   }
+#endif
 
   if (aResume) {
     NS_ASSERTION(mSuspendCount > 0, "Too many resumes!");
@@ -1009,7 +1022,7 @@ ChannelMediaResource::CacheClientSeek(int64_t aOffset, bool aResume)
     --mSuspendCount;
   }
 
-  // Note: For chunked downloads, e.g. DASH, we need to determine which chunk
+#ifdef MOZ_DASH  // Note: For chunked downloads, e.g. DASH, we need to determine which chunk
   // contains the requested offset, |mOffset|. This is either previously
   // requested in |Seek| or updated to the most recent bytes downloaded.
   // So the process below is:
@@ -1086,6 +1099,7 @@ ChannelMediaResource::CacheClientSeek(int64_t aOffset, bool aResume)
     mByteRange.mStart = mOffset = aOffset;
     return OpenByteRange(nullptr, mByteRange);
   }
+#endif
 
   mOffset = aOffset;
 
@@ -1430,7 +1444,7 @@ nsresult FileMediaResource::Open(nsIStreamListener** aStreamListener)
     // web server.
     MediaDecoderOwner* owner = mDecoder->GetMediaOwner();
     NS_ENSURE_TRUE(owner, NS_ERROR_FAILURE);
-    nsHTMLMediaElement* element = owner->GetMediaElement();
+    HTMLMediaElement* element = owner->GetMediaElement();
     NS_ENSURE_TRUE(element, NS_ERROR_FAILURE);
 
     rv = nsContentUtils::GetSecurityManager()->
@@ -1495,7 +1509,7 @@ MediaResource* FileMediaResource::CloneData(MediaDecoder* aDecoder)
     // The decoder is being shut down, so we can't clone
     return nullptr;
   }
-  nsHTMLMediaElement* element = owner->GetMediaElement();
+  HTMLMediaElement* element = owner->GetMediaElement();
   if (!element) {
     // The decoder is being shut down, so we can't clone
     return nullptr;
@@ -1610,7 +1624,7 @@ void BaseMediaResource::MoveLoadsToBackground() {
     NS_WARNING("Null owner in MediaResource::MoveLoadsToBackground()");
     return;
   }
-  nsHTMLMediaElement* element = owner->GetMediaElement();
+  HTMLMediaElement* element = owner->GetMediaElement();
   if (!element) {
     NS_WARNING("Null element in MediaResource::MoveLoadsToBackground()");
     return;

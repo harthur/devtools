@@ -25,6 +25,7 @@
 #include "jsnum.h"
 
 #include "frontend/Parser.h"
+#include "frontend/ParseNode-inl.h"
 #include "frontend/TokenStream.h"
 #include "js/CharacterEncoding.h"
 #include "vm/RegExpObject.h"
@@ -134,6 +135,7 @@ typedef AutoValueVector NodeVector;
 class NodeBuilder
 {
     JSContext   *cx;
+    TokenStream *tokenStream;
     bool        saveLoc;               /* save source location information?     */
     char const  *src;                  /* source filename or null               */
     RootedValue srcval;                /* source filename JS value or null      */
@@ -144,7 +146,7 @@ class NodeBuilder
 
   public:
     NodeBuilder(JSContext *c, bool l, char const *s)
-        : cx(c), saveLoc(l), src(s), srcval(c),
+        : cx(c), tokenStream(NULL), saveLoc(l), src(s), srcval(c),
           callbacksRoots(c, callbacks, AST_LIMIT), userv(c), undefinedVal(c, UndefinedValue())
     {
         MakeRangeGCSafe(callbacks, mozilla::ArrayLength(callbacks));
@@ -194,6 +196,10 @@ class NodeBuilder
         }
 
         return true;
+    }
+
+    void setTokenStream(TokenStream *ts) {
+        tokenStream = ts;
     }
 
   private:
@@ -475,6 +481,8 @@ class NodeBuilder
 
     bool identifier(HandleValue name, TokenPos *pos, MutableHandleValue dst);
 
+    bool module(TokenPos *pos, HandleValue name, HandleValue body, MutableHandleValue dst);
+
     bool function(ASTType type, TokenPos *pos,
                   HandleValue id, NodeVector &args, NodeVector &defaults,
                   HandleValue body, HandleValue rest, bool isGenerator, bool isExpression,
@@ -676,15 +684,20 @@ NodeBuilder::newNodeLoc(TokenPos *pos, MutableHandleValue dst)
 
     dst.setObject(*loc);
 
+    uint32_t startLineNum, startColumnIndex;
+    uint32_t endLineNum, endColumnIndex;
+    tokenStream->srcCoords.lineNumAndColumnIndex(pos->begin, &startLineNum, &startColumnIndex);
+    tokenStream->srcCoords.lineNumAndColumnIndex(pos->end, &endLineNum, &endColumnIndex);
+
     if (!newObject(&to))
         return false;
     val.setObject(*to);
     if (!setProperty(loc, "start", val))
         return false;
-    val.setNumber(pos->begin.lineno);
+    val.setNumber(startLineNum);
     if (!setProperty(to, "line", val))
         return false;
-    val.setNumber(pos->begin.index);
+    val.setNumber(startColumnIndex);
     if (!setProperty(to, "column", val))
         return false;
 
@@ -693,10 +706,10 @@ NodeBuilder::newNodeLoc(TokenPos *pos, MutableHandleValue dst)
     val.setObject(*to);
     if (!setProperty(loc, "end", val))
         return false;
-    val.setNumber(pos->end.lineno);
+    val.setNumber(endLineNum);
     if (!setProperty(to, "line", val))
         return false;
-    val.setNumber(pos->end.index);
+    val.setNumber(endColumnIndex);
     if (!setProperty(to, "column", val))
         return false;
 
@@ -1418,6 +1431,20 @@ NodeBuilder::arrayPattern(NodeVector &elts, TokenPos *pos, MutableHandleValue ds
 }
 
 bool
+NodeBuilder::module(TokenPos *pos, HandleValue name, HandleValue body, MutableHandleValue dst)
+{
+    RootedValue cb(cx, callbacks[AST_MODULE_DECL]);
+    if (!cb.isNull()) {
+        return callback(cb, name, body, pos, dst);
+    }
+
+    return newNode(AST_MODULE_DECL, pos,
+                   "name", name,
+                   "body", body,
+                   dst);
+}
+
+bool
 NodeBuilder::function(ASTType type, TokenPos *pos,
                       HandleValue id, NodeVector &args, NodeVector &defaults,
                       HandleValue body, HandleValue rest,
@@ -1529,10 +1556,11 @@ class ASTSerializer
     bool arrayPattern(ParseNode *pn, VarDeclKind *pkind, MutableHandleValue dst);
     bool objectPattern(ParseNode *pn, VarDeclKind *pkind, MutableHandleValue dst);
 
+    bool module(ParseNode *pn, MutableHandleValue dst);
     bool function(ParseNode *pn, ASTType type, MutableHandleValue dst);
     bool functionArgsAndBody(ParseNode *pn, NodeVector &args, NodeVector &defaults,
                              MutableHandleValue body, MutableHandleValue rest);
-    bool functionBody(ParseNode *pn, TokenPos *pos, MutableHandleValue dst);
+    bool moduleOrFunctionBody(ParseNode *pn, TokenPos *pos, MutableHandleValue dst);
 
     bool comprehensionBlock(ParseNode *pn, MutableHandleValue dst);
     bool comprehension(ParseNode *pn, MutableHandleValue dst);
@@ -1553,6 +1581,7 @@ class ASTSerializer
 
     void setParser(Parser<FullParseHandler> *p) {
         parser = p;
+        builder.setTokenStream(&p->tokenStream);
     }
 
     bool program(ParseNode *pn, MutableHandleValue dst);
@@ -1719,7 +1748,7 @@ ASTSerializer::blockStatement(ParseNode *pn, MutableHandleValue dst)
 bool
 ASTSerializer::program(ParseNode *pn, MutableHandleValue dst)
 {
-    JS_ASSERT(pn->pn_pos.begin.lineno == lineno);
+    JS_ASSERT(parser->tokenStream.srcCoords.lineNum(pn->pn_pos.begin) == lineno);
 
     NodeVector stmts(cx);
     return statements(pn, stmts) &&
@@ -1989,6 +2018,9 @@ ASTSerializer::statement(ParseNode *pn, MutableHandleValue dst)
 {
     JS_CHECK_RECURSION(cx, return false);
     switch (pn->getKind()) {
+      case PNK_MODULE:
+        return module(pn, dst);
+
       case PNK_FUNCTION:
       case PNK_VAR:
       case PNK_CONST:
@@ -2297,7 +2329,10 @@ ASTSerializer::expression(ParseNode *pn, MutableHandleValue dst)
     JS_CHECK_RECURSION(cx, return false);
     switch (pn->getKind()) {
       case PNK_FUNCTION:
-        return function(pn, AST_FUNC_EXPR, dst);
+      {
+        ASTType type = pn->pn_funbox->function()->isArrow() ? AST_ARROW_EXPR : AST_FUNC_EXPR;
+        return function(pn, type, dst);
+      }
 
       case PNK_COMMA:
       {
@@ -2759,6 +2794,15 @@ ASTSerializer::identifier(ParseNode *pn, MutableHandleValue dst)
 }
 
 bool
+ASTSerializer::module(ParseNode *pn, MutableHandleValue dst)
+{
+    RootedValue name(cx, StringValue(pn->atom()));
+    RootedValue body(cx);
+    return moduleOrFunctionBody(pn->pn_body->pn_head, &pn->pn_body->pn_pos, &body) &&
+           builder.module(&pn->pn_pos, name, body, dst);
+}
+
+bool
 ASTSerializer::function(ParseNode *pn, ASTType type, MutableHandleValue dst)
 {
     RootedFunction func(cx, pn->pn_funbox->function());
@@ -2847,7 +2891,7 @@ ASTSerializer::functionArgsAndBody(ParseNode *pn, NodeVector &args, NodeVector &
                                : pnbody->pn_head;
 
         return functionArgs(pn, pnargs, pndestruct, pnbody, args, defaults, rest) &&
-               functionBody(pnstart, &pnbody->pn_pos, body);
+               moduleOrFunctionBody(pnstart, &pnbody->pn_pos, body);
       }
 
       default:
@@ -2916,7 +2960,7 @@ ASTSerializer::functionArgs(ParseNode *pn, ParseNode *pnargs, ParseNode *pndestr
 }
 
 bool
-ASTSerializer::functionBody(ParseNode *pn, TokenPos *pos, MutableHandleValue dst)
+ASTSerializer::moduleOrFunctionBody(ParseNode *pn, TokenPos *pos, MutableHandleValue dst)
 {
     NodeVector elts(cx);
 

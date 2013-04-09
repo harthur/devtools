@@ -9,7 +9,7 @@
 #include "MetroUtils.h" // Logging, POINT_CEIL_*, ActivateGenericInstance, etc
 #include "MetroWidget.h" // MetroInput::mWidget
 #include "npapi.h" // NPEvent
-#include "nsDOMTouchEvent.h"  // nsDOMTouch
+#include "mozilla/dom/Touch.h"  // Touch
 #include "nsTArray.h" // Touch lists
 #include "nsIDOMSimpleGestureEvent.h" // Constants for gesture events
 
@@ -23,6 +23,7 @@
 using namespace ABI::Windows; // UI, System, Foundation namespaces
 using namespace Microsoft; // WRL namespace (ComPtr, possibly others)
 using namespace mozilla::widget::winrt;
+using namespace mozilla::dom;
 
 // File-scoped statics (unnamed namespace)
 namespace {
@@ -46,17 +47,17 @@ namespace {
   typedef ABI::Windows::UI::Core::ICoreAcceleratorKeys ICoreAcceleratorKeys;
 
   /**
-   * Creates and returns a new {@link nsDOMTouch} from the given
+   * Creates and returns a new {@link Touch} from the given
    * ABI::Windows::UI::Input::IPointerPoint.  Note that the caller is
-   * responsible for freeing the memory for the nsDOMTouch returned from
+   * responsible for freeing the memory for the Touch returned from
    * this function.
    *
    * @param aPoint the ABI::Windows::UI::Input::IPointerPoint containing the
-   *               metadata from which to create our new {@link nsDOMTouch}
-   * @return a new {@link nsDOMTouch} representing the touch point. The caller
+   *               metadata from which to create our new {@link Touch}
+   * @return a new {@link Touch} representing the touch point. The caller
    *         is responsible for freeing the memory for this touch point.
    */
-  nsDOMTouch*
+  Touch*
   CreateDOMTouch(UI::Input::IPointerPoint* aPoint) {
     WRL::ComPtr<UI::Input::IPointerPointProperties> props;
     Foundation::Point position;
@@ -70,34 +71,32 @@ namespace {
     props->get_ContactRect(&contactRect);
     props->get_Pressure(&pressure);
 
-    nsIntPoint touchPoint;
-    touchPoint.x = static_cast<int32_t>(position.X);
-    touchPoint.y = static_cast<int32_t>(position.Y);
+    nsIntPoint touchPoint = MetroUtils::LogToPhys(position);
     nsIntPoint touchRadius;
-    touchRadius.x = static_cast<int32_t>(contactRect.Width) / 2;
-    touchRadius.y = static_cast<int32_t>(contactRect.Height) / 2;
-    return new nsDOMTouch(pointerId,
-                          touchPoint,
-                          // Rotation radius and angle.
-                          // W3C touch events v1 do not use these.
-                          // The draft for W3C touch events v2 explains that
-                          // radius and angle should describe the ellipse that
-                          // most closely circumscribes the touching area.  Since
-                          // Windows gives us a bounding rectangle rather than an
-                          // ellipse, we provide the ellipse that is most closely
-                          // circumscribed by the bounding rectangle that Windows
-                          // gave us.
-                          touchRadius,
-                          0.0f,
-                          // Pressure
-                          // W3C touch events v1 do not use this.
-                          // The current draft for W3C touch events v2 says that
-                          // this should be a value between 0.0 and 1.0, which is
-                          // consistent with what Windows provides us here.
-                          // XXX: Windows defaults to 0.5, but the current W3C
-                          // draft says that the value should be 0.0 if no value
-                          // known.
-                          pressure);
+    touchRadius.x = MetroUtils::LogToPhys(contactRect.Width) / 2;
+    touchRadius.y = MetroUtils::LogToPhys(contactRect.Height) / 2;
+    return new Touch(pointerId,
+                     touchPoint,
+                     // Rotation radius and angle.
+                     // W3C touch events v1 do not use these.
+                     // The draft for W3C touch events v2 explains that
+                     // radius and angle should describe the ellipse that
+                     // most closely circumscribes the touching area.  Since
+                     // Windows gives us a bounding rectangle rather than an
+                     // ellipse, we provide the ellipse that is most closely
+                     // circumscribed by the bounding rectangle that Windows
+                     // gave us.
+                     touchRadius,
+                     0.0f,
+                     // Pressure
+                     // W3C touch events v1 do not use this.
+                     // The current draft for W3C touch events v2 says that
+                     // this should be a value between 0.0 and 1.0, which is
+                     // consistent with what Windows provides us here.
+                     // XXX: Windows defaults to 0.5, but the current W3C
+                     // draft says that the value should be 0.0 if no value
+                     // known.
+                     pressure);
   }
 
   bool
@@ -261,9 +260,10 @@ namespace {
       aWParam |= MK_SHIFT;
     }
 
+    Foundation::Point logPoint = MetroUtils::PhysToLog(aEvent.refPoint);
     LParamForMouseEvents lParam;
-    lParam.parts.x = static_cast<uint16_t>(aEvent.refPoint.x);
-    lParam.parts.y = static_cast<uint16_t>(aEvent.refPoint.y);
+    lParam.parts.x = static_cast<uint16_t>(NS_round(logPoint.X));
+    lParam.parts.y = static_cast<uint16_t>(NS_round(logPoint.Y));
     aLParam = lParam.lParam;
   }
 }
@@ -428,8 +428,7 @@ MetroInput::OnPointerWheelChanged(UI::Core::ICoreWindow* aSender,
   WheelEvent wheelEvent(true, NS_WHEEL_WHEEL, mWidget.Get());
   mModifierKeyState.Update();
   mModifierKeyState.InitInputEvent(wheelEvent);
-  wheelEvent.refPoint.x = POINT_CEIL_X(position);
-  wheelEvent.refPoint.y = POINT_CEIL_Y(position);
+  wheelEvent.refPoint = MetroUtils::LogToPhys(position);
   wheelEvent.time = timestamp;
   wheelEvent.inputSource = nsIDOMMouseEvent::MOZ_SOURCE_MOUSE;
   wheelEvent.pressure = pressure;
@@ -933,8 +932,7 @@ MetroInput::InitGeckoMouseEventFromPointerPoint(
 
   mModifierKeyState.Update();
   mModifierKeyState.InitInputEvent(aEvent);
-  aEvent.refPoint.x = POINT_CEIL_X(position);
-  aEvent.refPoint.y = POINT_CEIL_Y(position);
+  aEvent.refPoint = MetroUtils::LogToPhys(position);
   aEvent.time = timestamp;
 
   if (!canBeDoubleTap) {
@@ -1050,8 +1048,7 @@ MetroInput::ProcessManipulationDelta(
   mModifierKeyState.InitInputEvent(magEvent);
   magEvent.time = ::GetMessageTime();
   magEvent.inputSource = nsIDOMMouseEvent::MOZ_SOURCE_TOUCH;
-  magEvent.refPoint.x = POINT_CEIL_X(aPosition);
-  magEvent.refPoint.y = POINT_CEIL_Y(aPosition);
+  magEvent.refPoint = MetroUtils::LogToPhys(aPosition);
   DispatchEventIgnoreStatus(&magEvent);
 
   // Send a gecko event indicating the rotation since the last update.
@@ -1063,8 +1060,7 @@ MetroInput::ProcessManipulationDelta(
   mModifierKeyState.InitInputEvent(rotEvent);
   rotEvent.time = ::GetMessageTime();
   rotEvent.inputSource = nsIDOMMouseEvent::MOZ_SOURCE_TOUCH;
-  rotEvent.refPoint.x = POINT_CEIL_X(aPosition);
-  rotEvent.refPoint.y = POINT_CEIL_Y(aPosition);
+  rotEvent.refPoint = MetroUtils::LogToPhys(aPosition);
   if (rotEvent.delta >= 0) {
     rotEvent.direction = nsIDOMSimpleGestureEvent::ROTATION_COUNTERCLOCKWISE;
   } else {
@@ -1200,8 +1196,7 @@ MetroInput::OnManipulationCompleted(
     mModifierKeyState.InitInputEvent(swipeEvent);
     swipeEvent.time = ::GetMessageTime();
     swipeEvent.inputSource = nsIDOMMouseEvent::MOZ_SOURCE_TOUCH;
-    swipeEvent.refPoint.x = POINT_CEIL_X(position);
-    swipeEvent.refPoint.y = POINT_CEIL_Y(position);
+    swipeEvent.refPoint = MetroUtils::LogToPhys(position);
     DispatchEventIgnoreStatus(&swipeEvent);
   }
 
@@ -1216,8 +1211,7 @@ MetroInput::OnManipulationCompleted(
     mModifierKeyState.InitInputEvent(swipeEvent);
     swipeEvent.time = ::GetMessageTime();
     swipeEvent.inputSource = nsIDOMMouseEvent::MOZ_SOURCE_TOUCH;
-    swipeEvent.refPoint.x = POINT_CEIL_X(position);
-    swipeEvent.refPoint.y = POINT_CEIL_Y(position);
+    swipeEvent.refPoint = MetroUtils::LogToPhys(position);
     DispatchEventIgnoreStatus(&swipeEvent);
   }
 
@@ -1256,8 +1250,7 @@ MetroInput::OnTapped(UI::Input::IGestureRecognizer* aSender,
                             nsMouseEvent::eNormal);
     mModifierKeyState.Update();
     mModifierKeyState.InitInputEvent(mouseEvent);
-    mouseEvent.refPoint.x = POINT_CEIL_X(position);
-    mouseEvent.refPoint.y = POINT_CEIL_Y(position);
+    mouseEvent.refPoint = MetroUtils::LogToPhys(position);
     mouseEvent.time = ::GetMessageTime();
     aArgs->get_TapCount(&mouseEvent.clickCount);
     mouseEvent.inputSource = nsIDOMMouseEvent::MOZ_SOURCE_TOUCH;
@@ -1273,6 +1266,23 @@ MetroInput::OnTapped(UI::Input::IGestureRecognizer* aSender,
     // Send the mouseup
     mouseEvent.message = NS_MOUSE_BUTTON_UP;
     DispatchEventIgnoreStatus(&mouseEvent);
+
+    // Send one more mousemove to avoid getting a hover state.
+    // In the Metro environment for any application, a tap does not imply a
+    // mouse cursor move.  In desktop environment for any application a tap
+    // does imply a cursor move.
+    POINT point;
+    if (GetCursorPos(&point)) {
+      ScreenToClient((HWND)mWidget->GetNativeData(NS_NATIVE_WINDOW), &point);
+      Foundation::Point oldMousePosition;
+      oldMousePosition.X = static_cast<FLOAT>(point.x);
+      oldMousePosition.Y = static_cast<FLOAT>(point.y);
+      mouseEvent.refPoint = MetroUtils::LogToPhys(oldMousePosition);
+      mouseEvent.message = NS_MOUSE_MOVE;
+      mouseEvent.button = 0;
+
+      DispatchEventIgnoreStatus(&mouseEvent);
+    }
   }
 
   return S_OK;
@@ -1303,8 +1313,7 @@ MetroInput::OnRightTapped(UI::Input::IGestureRecognizer* aSender,
                            nsMouseEvent::eNormal);
   mModifierKeyState.Update();
   mModifierKeyState.InitInputEvent(contextMenu);
-  contextMenu.refPoint.x = POINT_CEIL_X(position);
-  contextMenu.refPoint.y = POINT_CEIL_Y(position);
+  contextMenu.refPoint = MetroUtils::LogToPhys(position);
   contextMenu.time = ::GetMessageTime();
   MozInputSourceFromDeviceType(deviceType, contextMenu.inputSource);
   DispatchEventIgnoreStatus(&contextMenu);

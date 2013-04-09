@@ -10,6 +10,7 @@
  */
 #include <string.h>
 
+#include "mozilla/PodOperations.h"
 #include "mozilla/RangedPtr.h"
 #include "mozilla/Util.h"
 
@@ -71,6 +72,7 @@ using namespace js::types;
 using namespace js::frontend;
 
 using mozilla::ArrayLength;
+using mozilla::PodCopy;
 
 static JSBool
 fun_getProperty(JSContext *cx, HandleObject obj_, HandleId id, MutableHandleValue vp)
@@ -571,12 +573,15 @@ FindBody(JSContext *cx, HandleFunction fun, StableCharPtr chars, size_t length,
     options.setFileAndLine("internal-findBody", 0)
            .setVersion(fun->nonLazyScript()->getVersion());
     TokenStream ts(cx, options, chars.get(), length, NULL);
-    JS_ASSERT(chars[0] == '(');
     int nest = 0;
     bool onward = true;
     // Skip arguments list.
     do {
         switch (ts.getToken()) {
+          case TOK_NAME:
+            if (nest == 0)
+                onward = false;
+            break;
           case TOK_LP:
             nest++;
             break;
@@ -592,11 +597,13 @@ FindBody(JSContext *cx, HandleFunction fun, StableCharPtr chars, size_t length,
         }
     } while (onward);
     TokenKind tt = ts.getToken();
+    if (tt == TOK_ARROW)
+        tt = ts.getToken();
     if (tt == TOK_ERROR)
         return false;
     bool braced = tt == TOK_LC;
-    JS_ASSERT(fun->isExprClosure() == !braced);
-    *bodyStart = ts.offsetOfToken(ts.currentToken());
+    JS_ASSERT_IF(fun->isExprClosure(), !braced);
+    *bodyStart = ts.currentToken().pos.begin;
     if (braced)
         *bodyStart += 1;
     StableCharPtr end(chars.get() + length, chars.get(), length);
@@ -618,6 +625,15 @@ js::FunctionToString(JSContext *cx, HandleFunction fun, bool bodyOnly, bool lamb
     StringBuffer out(cx);
     RootedScript script(cx);
 
+    // If the object is an automatically-bound arrow function, get the source
+    // of the pre-binding target.
+    if (fun->isArrow() && fun->isBoundFunction()) {
+        JSObject *target = fun->getBoundFunctionTarget();
+        RootedFunction targetFun(cx, target->toFunction());
+        JS_ASSERT(targetFun->isArrow());
+        return FunctionToString(cx, targetFun, bodyOnly, lambdaParen);
+    }
+
     if (fun->hasScript()) {
         script = fun->nonLazyScript();
         if (script->isGeneratorExp) {
@@ -632,12 +648,14 @@ js::FunctionToString(JSContext *cx, HandleFunction fun, bool bodyOnly, bool lamb
     }
     if (!bodyOnly) {
         // If we're not in pretty mode, put parentheses around lambda functions.
-        if (fun->isInterpreted() && !lambdaParen && fun->isLambda()) {
+        if (fun->isInterpreted() && !lambdaParen && fun->isLambda() && !fun->isArrow()) {
             if (!out.append("("))
                 return NULL;
         }
-        if (!out.append("function "))
-            return NULL;
+        if (!fun->isArrow()) {
+            if (!out.append("function "))
+                return NULL;
+        }
         if (fun->atom()) {
             if (!out.append(fun->atom()))
                 return NULL;
@@ -666,13 +684,13 @@ js::FunctionToString(JSContext *cx, HandleFunction fun, bool bodyOnly, bool lamb
         // Functions created with the constructor should not be using the
         // expression body extension.
         JS_ASSERT_IF(funCon, !exprBody);
-        JS_ASSERT_IF(!funCon, src->length() > 0 && chars[0] == '(');
+        JS_ASSERT_IF(!funCon && !fun->isArrow(), src->length() > 0 && chars[0] == '(');
 
         // If a function inherits strict mode by having scopes above it that
         // have "use strict", we insert "use strict" into the body of the
         // function. This ensures that if the result of toString is evaled, the
         // resulting function will have the same semantics.
-        bool addUseStrict = script->strict && !script->explicitUseStrict;
+        bool addUseStrict = script->strict && !script->explicitUseStrict && !fun->isArrow();
 
         bool buildBody = funCon && !bodyOnly;
         if (buildBody) {
@@ -746,7 +764,7 @@ js::FunctionToString(JSContext *cx, HandleFunction fun, bool bodyOnly, bool lamb
             // Slap a semicolon on the end of functions with an expression body.
             if (exprBody && !out.append(";"))
                 return NULL;
-        } else if (!lambdaParen && fun->isLambda()) {
+        } else if (!lambdaParen && fun->isLambda() && !fun->isArrow()) {
             if (!out.append(")"))
                 return NULL;
         }
@@ -755,7 +773,7 @@ js::FunctionToString(JSContext *cx, HandleFunction fun, bool bodyOnly, bool lamb
             !out.append("[sourceless code]") ||
             (!bodyOnly && !out.append("\n}")))
             return NULL;
-        if (!lambdaParen && fun->isLambda() && !out.append(")"))
+        if (!lambdaParen && fun->isLambda() && !fun->isArrow() && !out.append(")"))
             return NULL;
     } else {
         JS_ASSERT(!fun->isExprClosure());
@@ -861,6 +879,27 @@ js_fun_call(JSContext *cx, unsigned argc, Value *vp)
     return ok;
 }
 
+#ifdef JS_ION
+static bool
+PushBaselineFunApplyArguments(JSContext *cx, ion::IonFrameIterator &frame, InvokeArgsGuard &args,
+                              Value *vp)
+{
+    unsigned length = frame.numActualArgs();
+    JS_ASSERT(length <= StackSpace::ARGS_LENGTH_MAX);
+
+    if (!cx->stack.pushInvokeArgs(cx, length, &args))
+        return false;
+
+    /* Push fval, obj, and aobj's elements as args. */
+    args.setCallee(vp[1]);
+    args.setThis(vp[2]);
+
+    /* Steps 7-8. */
+    frame.forEachCanonicalActualArg(CopyTo(args.array()), 0, -1);
+    return true;
+}
+#endif
+
 /* ES5 15.3.4.3 */
 JSBool
 js_fun_apply(JSContext *cx, unsigned argc, Value *vp)
@@ -900,23 +939,45 @@ js_fun_apply(JSContext *cx, unsigned argc, Value *vp)
         if (fp->beginsIonActivation()) {
             ion::IonActivationIterator activations(cx);
             ion::IonFrameIterator frame(activations);
-            JS_ASSERT(frame.isNative());
-            // Stop on the next Ion JS Frame.
-            ++frame;
-            ion::InlineFrameIterator iter(cx, &frame);
+            if (frame.isNative()) {
+                // Stop on the next Ion JS Frame.
+                ++frame;
+                if (frame.isOptimizedJS()) {
+                    ion::InlineFrameIterator iter(cx, &frame);
 
-            unsigned length = iter.numActualArgs();
-            JS_ASSERT(length <= StackSpace::ARGS_LENGTH_MAX);
+                    unsigned length = iter.numActualArgs();
+                    JS_ASSERT(length <= StackSpace::ARGS_LENGTH_MAX);
 
-            if (!cx->stack.pushInvokeArgs(cx, length, &args))
-                return false;
+                    if (!cx->stack.pushInvokeArgs(cx, length, &args))
+                        return false;
 
-            /* Push fval, obj, and aobj's elements as args. */
-            args.setCallee(fval);
-            args.setThis(vp[2]);
+                    /* Push fval, obj, and aobj's elements as args. */
+                    args.setCallee(fval);
+                    args.setThis(vp[2]);
 
-            /* Steps 7-8. */
-            iter.forEachCanonicalActualArg(cx, CopyTo(args.array()), 0, -1);
+                    /* Steps 7-8. */
+                    iter.forEachCanonicalActualArg(cx, CopyTo(args.array()), 0, -1);
+                } else {
+                    JS_ASSERT(frame.isBaselineStub());
+
+                    ++frame;
+                    JS_ASSERT(frame.isBaselineJS());
+
+                    if (!PushBaselineFunApplyArguments(cx, frame, args, vp))
+                        return false;
+                }
+            } else {
+                JS_ASSERT(frame.type() == ion::IonFrame_Exit);
+
+                ++frame;
+                JS_ASSERT(frame.isBaselineStub());
+
+                ++frame;
+                JS_ASSERT(frame.isBaselineJS());
+
+                if (!PushBaselineFunApplyArguments(cx, frame, args, vp))
+                    return false;
+            }
         } else
 #endif
         {
@@ -1010,16 +1071,6 @@ JSFunction::initBoundFunction(JSContext *cx, HandleValue thisArg,
     return true;
 }
 
-inline JSObject *
-JSFunction::getBoundFunctionTarget() const
-{
-    JS_ASSERT(isFunction());
-    JS_ASSERT(isBoundFunction());
-
-    /* Bound functions abuse |parent| to store their target function. */
-    return getParent();
-}
-
 inline const js::Value &
 JSFunction::getBoundFunctionThis() const
 {
@@ -1053,11 +1104,11 @@ JSFunction::initializeLazyScript(JSContext *cx)
 {
     JS_ASSERT(isInterpretedLazy());
     JSFunctionSpec *fs = static_cast<JSFunctionSpec *>(getExtendedSlot(0).toPrivate());
+    Rooted<JSFunction*> self(cx, this);
     RootedAtom funAtom(cx, Atomize(cx, fs->selfHostedName, strlen(fs->selfHostedName)));
     if (!funAtom)
         return false;
     Rooted<PropertyName *> funName(cx, funAtom->asPropertyName());
-    Rooted<JSFunction*> self(cx, this);
     return cx->runtime->cloneSelfHostedFunctionScript(cx, funName, self);
 }
 
@@ -1069,6 +1120,14 @@ js::CallOrConstructBoundFunction(JSContext *cx, unsigned argc, Value *vp)
     JS_ASSERT(fun->isBoundFunction());
 
     bool constructing = IsConstructing(vp);
+    if (constructing && fun->isArrow()) {
+        /*
+         * Per spec, arrow functions do not even have a [[Construct]] method.
+         * So before anything else, if we are an arrow function, make sure we
+         * don't even get here. You never saw me. Burn this comment.
+         */
+        return ReportIsNotFunction(cx, ObjectValue(*fun), -1, CONSTRUCT);
+    }
 
     /* 15.3.4.5.1 step 1, 15.3.4.5.2 step 3. */
     unsigned argslen = fun->getBoundFunctionArgumentCount();
@@ -1412,7 +1471,7 @@ js::Function(JSContext *cx, unsigned argc, Value *vp)
     if (hasRest)
         fun->setHasRest();
 
-    bool ok = frontend::CompileFunctionBody(cx, fun, options, formals, chars, length);
+    bool ok = frontend::CompileFunctionBody(cx, &fun, options, formals, chars, length);
     args.rval().setObject(*fun);
     return ok;
 }
@@ -1439,7 +1498,10 @@ js::NewFunction(JSContext *cx, HandleObject funobjArg, Native native, unsigned n
         JS_ASSERT(funobj->getParent() == parent);
         JS_ASSERT_IF(native && cx->typeInferenceEnabled(), funobj->hasSingletonType());
     } else {
-        if (native)
+        // Don't give asm.js module functions a singleton type since they
+        // are cloned (via CloneFunctionObjectIfNotSingleton) which assumes
+        // that hasSingletonType implies isInterpreted.
+        if (native && !IsAsmJSModuleNative(native))
             newKind = SingletonObject;
         funobj = NewObjectWithClassProto(cx, &FunctionClass, NULL, SkipScopeParent(parent), allocKind, newKind);
         if (!funobj)
@@ -1503,7 +1565,12 @@ js::CloneFunctionObject(JSContext *cx, HandleFunction fun, HandleObject parent, 
 
     if (allocKind == JSFunction::ExtendedFinalizeKind) {
         clone->flags |= JSFunction::EXTENDED;
-        clone->initializeExtended();
+        if (fun->isExtended() && fun->compartment() == cx->compartment) {
+            for (unsigned i = 0; i < FunctionExtended::NUM_EXTENDED_SLOTS; i++)
+                clone->initExtendedSlot(i, fun->getExtendedSlot(i));
+        } else {
+            clone->initializeExtended();
+        }
     }
 
     if (useSameScript) {

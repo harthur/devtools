@@ -16,6 +16,7 @@
       </xul:hbox>
       <xul:iframe anonid="iframe" class="chat-frame" flex="1"
                   context="contentAreaContextMenu"
+                  tooltip="aHTMLTooltip"
                   xbl:inherits="src,origin,collapsed=minimized" type="content"/>
     </content>
 
@@ -26,8 +27,10 @@
           iframe.webNavigation.loadURI("about:socialerror?mode=compactInfo", null, null, null, null);
         });
         let iframeWindow = this.iframe.contentWindow;
-        this.addEventListener("DOMContentLoaded", function DOMContentLoaded() {
-          this.removeEventListener("DOMContentLoaded", DOMContentLoaded);
+        this.addEventListener("DOMContentLoaded", function DOMContentLoaded(event) {
+          if (event.target != this.iframe.contentDocument)
+            return;
+          this.removeEventListener("DOMContentLoaded", DOMContentLoaded, true);
           this.isActive = !this.minimized;
           // process this._callbacks, then set to null so the chatbox creator
           // knows to make new callbacks immediately.
@@ -47,7 +50,7 @@
             iframeWindow.removeEventListener("unload", unload);
             iframeWindow.removeEventListener("socialChatActivity", chatActivity);
           });
-        });
+        }, true);
         this.setAttribute("src", this.src);
       ]]></constructor>
 
@@ -161,6 +164,7 @@
         this.cachedWidthOpen = 0;
         this.cachedWidthMinimized = 0;
         this.cachedWidthNub = 0;
+        this._selectedChat = null;
       </constructor>
 
       <field name="innerbox" readonly="true">

@@ -312,7 +312,7 @@ var SyntheticGestures = (function() {
   // except that interval is the time between taps rather than the time between
   // touchstart and touchend
   function dbltap(target, then, x, y, interval) {
-    if (!SyntheticGestures.touchSupported) {
+    if (!SyntheticGestures.touchSupported || !target.ownerDocument.createTouch) {
       console.warn('dbltap: touch events not supported; using mouse instead');
       return mousedbltap(target, then, x, y, interval);
     }
@@ -335,7 +335,7 @@ var SyntheticGestures = (function() {
   // Swipe smoothly from (x1, y1) to (x2, y2) over duration ms
   // then invoke the then() callback.
   function swipe(target, x1, y1, x2, y2, duration, then) {
-    if (!SyntheticGestures.touchSupported) {
+    if (!SyntheticGestures.touchSupported || !target.ownerDocument.createTouch) {
       console.warn('swipe: touch events not supported; using mouse instead');
       return mouseswipe(target, x1, y1, x2, y2, duration, then);
     }
@@ -347,7 +347,7 @@ var SyntheticGestures = (function() {
   // Begin a touch at x1,y1 and hold it for holdtime ms,
   // then move smoothly to x2,y2 over movetime ms, and then invoke then().
   function hold(target, holdtime, x1, y1, x2, y2, movetime, then) {
-    if (!SyntheticGestures.touchSupported) {
+    if (!SyntheticGestures.touchSupported || !target.ownerDocument.createTouch) {
       console.warn('hold: touch events not supported; using mouse instead');
       return mousehold(target, holdtime, x1, y1, x2, y2, movetime, then);
     }
@@ -377,7 +377,7 @@ var SyntheticGestures = (function() {
   // or away from each other by the specified scale factor over duration ms.
   // Finally, invoke the then() callback
   function pinch(target, x1, y1, x2, y2, scale, duration, then) {
-    if (!SyntheticGestures.touchSupported) {
+    if (!SyntheticGestures.touchSupported || !target.ownerDocument.createTouch) {
       console.error('pinch: touch events not supported on this platform');
       return;
     }

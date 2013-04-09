@@ -941,7 +941,7 @@ let RIL = {
     Buf.simpleRequest(REQUEST_GET_SIM_STATUS);
   },
 
-   /**
+  /**
    * Helper function for unlocking ICC locks.
    */
   iccUnlockCardLock: function iccUnlockCardLock(options) {
@@ -960,6 +960,14 @@ let RIL = {
         break;
       case "nck":
         options.type = CARD_PERSOSUBSTATE_SIM_NETWORK;
+        this.enterDepersonalization(options);
+        break;
+      case "cck":
+        options.type = CARD_PERSOSUBSTATE_SIM_CORPORATE;
+        this.enterDepersonalization(options);
+        break;
+      case "spck":
+        options.type = CARD_PERSOSUBSTATE_SIM_SERVICE_PROVIDER;
         this.enterDepersonalization(options);
         break;
       default:
@@ -1365,7 +1373,7 @@ let RIL = {
    *        Boolean indicating the desired power state.
    */
   setRadioPower: function setRadioPower(options) {
-    Buf.newParcel(REQUEST_RADIO_POWER);
+    Buf.newParcel(REQUEST_RADIO_POWER, options);
     Buf.writeUint32(1);
     Buf.writeUint32(options.on ? 1 : 0);
     Buf.sendParcel();
@@ -1595,6 +1603,14 @@ let RIL = {
   },
 
   /**
+   * Cache the request for making an emergency call when radio is off. The
+   * request shall include two types of callback functions. 'callback' is
+   * called when radio is ready, and 'onerror' is called when turning radio
+   * on fails.
+   */
+  cachedDialRequest : null,
+
+  /**
    * Dial the phone.
    *
    * @param number
@@ -1605,30 +1621,60 @@ let RIL = {
    *        Integer doing something XXX TODO
    */
   dial: function dial(options) {
-    let dial_request_type = REQUEST_DIAL;
-    if (this.voiceRegistrationState.emergencyCallsOnly ||
-        options.isDialEmergency) {
-      if (!this._isEmergencyNumber(options.number)) {
-        // Notify error in establishing the call with an invalid number.
-        options.callIndex = -1;
-        options.rilMessageType = "callError";
-        options.errorMsg =
-          RIL_CALL_FAILCAUSE_TO_GECKO_CALL_ERROR[CALL_FAIL_UNOBTAINABLE_NUMBER];
-        this.sendDOMMessage(options);
-        return;
-      }
+    let onerror = (function onerror(errorMsg) {
+      options.callIndex = -1;
+      options.rilMessageType = "callError";
+      options.errorMsg = errorMsg;
+      this.sendDOMMessage(options);
+    }).bind(this);
 
-      if (RILQUIRKS_REQUEST_USE_DIAL_EMERGENCY_CALL) {
-        dial_request_type = REQUEST_DIAL_EMERGENCY_CALL;
-      }
+    if (this._isEmergencyNumber(options.number)) {
+      this.dialEmergencyNumber(options, onerror);
     } else {
-      if (this._isEmergencyNumber(options.number) &&
-          RILQUIRKS_REQUEST_USE_DIAL_EMERGENCY_CALL) {
-        dial_request_type = REQUEST_DIAL_EMERGENCY_CALL;
-      }
+      this.dialNonEmergencyNumber(options, onerror);
+    }
+  },
+
+  dialNonEmergencyNumber: function dialNonEmergencyNumber(options, onerror) {
+    if (this.radioState == GECKO_RADIOSTATE_OFF) {
+      // Notify error in establishing the call without radio.
+      onerror(GECKO_ERROR_RADIO_NOT_AVAILABLE);
+      return;
     }
 
-    let token = Buf.newParcel(dial_request_type);
+    if (this.voiceRegistrationState.emergencyCallsOnly ||
+        options.isDialEmergency) {
+      onerror(RIL_CALL_FAILCAUSE_TO_GECKO_CALL_ERROR[CALL_FAIL_UNOBTAINABLE_NUMBER]);
+      return;
+    }
+
+    options.request = REQUEST_DIAL;
+    this.sendDialRequest(options);
+  },
+
+  dialEmergencyNumber: function dialEmergencyNumber(options, onerror) {
+    options.request = RILQUIRKS_REQUEST_USE_DIAL_EMERGENCY_CALL ?
+                      REQUEST_DIAL_EMERGENCY_CALL : REQUEST_DIAL;
+
+    if (this.radioState == GECKO_RADIOSTATE_OFF) {
+      if (DEBUG) debug("Automatically enable radio for an emergency call.");
+
+      if (!this.cachedDialRequest) {
+        this.cachedDialRequest = {};
+      }
+      this.cachedDialRequest.onerror = onerror;
+      this.cachedDialRequest.callback = this.sendDialRequest.bind(this, options);
+
+      // Change radio setting value in settings DB to enable radio.
+      this.sendDOMMessage({rilMessageType: "setRadioEnabled", on: true});
+      return;
+    }
+
+    this.sendDialRequest(options);
+  },
+
+  sendDialRequest: function sendDialRequest(options) {
+    let token = Buf.newParcel(options.request);
     Buf.writeString(options.number);
     Buf.writeUint32(options.clirMode || 0);
     Buf.writeUint32(options.uusInfo || 0);
@@ -2858,7 +2904,7 @@ let RIL = {
         newCardState = GECKO_CARDSTATE_PUK_REQUIRED;
         break;
       case CARD_APPSTATE_SUBSCRIPTION_PERSO:
-        newCardState = GECKO_CARDSTATE_NETWORK_LOCKED;
+        newCardState = PERSONSUBSTATE[app.perso_substate];
         break;
       case CARD_APPSTATE_READY:
         newCardState = GECKO_CARDSTATE_READY;
@@ -4505,6 +4551,12 @@ RIL[REQUEST_SIGNAL_STRENGTH] = function REQUEST_SIGNAL_STRENGTH(length, options)
   if (DEBUG) debug("Signal strength " + JSON.stringify(obj));
   obj.rilMessageType = "signalstrengthchange";
   this.sendDOMMessage(obj);
+
+  if (this.cachedDialRequest && obj.gsmDBM && obj.gsmRelative) {
+    // Radio is ready for making the cached emergency call.
+    this.cachedDialRequest.callback();
+    this.cachedDialRequest = null;
+  }
 };
 RIL[REQUEST_VOICE_REGISTRATION_STATE] = function REQUEST_VOICE_REGISTRATION_STATE(length, options) {
   this._receivedNetworkInfo(NETWORK_INFO_VOICE_REGISTRATION_STATE);
@@ -4539,7 +4591,20 @@ RIL[REQUEST_OPERATOR] = function REQUEST_OPERATOR(length, options) {
   if (DEBUG) debug("Operator: " + operatorData);
   this._processOperator(operatorData);
 };
-RIL[REQUEST_RADIO_POWER] = null;
+RIL[REQUEST_RADIO_POWER] = function REQUEST_RADIO_POWER(length, options) {
+  if (options.rilRequestError) {
+    if (this.cachedDialRequest && options.on) {
+      // Turning on radio fails. Notify the error of making an emergency call.
+      this.cachedDialRequest.onerror(GECKO_ERROR_RADIO_NOT_AVAILABLE);
+      this.cachedDialRequest = null;
+    }
+    return;
+  }
+
+  if (this._isInitialRadioState) {
+    this._isInitialRadioState = false;
+  }
+};
 RIL[REQUEST_DTMF] = null;
 RIL[REQUEST_SEND_SMS] = function REQUEST_SEND_SMS(length, options) {
   this._processSmsSendResult(length, options);
@@ -5061,11 +5126,9 @@ RIL[UNSOLICITED_RESPONSE_RADIO_STATE_CHANGED] = function UNSOLICITED_RESPONSE_RA
 
   // Ensure radio state at boot time.
   if (this._isInitialRadioState) {
-    this._isInitialRadioState = false;
-    if (radioState != RADIO_STATE_OFF) {
-      this.setRadioPower({on: false});
-      return;
-    }
+    // Even radioState is RADIO_STATE_OFF, we still have to maually turn radio off,
+    // otherwise REQUEST_GET_SIM_STATUS will still report CARD_STATE_PRESENT.
+    this.setRadioPower({on: false});
   }
 
   let newState;

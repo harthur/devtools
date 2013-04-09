@@ -9,16 +9,15 @@
 #include "nsEventListenerManager.h"
 #include "jsapi.h"
 #include "nsCOMPtr.h"
-#include "nsIDOMEventTarget.h"
 #include "nsIDOMEventListener.h"
 #include "nsAutoPtr.h"
 #include "nsCOMArray.h"
-#include "nsHashtable.h"
 #include "nsIScriptContext.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsTObserverArray.h"
 #include "nsGUIEvent.h"
 #include "nsIJSEventListener.h"
+#include "mozilla/dom/EventTarget.h"
 
 class nsIDOMEvent;
 class nsIAtom;
@@ -253,7 +252,7 @@ public:
   void HandleEvent(nsPresContext* aPresContext,
                    nsEvent* aEvent, 
                    nsIDOMEvent** aDOMEvent,
-                   nsIDOMEventTarget* aCurrentTarget,
+                   mozilla::dom::EventTarget* aCurrentTarget,
                    nsEventStatus* aEventStatus,
                    nsCxPusher* aPusher)
   {
@@ -358,16 +357,16 @@ public:
   nsISupports* GetTarget() { return mTarget; }
 protected:
   void HandleEventInternal(nsPresContext* aPresContext,
-                           nsEvent* aEvent, 
+                           nsEvent* aEvent,
                            nsIDOMEvent** aDOMEvent,
-                           nsIDOMEventTarget* aCurrentTarget,
+                           mozilla::dom::EventTarget* aCurrentTarget,
                            nsEventStatus* aEventStatus,
                            nsCxPusher* aPusher);
 
   nsresult HandleEventSubType(nsListenerStruct* aListenerStruct,
                               nsIDOMEventListener* aListener,
                               nsIDOMEvent* aDOMEvent,
-                              nsIDOMEventTarget* aCurrentTarget,
+                              mozilla::dom::EventTarget* aCurrentTarget,
                               nsCxPusher* aPusher);
 
   /**
@@ -488,10 +487,10 @@ protected:
 
 /**
  * NS_AddSystemEventListener() is a helper function for implementing
- * nsIDOMEventTarget::AddSystemEventListener().
+ * EventTarget::AddSystemEventListener().
  */
 inline nsresult
-NS_AddSystemEventListener(nsIDOMEventTarget* aTarget,
+NS_AddSystemEventListener(mozilla::dom::EventTarget* aTarget,
                           const nsAString& aType,
                           nsIDOMEventListener *aListener,
                           bool aUseCapture,

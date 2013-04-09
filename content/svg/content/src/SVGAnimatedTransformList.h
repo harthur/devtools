@@ -12,11 +12,15 @@
 #include "SVGTransformList.h"
 
 class nsIAtom;
-class nsISMILAnimationElement;
 class nsSMILValue;
 class nsSVGElement;
 
 namespace mozilla {
+
+namespace dom {
+class SVGAnimationElement;
+class SVGTransform;
+}
 
 /**
  * Class SVGAnimatedTransformList
@@ -35,7 +39,7 @@ namespace mozilla {
 class SVGAnimatedTransformList
 {
   // friends so that they can get write access to mBaseVal
-  friend class DOMSVGTransform;
+  friend class dom::SVGTransform;
   friend class DOMSVGTransformList;
 
 public:
@@ -96,7 +100,7 @@ private:
 
     // nsISMILAttr methods
     virtual nsresult ValueFromString(const nsAString& aStr,
-                                     const nsISMILAnimationElement* aSrcElement,
+                                     const dom::SVGAnimationElement* aSrcElement,
                                      nsSMILValue& aValue,
                                      bool& aPreventCachingOfSandwich) const;
     virtual nsSMILValue GetBaseValue() const;

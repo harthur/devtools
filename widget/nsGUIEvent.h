@@ -20,7 +20,6 @@
 #include "nsIDOMMouseEvent.h"
 #include "nsIDOMWheelEvent.h"
 #include "nsIDOMDataTransfer.h"
-#include "nsIDOMEventTarget.h"
 #include "nsIDOMTouchEvent.h"
 #include "nsWeakPtr.h"
 #include "nsIWidget.h"
@@ -30,6 +29,7 @@
 #include "nsIVariant.h"
 #include "nsStyleConsts.h"
 #include "nsAutoPtr.h"
+#include "mozilla/dom/EventTarget.h"
 
 namespace mozilla {
 namespace dom {
@@ -452,6 +452,18 @@ enum nsEventStructType {
 #define NS_NETWORK_UPLOAD_EVENT      (NS_NETWORK_EVENT_START + 1)
 #define NS_NETWORK_DOWNLOAD_EVENT    (NS_NETWORK_EVENT_START + 2)
 
+#ifdef MOZ_GAMEPAD
+// Gamepad input events
+#define NS_GAMEPAD_START         6000
+#define NS_GAMEPAD_BUTTONDOWN    (NS_GAMEPAD_START)
+#define NS_GAMEPAD_BUTTONUP      (NS_GAMEPAD_START+1)
+#define NS_GAMEPAD_AXISMOVE      (NS_GAMEPAD_START+2)
+#define NS_GAMEPAD_CONNECTED     (NS_GAMEPAD_START+3)
+#define NS_GAMEPAD_DISCONNECTED  (NS_GAMEPAD_START+4)
+// Keep this defined to the same value as the event above
+#define NS_GAMEPAD_END           (NS_GAMEPAD_START+4)
+#endif
+
 /**
  * Return status for event processors, nsEventStatus, is defined in
  * nsEvent.h.
@@ -661,9 +673,9 @@ public:
   // Additional type info for user defined events
   nsCOMPtr<nsIAtom>     userType;
   // Event targets, needed by DOM Events
-  nsCOMPtr<nsIDOMEventTarget> target;
-  nsCOMPtr<nsIDOMEventTarget> currentTarget;
-  nsCOMPtr<nsIDOMEventTarget> originalTarget;
+  nsCOMPtr<mozilla::dom::EventTarget> target;
+  nsCOMPtr<mozilla::dom::EventTarget> currentTarget;
+  nsCOMPtr<mozilla::dom::EventTarget> originalTarget;
 };
 
 /**
