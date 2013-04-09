@@ -463,6 +463,7 @@ TabWebProgressListener.prototype = {
       // Emit the event if the target is not remoted or store the payload for
       // later emission otherwise.
       if (this.target._client) {
+        dump("HEATHER: setting _navPayload to request" + "\n");
         this.target._navPayload = request;
       } else {
         this.target.emit("will-navigate", request);
@@ -475,12 +476,14 @@ TabWebProgressListener.prototype = {
   onStatusChange: function() {},
 
   onLocationChange: function TWPL_onLocationChange(webProgress, request, URI, flags) {
+    dump("HEATHER: onLocationChange " + "\n");
     if (this.target &&
         !(flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_SAME_DOCUMENT)) {
       let window = webProgress.DOMWindow;
       // Emit the event if the target is not remoted or store the payload for
       // later emission otherwise.
       if (this.target._client) {
+        dump("HEATHER: setting _navPayload to window"  + "\n");
         this.target._navPayload = window;
       } else {
         this.target.emit("navigate", window);

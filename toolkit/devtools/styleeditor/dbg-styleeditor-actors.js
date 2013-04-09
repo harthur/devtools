@@ -114,18 +114,15 @@ StyleEditorActor.prototype = {
   },
 
   onNewDocument: function() {
-    dump("HEATHER: on new document" + "\n");
     // delete previous document's actors
     this._clearStyleSheetActors();
 
     // Note: listening for load won't be necessary once
     // https://bugzilla.mozilla.org/show_bug.cgi?id=839103 is fixed
     if (this.doc.readyState == "complete") {
-      dump("HEATHER: documentLoaded" +  + "\n");
       this._onDocumentLoaded();
     }
     else {
-      dump("HEATHER: waiting for load event" + "\n");
       this.win.addEventListener("load", this._onDocumentLoaded, false);
     }
     return {};
