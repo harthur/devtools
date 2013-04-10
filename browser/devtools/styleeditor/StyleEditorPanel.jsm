@@ -36,6 +36,8 @@ this.StyleEditorPanel = function StyleEditorPanel(panelWin, toolbox) {
 StyleEditorPanel.prototype = {
   get target() this._toolbox.target,
 
+  get panelWindow() this._panelWin,
+
   /**
    * open is effectively an asynchronous constructor
    */
@@ -172,11 +174,11 @@ StyleEditorPanel.prototype = {
    * Select a stylesheet. TODO
    */
   selectStyleSheet: function(href, line, col) {
-    if (!this._debuggee || this.UI) {
+    if (!this._debuggee || !this.UI) {
       return;
     }
     let stylesheet = this._debuggee.styleSheetFromHref(href);
-    this.UI.selectStyleSheet(stylesheet, line, col); // TODO
+    this.UI.selectStyleSheet(href, line, col);
   },
 
   /**

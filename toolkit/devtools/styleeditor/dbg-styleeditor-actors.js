@@ -554,7 +554,6 @@ StyleSheetActor.prototype = {
   _onTransitionEnd: function()
   {
     if (--this._transitionRefCount == 0) {
-      dump("HEATHER: removing transition class "  + "\n");
       this.doc.documentElement.classList.remove(TRANSITION_CLASS);
       this.styleSheet.deleteRule(this.styleSheet.cssRules.length - 1);
     }

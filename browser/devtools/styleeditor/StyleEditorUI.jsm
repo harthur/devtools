@@ -39,7 +39,7 @@ function StyleEditorUI(debuggee, panelDoc) {
   this._root = this._panelDoc.getElementById("style-editor-chrome");
 
   this.editors = [];
-  this._selectedStyleSheetIndex = -1;
+  this.selectedStyleSheetIndex = -1;
 
   this._onStyleSheetAdded = this._onStyleSheetAdded.bind(this);
   this._onStyleSheetCreated = this._onStyleSheetCreated.bind(this);
@@ -130,7 +130,7 @@ StyleEditorUI.prototype = {
     this._clearStyleSheetEditors();
 
     this._view.removeAll();
-    this._selectedStyleSheetIndex = -1;
+    this.selectedStyleSheetIndex = -1;
 
     this._root.classList.add("loading");
   },
@@ -215,9 +215,7 @@ StyleEditorUI.prototype = {
         }, false);
 
         // autofocus new stylesheet
-        dump("HEATHER: creating new item " + editor.isNew + editor.styleSheet.isNew + "\n");
         if (editor.isNew) {
-          dump("HEATHER: created editor is NEW" + "\n");
           this._selectEditor(editor);
         }
 
@@ -235,31 +233,36 @@ StyleEditorUI.prototype = {
       }
     });
 
+    if (this._styleSheetToSelect
+        && this._styleSheetToSelect.href == editor.styleSheet.href) {
+      this.switchToSelectedSheet();
+    }
+
     /* If this is the first stylesheet, select it */
-    if (this._selectedStyleSheetIndex == -1
+    if (this.selectedStyleSheetIndex == -1
         && !this._styleSheetToSelect
         && editor.styleSheet.styleSheetIndex == 0) {
       this._selectEditor(editor);
     }
   },
 
-  /*
   switchToSelectedSheet: function() {
-    if (this._styleSheetToSelect) {
-      let sheet = this._styleSheetToSelect.sheet;
+    let sheet = this._styleSheetToSelect;
 
-      if ((sheet && editor.styleSheet == sheet) ||
-          (editor.styleSheetIndex == 0 && sheet == null)) {
-        selectEditor(editor);
+    for each (let editor in this.editors) {
+      if (editor.styleSheet.href == sheet.href) {
+        this._selectEditor(editor, sheet.line, sheet.col);
+        this._styleSheetToSelect = null;
+        break;
       }
     }
-  }, */
+  },
 
   _selectEditor: function(editor, line, col) {
     line = line || 1;
     col = col || 1;
 
-    this._selectedStyleSheetIndex = editor.styleSheet.styleSheetIndex;
+    this.selectedStyleSheetIndex = editor.styleSheet.styleSheetIndex;
 
     editor.getSourceEditor().then(function() {
       editor.sourceEditor.setCaretPosition(line - 1, col - 1);
@@ -274,11 +277,11 @@ StyleEditorUI.prototype = {
     return this._view.getSummaryElementByOrdinal(index);
   },
 
-  /** TODO: fit to new remoting
+  /**
    * selects a stylesheet and optionally moves the cursor to a selected line
    *
-   * @param {CSSStyleSheet} [sheet]
-   *        Stylesheet that should be selected. If a stylesheet is not passed
+   * @param {string} [href]
+   *        Href of stylesheet that should be selected. If a stylesheet is not passed
    *        and the editor is not initialized we focus the first stylesheet. If
    *        a stylesheet is not passed and the editor is initialized we ignore
    *        the call.
@@ -287,12 +290,12 @@ StyleEditorUI.prototype = {
    * @param {Number} [col]
    *        Column to which the caret should be moved (one-indexed).
    */
-  selectStyleSheet: function SEC_selectSheet(sheet, line, col)
+  selectStyleSheet: function(href, line, col)
   {
     let alreadyCalled = !!this._styleSheetToSelect;
 
     this._styleSheetToSelect = {
-      sheet: sheet,
+      href: href,
       line: line,
       col: col,
     };
@@ -303,13 +306,9 @@ StyleEditorUI.prototype = {
 
     /* Switch to the editor for this sheet, if it exists yet.
        Otherwise each editor will be checked when it's created. */
-    for each (let editor in this.editors) {
-      if (editor.styleSheet == sheet) {
-        this._selectEditor(editor);
-        break;
-      }
-    }
+    this.switchToSelectedSheet();
   },
+
 
   _summaryChange: function(editor) {
     this._updateSummaryForEditor(editor);
@@ -466,7 +465,6 @@ StyleSheetEditor.prototype = {
   },
 
   _onPropertyChange: function(event, property) {
-    dump("HEATHER: property change " + property + "\n");
     this.emit("property-change", property);
   },
 
