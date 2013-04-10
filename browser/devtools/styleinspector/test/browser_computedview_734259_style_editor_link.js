@@ -86,7 +86,7 @@ function testInlineStyleSheet()
     let panel = toolbox.getCurrentPanel();
 
     panel.UI.on("editor-added", (event, editor) => {
-      editor.getSourceEditor().then(validateStyleEditorSheet);
+      validateStyleEditorSheet(editor);
     })
   });
 
