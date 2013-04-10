@@ -226,6 +226,8 @@ function StyleSheetActor(aStyleSheet, aParentActor) {
   this.text = null;
   this._styleSheetIndex = -1;
 
+  this._transitionRefCount = 0;
+
   this._onSourceLoad = this._onSourceLoad.bind(this);
   this._notifyError = this._notifyError.bind(this);
 
@@ -517,6 +519,7 @@ StyleSheetActor.prototype = {
 
   onUpdate: function(request) {
     DOMUtils.parseStyleSheet(this.styleSheet, request.text);
+    this._notifyPropertyChanged("cssRules");
 
     if (request.transition) {
       this._insertTransistionRule();
@@ -531,7 +534,7 @@ StyleSheetActor.prototype = {
     // Insert the global transition rule
     // Use a ref count to make sure we do not add it multiple times.. and remove
     // it only when all pending StyleEditor-generated transitions ended.
-    if (!this._transitionRefCount) {
+    if (this._transitionRefCount == 0) {
       this.styleSheet.insertRule(TRANSITION_RULE, this.styleSheet.cssRules.length);
       this.doc.documentElement.classList.add(TRANSITION_CLASS);
     }
@@ -551,6 +554,7 @@ StyleSheetActor.prototype = {
   _onTransitionEnd: function()
   {
     if (--this._transitionRefCount == 0) {
+      dump("HEATHER: removing transition class "  + "\n");
       this.doc.documentElement.classList.remove(TRANSITION_CLASS);
       this.styleSheet.deleteRule(this.styleSheet.cssRules.length - 1);
     }

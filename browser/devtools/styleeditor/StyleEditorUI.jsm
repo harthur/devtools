@@ -154,6 +154,7 @@ StyleEditorUI.prototype = {
     let editor = new StyleSheetEditor(styleSheet, this._window, file, isNew);
     editor.once("source-load", this._sourceLoaded.bind(this, editor));
     editor.on("property-change", this._summaryChange.bind(this, editor));
+    editor.on("style-applied", this._summaryChange.bind(this, editor));
     editor.on("error", this._onError);
 
     this.editors.push(editor);
@@ -214,7 +215,9 @@ StyleEditorUI.prototype = {
         }, false);
 
         // autofocus new stylesheet
-        if (editor.styleSheet.isNew) {
+        dump("HEATHER: creating new item " + editor.isNew + editor.styleSheet.isNew + "\n");
+        if (editor.isNew) {
+          dump("HEATHER: created editor is NEW" + "\n");
           this._selectEditor(editor);
         }
 
@@ -403,6 +406,10 @@ StyleSheetEditor.prototype = {
     return this._sourceEditor && this._sourceEditor.dirty;
   },
 
+  get isNew() {
+    return this._isNew;
+  },
+
   /**
    * Get a user-friendly name for the style sheet.
    *
@@ -459,6 +466,7 @@ StyleSheetEditor.prototype = {
   },
 
   _onPropertyChange: function(event, property) {
+    dump("HEATHER: property change " + property + "\n");
     this.emit("property-change", property);
   },
 

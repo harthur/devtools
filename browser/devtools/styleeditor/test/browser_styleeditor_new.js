@@ -23,24 +23,15 @@ function test()
 
 let gAddedCount = 0;  // to add new stylesheet after the 2 initial stylesheets
 let gNewEditor;       // to make sure only one new stylesheet got created
-let gUpdateCount = 0; // to make sure only one Update event is triggered
-let gCommitCount = 0; // to make sure only one Commit event is triggered
 let gTransitionEndCount = 0;
-let gOriginalStyleSheet;
-let gOriginalOwnerNode;
 let gOriginalHref;
 
 
 function finishOnTransitionEndAndCommit() {
-  if (gCommitCount && gTransitionEndCount) {
-    is(gCommitCount, 1, "received one Commit event");
+  if (gTransitionEndCount) {
     is(gTransitionEndCount, 1, "received one transitionend event");
 
     if (gNewEditor) {
-      is(gNewEditor.styleSheet, gOriginalStyleSheet,
-         "style sheet object did not change");
-      is(gNewEditor.styleSheet.ownerNode, gOriginalOwnerNode,
-         "style sheet owner node did not change");
       is(gNewEditor.styleSheet.href, gOriginalHref,
          "style sheet href did not change");
 
@@ -62,7 +53,7 @@ function testEditorAdded(aEvent, aEditor)
       EventUtils.synthesizeMouseAtCenter(newButton, {}, gPanelWindow);
     }, gPanelWindow);
   }
-  if (gAddedCount != 3) {
+  if (gAddedCount < 3) {
     return;
   }
 
@@ -72,17 +63,11 @@ function testEditorAdded(aEvent, aEditor)
   is(gUI.editors.length, 3,
      "creating a new stylesheet added a new StyleEditor instance");
 
-  aEditor.getSourceEditor().then(function() {
-    dump("HEATHER: got the source editor " + "\n");
-    testEditor();
-  });
-
-dump("HEATHER: adding style applied listener" +  + "\n");
+  aEditor.getSourceEditor().then(testEditor);
 
   aEditor.styleSheet.once("style-applied", function() {
-    dump("HEATHER: style has been applied " + "\n");
     // when changes have been completely applied to live stylesheet after transisiton
-    let summary = aChrome.getSummaryElementForEditor(aEditor);
+    let summary = gUI.getSummaryElementForEditor(aEditor);
     let ruleCount = summary.querySelector(".stylesheet-rule-count").textContent;
     is(parseInt(ruleCount), 1,
        "new editor shows 1 rule after modification");
@@ -94,28 +79,21 @@ dump("HEATHER: adding style applied listener" +  + "\n");
   });
 }
 
-function testEditor() {
+function testEditor(aEditor) {
   waitForFocus(function () {
-  gOriginalStyleSheet = aEditor.styleSheet;
-  gOriginalOwnerNode = aEditor.styleSheet.ownerNode;
   gOriginalHref = aEditor.styleSheet.href;
 
-  let summary = aChrome.getSummaryElementForEditor(aEditor);
+  let summary = gUI.getSummaryElementForEditor(aEditor);
 
-  ok(aEditor.isLoaded,
+  ok(aEditor.sourceLoaded,
      "new editor is loaded when attached");
-  ok(aEditor.hasFlag("new"),
-     "new editor has NEW flag");
-  ok(aEditor.hasFlag("unsaved"),
-     "new editor has UNSAVED flag");
-
-  ok(aEditor.inputElement,
-     "new editor has an input element attached");
+  ok(aEditor.isNew,
+     "new editor has isNew flag");
 
   ok(aEditor.sourceEditor.hasFocus(),
      "new editor has focus");
 
-  let summary = aChrome.getSummaryElementForEditor(aEditor);
+  let summary = gUI.getSummaryElementForEditor(aEditor);
   let ruleCount = summary.querySelector(".stylesheet-rule-count").textContent;
   is(parseInt(ruleCount), 0,
      "new editor initially shows 0 rules");
@@ -138,6 +116,9 @@ function testEditor() {
 
   is(aEditor.sourceEditor.getText(), TESTCASE_CSS_SOURCE + "}",
      "rule bracket has been auto-closed");
+
+  ok(aEditor.unsaved,
+     "new editor has unsaved flag");
 
   // we know that the testcase above will start a CSS transition
   content.addEventListener("transitionend", function () {
