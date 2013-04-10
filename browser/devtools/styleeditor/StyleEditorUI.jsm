@@ -187,6 +187,16 @@ StyleEditorUI.prototype = {
           editor.toggleDisabled();
         });
 
+        wire(summary, ".stylesheet-name", {
+          events: {
+            "keypress": function onStylesheetNameActivate(aEvent) {
+              if (aEvent.keyCode == aEvent.DOM_VK_RETURN) {
+                this._view.activeSummary = summary;
+              }
+            }.bind(this)
+          }
+        });
+
         wire(summary, ".stylesheet-saveButton", function onSaveButton(event) {
           event.stopPropagation();
           event.target.blur();
