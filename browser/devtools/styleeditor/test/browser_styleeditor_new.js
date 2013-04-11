@@ -4,8 +4,8 @@
 
 const TESTCASE_URI = TEST_BASE + "simple.html";
 
-const TRANSITION_CLASS = "moz-styleeditor-transitioning";
-const TESTCASE_CSS_SOURCE = "body{background-color:red;";
+let TRANSITION_CLASS = "moz-styleeditor-transitioning";
+let TESTCASE_CSS_SOURCE = "body{background-color:red;";
 
 let gUI;
 

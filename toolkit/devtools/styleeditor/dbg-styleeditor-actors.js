@@ -14,9 +14,9 @@ Cu.import("resource://gre/modules/NetUtil.jsm");
 Cu.import("resource://gre/modules/FileUtils.jsm");
 Cu.import("resource:///modules/devtools/StyleEditorUtil.jsm");
 
-const TRANSITION_CLASS = "moz-styleeditor-transitioning";
-const TRANSITION_DURATION_MS = 500;
-const TRANSITION_RULE = "\
+let TRANSITION_CLASS = "moz-styleeditor-transitioning";
+let TRANSITION_DURATION_MS = 500;
+let TRANSITION_RULE = "\
 :root.moz-styleeditor-transitioning, :root.moz-styleeditor-transitioning * {\
 transition-duration: " + TRANSITION_DURATION_MS + "ms !important; \
 transition-delay: 0ms !important;\
@@ -24,7 +24,7 @@ transition-timing-function: ease-out !important;\
 transition-property: all !important;\
 }";
 
-const LOAD_ERROR = "error-load";
+let LOAD_ERROR = "error-load";
 
 /**
  * Creates a StyleEditorActor. StyleEditorActor provides remote access to the
