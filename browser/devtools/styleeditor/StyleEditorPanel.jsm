@@ -92,11 +92,8 @@ StyleEditorPanel.prototype = {
    */
   beforeNavigate: function(event, payload, other) {
     dump("HEATHER: before navigate" + "\n");
-    dump("HEATHER: before navigate isDirty " + this.UI.isDirty + "\n");
     dump("HEATHER: arg " + payload._navPayload + "\n");
     let request = payload._navPayload || payload;
-    dump("HEATHER: request" + request + "\n");
-    dump("HEATHER: other" + other + "\n");
 
     if (this.UI.isDirty) {
       this.preventNavigate(request);

@@ -153,32 +153,72 @@ StyleEditorActor.prototype = {
     }
     let styleSheets = [];
 
-    for (let i = 0; i < this.doc.styleSheets.length; ++i) {
-      let styleSheet = this.doc.styleSheets[i];
-      let actor = this._createStyleSheetActor(styleSheet);
-      styleSheets.push(actor.form());
-    }
-
-    if (styleSheets.length) {
-      this._notifyStyleSheetsAdded(styleSheets);
+    if (document.styleSheets.length) {
+      this._addStyleSheets(document.styleSheets);
     }
   },
 
-  _notifyStyleSheetsAdded: function(styleSheets)
+  _addStyleSheets: function(styleSheets)
+  {
+    // Get all sheets, including imported ones
+    let sheets = [];
+    for (let i = 0; i < styleSheets.length; i++) {
+      let styleSheet = styleSheets[i];
+
+      sheets.push(styleSheet);
+
+      let imports = this._getImported(styleSheet);
+      sheets = sheets.concat(imports);
+    }
+
+    let actors = sheets.map((sheet) => {
+      let actor = this._createStyleSheetActor(sheet);
+      return actor.form();
+    });
+
+    this._notifyStyleSheetsAdded(actors);
+  },
+
+  _notifyStyleSheetsAdded: function(actors)
   {
     this.conn.send({
       from: this.actorID,
       type: "styleSheetsAdded",
-      styleSheets: styleSheets
+      styleSheets: actors
     });
   },
 
-  _createStyleSheetActor: function(aStyleSheet, flags)
+  _getImported: function(styleSheet) {
+   let imported = [];
+
+   for (let i = 0; j < styleSheet.cssRules.length; i++) {
+      let rule = styleSheet.cssRules[i];
+      if (rule.type == Ci.nsIDOMCSSRule.IMPORT_RULE) {
+        // Associated styleSheet may be null if it has already been seen due to
+        // duplicate @imports for the same URL.
+        if (!rule.styleSheet) {
+          continue;
+        }
+
+        imported.push(rule.styleSheet);
+
+        // recurse imports in this stylesheet as well
+        imported = imported.concat(this._getImported(rule.styleSheet));
+      }
+      else if (rule.type != Ci.nsIDOMCSSRule.CHARSET_RULE) {
+        // @import rules must precede all others except @charset
+        return;
+      }
+    }
+    return imported;
+  },
+
+  _createStyleSheetActor: function(aStyleSheet)
   {
     if (this._sheets.has(aStyleSheet)) {
       return this._sheets.get(aStyleSheet);
     }
-    let actor = new StyleSheetActor(aStyleSheet, this, flags);
+    let actor = new StyleSheetActor(aStyleSheet, this);
     this._actorPool.addActor(actor);
     this._sheets.set(aStyleSheet, actor);
     return actor;
@@ -289,6 +329,12 @@ StyleSheetActor.prototype = {
       title: this.styleSheet.title,
       styleSheetIndex: this.styleSheetIndex,
       text: this.text
+    }
+
+    // get parent actor if this sheet was @imported
+    let parent = this.styleSheet.parentStyleSheet;
+    if (parent) {
+      form.parentActor = this._sheets.get(parent);
     }
 
     let rules;

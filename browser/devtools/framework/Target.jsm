@@ -312,7 +312,6 @@ TabTarget.prototype = {
     this.client.addListener("tabDetached", this.destroy);
 
     this._onTabNavigated = function onRemoteTabNavigated(aType, aPacket) {
-      dump("HEATHER: _onTabNavigated" + "\n");
       let event = Object.create(null);
       event.url = aPacket.url;
       event.title = aPacket.title;
@@ -320,8 +319,10 @@ TabTarget.prototype = {
       // compatibility with non-remotable tools.
       event._navPayload = this._navPayload;
       if (aPacket.state == "start") {
+        dump("HEATHER: emitting will-navigate" + "\n");
         this.emit("will-navigate", event);
       } else {
+        dump("HEATHER: emitting navigate" + "\n");
         this.emit("navigate", event);
       }
       this._navPayload = null;
