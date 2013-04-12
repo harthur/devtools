@@ -153,8 +153,8 @@ StyleEditorActor.prototype = {
     }
     let styleSheets = [];
 
-    if (document.styleSheets.length) {
-      this._addStyleSheets(document.styleSheets);
+    if (this.doc.styleSheets.length) {
+      this._addStyleSheets(this.doc.styleSheets);
     }
   },
 
@@ -164,7 +164,6 @@ StyleEditorActor.prototype = {
     let sheets = [];
     for (let i = 0; i < styleSheets.length; i++) {
       let styleSheet = styleSheets[i];
-
       sheets.push(styleSheet);
 
       let imports = this._getImported(styleSheet);
@@ -191,7 +190,7 @@ StyleEditorActor.prototype = {
   _getImported: function(styleSheet) {
    let imported = [];
 
-   for (let i = 0; j < styleSheet.cssRules.length; i++) {
+   for (let i = 0; i < styleSheet.cssRules.length; i++) {
       let rule = styleSheet.cssRules[i];
       if (rule.type == Ci.nsIDOMCSSRule.IMPORT_RULE) {
         // Associated styleSheet may be null if it has already been seen due to
@@ -199,7 +198,6 @@ StyleEditorActor.prototype = {
         if (!rule.styleSheet) {
           continue;
         }
-
         imported.push(rule.styleSheet);
 
         // recurse imports in this stylesheet as well
@@ -207,7 +205,7 @@ StyleEditorActor.prototype = {
       }
       else if (rule.type != Ci.nsIDOMCSSRule.CHARSET_RULE) {
         // @import rules must precede all others except @charset
-        return;
+        break;
       }
     }
     return imported;
@@ -276,7 +274,6 @@ function StyleSheetActor(aStyleSheet, aParentActor) {
   if (ownerNode) {
     let onSheetLoaded = function(event) {
       ownerNode.removeEventListener("load", onSheetLoaded, false);
-      // the 'cssRules' property has changed
       this._notifyPropertyChanged("cssRules");
     }.bind(this);
 
@@ -334,7 +331,7 @@ StyleSheetActor.prototype = {
     // get parent actor if this sheet was @imported
     let parent = this.styleSheet.parentStyleSheet;
     if (parent) {
-      form.parentActor = this._sheets.get(parent);
+      form.parentActor = this.parentActor._sheets.get(parent);
     }
 
     let rules;
