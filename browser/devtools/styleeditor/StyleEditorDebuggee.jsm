@@ -22,7 +22,13 @@ XPCOMUtils.defineLazyModuleGetter(this, "Promise",
  * It maintains a list of StyleSheet objects that represent the stylesheets in
  * the target's document. It wraps remote debugging protocol comunications.
  *
- * @param {Target} target The target the debuggee is listening to
+ * It emits these events:
+ *   'stylesheet-added': A stylesheet has been added to the debuggee's document
+ *   'stylesheets-cleared': The debuggee's stylesheets have been reset (e.g. the
+ *                          page navigated)
+ *
+ * @param {Target} target
+ *         The target the debuggee is listening to
  */
 let StyleEditorDebuggee = function(target) {
   EventEmitter.decorate(this);
@@ -104,9 +110,9 @@ StyleEditorDebuggee.prototype = {
    */
   _getBaseURI: function() {
     let message = { type: "getBaseURI" };
-    this._sendRequest(message, function(response) {
+    this._sendRequest(message, (response) => {
       this.baseURI = response.baseURI;
-    }.bind(this));
+    });
   },
 
   /**
@@ -148,10 +154,10 @@ StyleEditorDebuggee.prototype = {
    */
   createStyleSheet: function(text, callback) {
     let message = { type: "newStyleSheet", text: text };
-    this._sendRequest(message, function(response) {
+    this._sendRequest(message, (response) => {
       let sheet = this._addStyleSheet(response.styleSheet);
       callback(sheet);
-    }.bind(this));
+    });
   },
 
   /**
@@ -181,6 +187,12 @@ StyleEditorDebuggee.prototype = {
 /**
  * A StyleSheet object represents a stylesheet on the debuggee. It wraps
  * communication with a complimentary StyleSheetActor on the server.
+ *
+ * It emits these events:
+ *   'source-load' - The full text source of the stylesheet has been fetched
+ *   'property-change' - Any property (e.g 'disabled', 'cssRules') has changed
+ *   'style-applied' - A change has been applied to the live stylesheet on the server
+ *   'error' - An error occured when loading or saving stylesheet
  *
  * @param {object} form
  *        Initial properties of the stylesheet

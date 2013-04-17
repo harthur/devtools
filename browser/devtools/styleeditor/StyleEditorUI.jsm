@@ -30,6 +30,19 @@ const UPDATE_STYLESHEET_THROTTLE_DELAY = 500;
 
 const STYLE_EDITOR_TEMPLATE = "stylesheet";
 
+/**
+ * StyleEditorUI is controls and builds the UI of the Style Editor, including
+ * maintaining a list of editors for each stylesheet on a debuggee.
+ *
+ * Emits events:
+ *   'editor-added': A new editor was added to the UI
+ *   'error': An error occured
+ *
+ * @param {StyleEditorDebuggee} debuggee
+ *        Debuggee of whose stylesheets should be shown in the UI
+ * @param {Document} panelDoc
+ *        Document of the toolbox panel to populate UI in.
+ */
 function StyleEditorUI(debuggee, panelDoc) {
   EventEmitter.decorate(this);
 
@@ -48,6 +61,8 @@ function StyleEditorUI(debuggee, panelDoc) {
 
   debuggee.on("stylesheet-added", this._onStyleSheetAdded);
   debuggee.on("stylesheets-cleared", this._onStyleSheetsCleared);
+
+  this.createUI();
 }
 
 StyleEditorUI.prototype = {
@@ -73,10 +88,9 @@ StyleEditorUI.prototype = {
     this._markedDirty = value;
   },
 
-  initialize: function(callback) {
-    this.createUI();
-  },
-
+  /**
+   * Build the initial UI and wire buttons with event handlers.
+   */
   createUI: function() {
     let viewRoot = this._root.parentNode.querySelector(".splitview-root");
 
@@ -92,13 +106,13 @@ StyleEditorUI.prototype = {
   },
 
   /**
-   * Import style sheet from file and load it into the editor asynchronously.
-   * "Load" action triggers when complete.
+   * Import a style sheet from file and asynchronously create a
+   * new stylesheet on the debuggee for it.
    *
-   * @param mixed aFile
+   * @param {mixed} file
    *        Optional nsIFile or filename string.
    *        If not set a file picker will be shown.
-   * @param nsIWindow aParentWindow
+   * @param {nsIWindow} parentWindow
    *        Optional parent window for the file picker.
    */
   _importFromFile: function(file, parentWindow)
@@ -126,6 +140,9 @@ StyleEditorUI.prototype = {
     showFilePicker(file, false, parentWindow, onFileSelected);
   },
 
+  /**
+   * Handler for debuggee's 'stylesheets-cleared' event. Remove all editors.
+   */
   _onStyleSheetsCleared: function() {
     this._clearStyleSheetEditors();
 
@@ -135,23 +152,53 @@ StyleEditorUI.prototype = {
     this._root.classList.add("loading");
   },
 
-  /* When a new/imported stylesheet has been added to the document */
+  /**
+   * When a new or imported stylesheet has been added to the document.
+   * Add an editor for it.
+   */
   _onStyleSheetCreated: function(styleSheet, file) {
     this._addStyleSheetEditor(styleSheet, file, true);
   },
 
+  /**
+   * Handler for debuggee's 'stylesheet-added' event. Add an editor.
+   *
+   * @param {string} event
+   *        Event name
+   * @param {StyleSheet} styleSheet
+   *        StyleSheet object for new sheet
+   */
   _onStyleSheetAdded: function(event, styleSheet) {
     // this might be the first stylesheet, so remove loading indicator
     this._root.classList.remove("loading");
     this._addStyleSheetEditor(styleSheet);
   },
 
+  /**
+   * Forward any error from a stylesheet.
+   *
+   * @param  {string} event
+   *         Event name
+   * @param  {string} errorCode
+   *         Code represeting type of error
+   */
   _onError: function(event, errorCode) {
     this.emit("error", errorCode);
   },
 
+  /**
+   * Add a new editor to the UI for a stylesheet.
+   *
+   * @param {StyleSheet}  styleSheet
+   *        Object representing stylesheet
+   * @param {nsIfile}  file
+   *         Optional file object that sheet was imported from
+   * @param {Boolean} isNew
+   *         Optional if stylesheet is a new sheet created by user
+   */
   _addStyleSheetEditor: function(styleSheet, file, isNew) {
     let editor = new StyleSheetEditor(styleSheet, this._window, file, isNew);
+
     editor.once("source-load", this._sourceLoaded.bind(this, editor));
     editor.on("property-change", this._summaryChange.bind(this, editor));
     editor.on("style-applied", this._summaryChange.bind(this, editor));
@@ -164,6 +211,9 @@ StyleEditorUI.prototype = {
     this._window.setTimeout(editor.fetchSource.bind(editor), 0);
   },
 
+  /**
+   * Clear all the editors from the UI.
+   */
   _clearStyleSheetEditors: function() {
     for (let editor of this.editors) {
       editor.destroy();
@@ -171,6 +221,13 @@ StyleEditorUI.prototype = {
     this.editors = [];
   },
 
+  /**
+   * Handler for an StyleSheetEditor's 'source-load' event.
+   * Create a summary UI for the editor and select it if it's to be selected.
+   *
+   * @param  {StyleSheetEditor} editor
+   *         Editor to create UI for.
+   */
   _sourceLoaded: function(editor) {
     // add new sidebar item and editor to the UI
     this._view.appendTemplatedItem(STYLE_EDITOR_TEMPLATE, {
@@ -181,6 +238,8 @@ StyleEditorUI.prototype = {
       ordinal: editor.styleSheet.styleSheetIndex,
       onCreate: function(summary, details, data) {
         let editor = data.editor;
+        editor.summary = summary;
+
         wire(summary, ".stylesheet-enabled", function onToggleDisabled(event) {
           event.stopPropagation();
           event.target.blur();
@@ -214,7 +273,7 @@ StyleEditorUI.prototype = {
           }
         }, false);
 
-        // autofocus new stylesheet
+        // autofocus if it's a new user-created stylesheet
         if (editor.isNew) {
           this._selectEditor(editor);
         }
@@ -238,7 +297,7 @@ StyleEditorUI.prototype = {
       this.switchToSelectedSheet();
     }
 
-    /* If this is the first stylesheet, select it */
+    // If this is the first stylesheet, select it
     if (this.selectedStyleSheetIndex == -1
         && !this._styleSheetToSelect
         && editor.styleSheet.styleSheetIndex == 0) {
@@ -246,18 +305,16 @@ StyleEditorUI.prototype = {
     }
   },
 
-  switchToSelectedSheet: function() {
-    let sheet = this._styleSheetToSelect;
-
-    for each (let editor in this.editors) {
-      if (editor.styleSheet.href == sheet.href) {
-        this._selectEditor(editor, sheet.line, sheet.col);
-        this._styleSheetToSelect = null;
-        break;
-      }
-    }
-  },
-
+  /**
+   * Select an editor in the UI.
+   *
+   * @param  {StyleSheetEditor} editor
+   *         Editor to switch to.
+   * @param  {number} line
+   *         Line number to jump to
+   * @param  {number} col
+   *         Column number to jump to
+   */
   _selectEditor: function(editor, line, col) {
     line = line || 1;
     col = col || 1;
@@ -268,13 +325,7 @@ StyleEditorUI.prototype = {
       editor.sourceEditor.setCaretPosition(line - 1, col - 1);
     });
 
-    let summary = this.getSummaryElementForEditor(editor);
-    this._view.activeSummary = summary;
-  },
-
-  getSummaryElementForEditor: function(editor) {
-    let index = editor.styleSheet.styleSheetIndex;
-    return this._view.getSummaryElementByOrdinal(index);
+    this._view.activeSummary = editor.summary;
   },
 
   /**
@@ -310,6 +361,13 @@ StyleEditorUI.prototype = {
   },
 
 
+  /**
+   * Handler for an editor's 'property-changed' event.
+   * Update the summary in the UI.
+   *
+   * @param  {StyleSheetEditor} editor
+   *         Editor for which a property has changed
+   */
   _summaryChange: function(editor) {
     this._updateSummaryForEditor(editor);
   },
@@ -317,13 +375,13 @@ StyleEditorUI.prototype = {
   /**
    * Update split view summary of given StyleEditor instance.
    *
-   * @param StyleEditor editor
-   * @param DOMElement aSummary
+   * @param {StyleSheetEditor} editor
+   * @param {DOMElement} summary
    *        Optional item's summary element to update. If none, item corresponding
    *        to passed editor is used.
    */
   _updateSummaryForEditor: function(editor, summary) {
-    summary = summary || this.getSummaryElementForEditor(editor);
+    summary = summary || editor.summary;
     if (!summary) {
       return;
     }
@@ -360,6 +418,36 @@ StyleEditorUI.prototype = {
 
 Cu.import("resource:///modules/source-editor.jsm");
 
+
+/**
+ * StyleEditorUI is controls and builds the UI of the Style Editor, including
+ * maintaining a list of editors for each stylesheet on a debuggee.
+ *
+ * Emits events:
+ *   'editor-added': A new editor was added to the UI
+ *   'error': An error occured
+ *
+ * @param {StyleEditorDebuggee} debuggee
+ *        Debuggee of whose stylesheets should be shown in the UI
+ * @param {Document} panelDoc
+ *        Document of the toolbox panel to populate UI in.
+ */
+
+/**
+ * StyleSheetEditor controls the editor linked to a particular StyleSheet
+ * object.
+ *
+ * emits events:
+ *   ''
+ *
+ * @param {StyleSheet}  styleSheet
+ * @param {DOMWindow}  win
+ *        panel window for style editor
+ * @param {nsIFile}  file
+ *        Optional file that the sheet was imported from
+ * @param {boolean} isNew
+ *        Optional whether the sheet was created by the user
+ */
 function StyleSheetEditor(styleSheet, win, file, isNew) {
   EventEmitter.decorate(this);
 

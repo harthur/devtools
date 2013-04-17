@@ -41,7 +41,7 @@ StyleEditorPanel.prototype = {
   /**
    * open is effectively an asynchronous constructor
    */
-  open: function StyleEditor_open() {
+  open: function() {
     let deferred = Promise.defer();
 
     let promise;
@@ -52,7 +52,7 @@ StyleEditorPanel.prototype = {
       promise = Promise.resolve(this.target);
     }
 
-    promise.then(function() {
+    promise.then(() => {
       this.target.on("will-navigate", this.beforeNavigate);
       this.target.on("close", this.destroy);
 
@@ -60,11 +60,10 @@ StyleEditorPanel.prototype = {
 
       this.UI = new StyleEditorUI(this._debuggee, this._panelDoc);
       this.UI.on("error", this._showError);
-      this.UI.initialize();
 
       this.isReady = true;
       deferred.resolve(this);
-    }.bind(this))
+    })
 
     return deferred.promise;
   },
@@ -168,7 +167,14 @@ StyleEditorPanel.prototype = {
   },
 
   /**
-   * Select a stylesheet. TODO
+   * Select a stylesheet
+   *
+   * @param {string} href
+   *        Url of stylesheet to find and select in editor
+   * @param {number} line
+   *        Line number to jump to after selecting
+   * @param {number} col
+   *        Column number to jump to after selecting
    */
   selectStyleSheet: function(href, line, col) {
     if (!this._debuggee || !this.UI) {
