@@ -437,8 +437,11 @@ Cu.import("resource:///modules/source-editor.jsm");
  * StyleSheetEditor controls the editor linked to a particular StyleSheet
  * object.
  *
- * emits events:
- *   ''
+ * Emits events:
+ *   'source-load': The source of the stylesheet has been fetched
+ *   'property-change': A property on the underlying stylesheet has changed
+ *   'source-editor-load': The source editor for this editor has been loaded
+ *   'error': An error has occured
  *
  * @param {StyleSheet}  styleSheet
  * @param {DOMWindow}  win
@@ -485,14 +488,24 @@ function StyleSheetEditor(styleSheet, win, file, isNew) {
 }
 
 StyleSheetEditor.prototype = {
+  /**
+   * This editor's source editor
+   */
   get sourceEditor() {
     return this._sourceEditor;
   },
 
+  /**
+   * Whether there are unsaved changes in the editor
+   */
   get unsaved() {
     return this._sourceEditor && this._sourceEditor.dirty;
   },
 
+  /**
+   * Whether the editor is for a stylesheet created by the user
+   * through the style editor UI.
+   */
   get isNew() {
     return this._isNew;
   },
@@ -542,24 +555,55 @@ StyleSheetEditor.prototype = {
     return this._friendlyName;
   },
 
+  /**
+   * Start fetching the full text source for this editor's sheet.
+   */
   fetchSource: function() {
     this.styleSheet.fetchSource();
   },
 
+  /**
+   * Handle source fetched event. Forward source-load event.
+   *
+   * @param  {string} event
+   *         Event type
+   * @param  {string} source
+   *         Full-text source of the stylesheet
+   */
   _onSourceLoad: function(event, source) {
     this._state.text = prettifyCSS(source);
     this.sourceLoaded = true;
     this.emit("source-load");
   },
 
+  /**
+   * Forward property-change event from stylesheet.
+   *
+   * @param  {string} event
+   *         Event type
+   * @param  {string} property
+   *         Property that has changed on sheet
+   */
   _onPropertyChange: function(event, property) {
     this.emit("property-change", property);
   },
 
+  /**
+   * Forward error event from stylesheet.
+   *
+   * @param  {string} event
+   *         Event type
+   * @param  {string} errorCode
+   */
   _onError: function(event, errorCode) {
     this.emit("error", errorCode);
   },
 
+  /**
+   * Create source editor and load state into it.
+   * @param  {DOMElement} inputElement
+   *         Element to load source editor in
+   */
   load: function(inputElement) {
     this._inputElement = inputElement;
 
@@ -597,6 +641,12 @@ StyleSheetEditor.prototype = {
                                   this._onPropertyChange);
   },
 
+  /**
+   * Get the source editor for this editor.
+   *
+   * @return {Promise}
+   *         Promise that will resolve with the editor.
+   */
   getSourceEditor: function() {
     let deferred = Promise.defer();
 
@@ -612,8 +662,7 @@ StyleSheetEditor.prototype = {
   /**
    * Focus the Style Editor input.
    */
-  focus: function()
-  {
+  focus: function() {
     if (this._sourceEditor) {
       this._sourceEditor.focus();
     } else {
@@ -625,8 +674,7 @@ StyleSheetEditor.prototype = {
    * Event handler for when the editor is shown. Call this after the editor is
    * shown.
    */
-  onShow: function SE_onShow()
-  {
+  onShow: function() {
     if (this._sourceEditor) {
       this._sourceEditor.setTopIndex(this._state.topIndex);
     }
@@ -634,7 +682,7 @@ StyleSheetEditor.prototype = {
   },
 
   /**
-   * Toggled the disabled state of the stylesheet.
+   * Toggled the disabled state of the underlying stylesheet.
    */
   toggleDisabled: function() {
     this.styleSheet.toggleDisabled();
@@ -646,8 +694,7 @@ StyleSheetEditor.prototype = {
    * @param boolean immediate
    *        Optional. If true the update is performed immediately.
    */
-  updateStyleSheet: function(immediate)
-  {
+  updateStyleSheet: function(immediate) {
     if (this._updateTask) {
       // cancel previous queued task not executed within throttle delay
       this._window.clearTimeout(this._updateTask);
@@ -664,8 +711,7 @@ StyleSheetEditor.prototype = {
   /**
    * Update live style sheet according to modifications.
    */
-  _updateStyleSheet: function()
-  {
+  _updateStyleSheet: function() {
     if (this.styleSheet.disabled) {
       return;  // TODO: do we want to do this?
     }
@@ -697,8 +743,7 @@ StyleSheetEditor.prototype = {
    *        has failed or has been canceled by the user.
    * @see savedFile
    */
-  saveToFile: function(file, callback)
-  {
+  saveToFile: function(file, callback) {
     let onFile = function(returnFile) {
       if (!returnFile) {
         if (callback) {
@@ -746,8 +791,7 @@ StyleSheetEditor.prototype = {
     *
     * @return Array
     */
-  _getKeyBindings: function SE__getKeyBindings()
-  {
+  _getKeyBindings: function() {
     let bindings = [];
 
     bindings.push({
@@ -774,6 +818,9 @@ StyleSheetEditor.prototype = {
     return bindings;
   },
 
+  /**
+   * Clean up for this editor.
+   */
   destroy: function() {
     this.styleSheet.off("source-load", this._onSourceLoad);
     this.styleSheet.off("property-change", this._onPropertyChange);
