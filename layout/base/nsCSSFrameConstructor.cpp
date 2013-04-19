@@ -91,6 +91,7 @@
 #include "nsStyleStructInlines.h"
 #include "nsAnimationManager.h"
 #include "nsTransitionManager.h"
+#include "nsSVGIntegrationUtils.h"
 #include <algorithm>
 
 #ifdef MOZ_XUL
@@ -125,6 +126,7 @@
 #include "nsRefreshDriver.h"
 #include "nsRuleProcessorData.h"
 #include "GeckoProfiler.h"
+#include "nsTextNode.h"
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -135,10 +137,8 @@ static const nsIFrame::ChildListID kPrincipalList = nsIFrame::kPrincipalList;
 nsIFrame*
 NS_NewHTMLCanvasFrame (nsIPresShell* aPresShell, nsStyleContext* aContext);
 
-#if defined(MOZ_MEDIA)
 nsIFrame*
 NS_NewHTMLVideoFrame (nsIPresShell* aPresShell, nsStyleContext* aContext);
-#endif
 
 #include "nsSVGTextContainerFrame.h"
 #include "nsSVGTextFrame2.h"
@@ -681,7 +681,7 @@ nsAbsoluteItems::AddChild(nsIFrame* aChild)
 
 // Structure for saving the existing state when pushing/poping containing
 // blocks. The destructor restores the state to its previous state
-class NS_STACK_CLASS nsFrameConstructorSaveState {
+class MOZ_STACK_CLASS nsFrameConstructorSaveState {
 public:
   typedef nsIFrame::ChildListID ChildListID;
   nsFrameConstructorSaveState();
@@ -723,7 +723,7 @@ struct PendingBinding : public LinkedListElement<PendingBinding>
 
 // Structure used for maintaining state information during the
 // frame construction process
-class NS_STACK_CLASS nsFrameConstructorState {
+class MOZ_STACK_CLASS nsFrameConstructorState {
 public:
   typedef nsIFrame::ChildListID ChildListID;
 
@@ -862,7 +862,7 @@ public:
    */
   class PendingBindingAutoPusher;
   friend class PendingBindingAutoPusher;
-  class NS_STACK_CLASS PendingBindingAutoPusher {
+  class MOZ_STACK_CLASS PendingBindingAutoPusher {
   public:
     PendingBindingAutoPusher(nsFrameConstructorState& aState,
                              PendingBinding* aPendingBinding) :
@@ -1399,8 +1399,9 @@ MoveChildrenTo(nsPresContext* aPresContext,
 //----------------------------------------------------------------------
 
 nsCSSFrameConstructor::nsCSSFrameConstructor(nsIDocument *aDocument,
-                                             nsIPresShell *aPresShell)
-  : nsFrameManager(aPresShell)
+                                             nsIPresShell *aPresShell,
+                                             nsStyleSet* aStyleSet)
+  : nsFrameManager(aPresShell, aStyleSet)
   , mDocument(aDocument)
   , mRootElementFrame(nullptr)
   , mRootElementStyleFrame(nullptr)
@@ -1527,17 +1528,10 @@ nsCSSFrameConstructor::CreateGenConTextNode(nsFrameConstructorState& aState,
                                             nsCOMPtr<nsIDOMCharacterData>* aText,
                                             nsGenConInitializer* aInitializer)
 {
-  nsCOMPtr<nsIContent> content;
-  NS_NewTextNode(getter_AddRefs(content), mDocument->NodeInfoManager());
-  if (!content) {
-    // XXX The quotes/counters code doesn't like the text pointer
-    // being null in case of dynamic changes!
-    NS_ASSERTION(!aText, "this OOM case isn't handled very well");
-    return nullptr;
-  }
+  nsRefPtr<nsTextNode> content = new nsTextNode(mDocument->NodeInfoManager());
   content->SetText(aString, false);
   if (aText) {
-    *aText = do_QueryInterface(content);
+    *aText = content;
   }
   if (aInitializer) {
     content->SetProperty(nsGkAtoms::genConInitializerProperty, aInitializer,
@@ -1956,7 +1950,11 @@ nsCSSFrameConstructor::ConstructTable(nsFrameConstructorState& aState,
 
   // Mark the table frame as an absolute container if needed
   newFrame->AddStateBits(NS_FRAME_CAN_HAVE_ABSPOS_CHILDREN);
-  if (display->IsPositioned(aParentFrame)) {
+  if ((display->IsRelativelyPositionedStyle() ||
+       display->IsAbsolutelyPositionedStyle() ||
+       (display->HasTransformStyle() &&
+        aParentFrame->IsFrameOfType(nsIFrame::eSupportsCSSTransforms))) &&
+      !aParentFrame->IsSVGText()) {
     aState.PushAbsoluteContainingBlock(newFrame, absoluteSaveState);
   }
   if (aItem.mFCData->mBits & FCDATA_USE_CHILD_ITEMS) {
@@ -3319,10 +3317,8 @@ nsCSSFrameConstructor::FindHTMLData(Element* aElement,
                                  NS_NewHTMLButtonControlFrame,
                                  nsCSSAnonBoxes::buttonContent) },
     SIMPLE_TAG_CHAIN(canvas, nsCSSFrameConstructor::FindCanvasData),
-#if defined(MOZ_MEDIA)
     SIMPLE_TAG_CREATE(video, NS_NewHTMLVideoFrame),
     SIMPLE_TAG_CREATE(audio, NS_NewHTMLVideoFrame),
-#endif
     SIMPLE_TAG_CREATE(progress, NS_NewProgressFrame),
     SIMPLE_TAG_CREATE(meter, NS_NewMeterFrame)
   };
@@ -3623,7 +3619,11 @@ nsCSSFrameConstructor::ConstructFrameFromItemInternal(FrameConstructionItem& aIt
     } else if (!(bits & FCDATA_SKIP_ABSPOS_PUSH)) {
       nsIFrame* cb = maybeAbsoluteContainingBlock;
       cb->AddStateBits(NS_FRAME_CAN_HAVE_ABSPOS_CHILDREN);
-      if (maybeAbsoluteContainingBlockDisplay->IsPositioned(cb)) {
+      if ((maybeAbsoluteContainingBlockDisplay->IsAbsolutelyPositionedStyle() ||
+           maybeAbsoluteContainingBlockDisplay->IsRelativelyPositionedStyle() ||
+           (maybeAbsoluteContainingBlockDisplay->HasTransformStyle() &&
+            cb->IsFrameOfType(nsIFrame::eSupportsCSSTransforms))) &&
+          !cb->IsSVGText()) {
         aState.PushAbsoluteContainingBlock(cb, absoluteSaveState);
       }
     }
@@ -4241,8 +4241,7 @@ nsCSSFrameConstructor::FindDisplayData(const nsStyleDisplay* aDisplay,
   // XXX Ignore tables for the time being
   // XXXbz it would be nice to combine this with the other block
   // case... Think about how do do this?
-  if ((aParentFrame ? aDisplay->IsBlockInside(aParentFrame) :
-                      aDisplay->IsBlockInsideStyle()) &&
+  if (aDisplay->IsBlockInsideStyle() &&
       aDisplay->IsScrollableOverflow() &&
       !propagatedScrollToViewport) {
     // Except we don't want to do that for paginated contexts for
@@ -4263,8 +4262,7 @@ nsCSSFrameConstructor::FindDisplayData(const nsStyleDisplay* aDisplay,
   }
 
   // Handle various non-scrollable blocks
-  if ((aParentFrame ? aDisplay->IsBlockInside(aParentFrame) :
-                      aDisplay->IsBlockInsideStyle())) {
+  if (aDisplay->IsBlockInsideStyle()) {
     static const FrameConstructionData sNonScrollableBlockData =
       FULL_CTOR_FCDATA(0, &nsCSSFrameConstructor::ConstructNonScrollableBlock);
     return &sNonScrollableBlockData;
@@ -4330,8 +4328,7 @@ nsCSSFrameConstructor::FindDisplayData(const nsStyleDisplay* aDisplay,
                        &nsCSSFrameConstructor::ConstructTableCell) }
   };
 
-  return FindDataByInt((aParentFrame ? aDisplay->GetDisplay(aParentFrame) :
-                                       aDisplay->mDisplay),
+  return FindDataByInt(aDisplay->mDisplay,
                        aElement, aStyleContext, sDisplayData,
                        ArrayLength(sDisplayData));
 }
@@ -5293,8 +5290,7 @@ nsCSSFrameConstructor::AddFrameConstructionItemsInternal(nsFrameConstructorState
        (!aParentFrame || // No aParentFrame means inline
         aParentFrame->StyleDisplay()->mDisplay == NS_STYLE_DISPLAY_INLINE)) ||
       // Things that are inline-outside but aren't inline frames are inline
-      (aParentFrame ? display->IsInlineOutside(aParentFrame) :
-                      display->IsInlineOutsideStyle()) ||
+      display->IsInlineOutsideStyle() ||
       // Popups that are certainly out of flow.
       isPopup;
 
@@ -7757,6 +7753,11 @@ DoApplyRenderingChangeToTree(nsIFrame* aFrame,
       // opacity updates in many cases.
       needInvalidatingPaint = true;
       aFrame->MarkLayersActive(nsChangeHint_UpdateOpacityLayer);
+      if (nsSVGIntegrationUtils::UsingEffectsForFrame(aFrame)) {
+        // SVG effects paints the opacity without using
+        // nsDisplayOpacity. We need to invalidate manually.
+        aFrame->InvalidateFrameSubtree();
+      }
     }
     if ((aChange & nsChangeHint_UpdateTransformLayer) &&
         aFrame->IsTransformed()) {
@@ -9891,6 +9892,8 @@ nsCSSFrameConstructor::ProcessChildren(nsFrameConstructorState& aState,
     NS_ABORT_IF_FALSE(!content->IsNodeOfType(nsINode::eCOMMENT) &&
                       !content->IsNodeOfType(nsINode::ePROCESSING_INSTRUCTION),
                       "Why is someone creating garbage anonymous content");
+    NS_ABORT_IF_FALSE(content->IsRootOfAnonymousSubtree(),
+                      "Content should know it's an anonymous subtree");
 
     nsRefPtr<nsStyleContext> styleContext;
     TreeMatchContext::AutoFlexItemStyleFixupSkipper
@@ -10454,7 +10457,7 @@ nsCSSFrameConstructor::CreateLetterFrame(nsIFrame* aBlockFrame,
 
     // Create the right type of first-letter frame
     const nsStyleDisplay* display = sc->StyleDisplay();
-    if (display->IsFloating(aParentFrame)) {
+    if (display->IsFloatingStyle() && !aParentFrame->IsSVGText()) {
       // Make a floating first-letter frame
       CreateFloatingLetterFrame(state, aBlockFrame, aTextContent, textFrame,
                                 blockContent, aParentFrame, sc, aResult);

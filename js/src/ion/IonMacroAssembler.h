@@ -1,6 +1,5 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=4 sw=4 et tw=99:
- *
+/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -554,7 +553,10 @@ class MacroAssembler : public MacroAssemblerSpecific
     }
 
     // Inline allocation.
+    void newGCThing(const Register &result, gc::AllocKind allocKind, Label *fail);
     void newGCThing(const Register &result, JSObject *templateObject, Label *fail);
+    void newGCString(const Register &result, Label *fail);
+
     void parNewGCThing(const Register &result,
                        const Register &threadContextReg,
                        const Register &tempReg1,
@@ -592,6 +594,12 @@ class MacroAssembler : public MacroAssemblerSpecific
         Push(ImmWord(uintptr_t(codeVal)));
         Push(ImmWord(uintptr_t(NULL)));
     }
+
+    void enterParallelExitFrameAndLoadSlice(const VMFunction *f, Register slice,
+                                            Register scratch);
+
+    void enterExitFrameAndLoadContext(const VMFunction *f, Register cxReg, Register scratch,
+                                      ExecutionMode executionMode);
 
     void leaveExitFrame() {
         freeStack(IonExitFooterFrame::Size());
@@ -639,16 +647,10 @@ class MacroAssembler : public MacroAssemblerSpecific
     }
 
     void handleException() {
-        // Re-entry code is irrelevant because the exception will leave the
-        // running function and never come back
-        if (sps_)
-            sps_->skipNextReenter();
-        leaveSPSFrame();
-        MacroAssemblerSpecific::handleException();
-        // Doesn't actually emit code, but balances the leave()
-        if (sps_)
-            sps_->reenter(*this, InvalidReg);
+        handleFailure(SequentialExecution);
     }
+
+    void handleFailure(ExecutionMode executionMode);
 
     // see above comment for what is returned
     uint32_t callIon(const Register &callee) {
@@ -691,6 +693,9 @@ class MacroAssembler : public MacroAssemblerSpecific
         test32(Address(scratch, Class::offsetOfFlags()), Imm32(JSCLASS_EMULATES_UNDEFINED));
         return truthy ? Assembler::Zero : Assembler::NonZero;
     }
+
+    void tagCallee(Register callee, ExecutionMode mode);
+    void clearCalleeTag(Register callee, ExecutionMode mode);
 
   private:
     // These two functions are helpers used around call sites throughout the
@@ -921,4 +926,3 @@ class ABIArgIter
 } // namespace js
 
 #endif // jsion_macro_assembler_h__
-

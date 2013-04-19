@@ -8,6 +8,7 @@
 #include "ShadowLayerChild.h"
 #include "ShadowLayersChild.h"
 #include "ShadowLayerUtils.h"
+#include "mozilla/layers/CompositableClient.h"
 
 namespace mozilla {
 namespace layers {
@@ -51,7 +52,7 @@ ShadowLayersChild::AllocPLayer()
 {
   // we always use the "power-user" ctor
   NS_RUNTIMEABORT("not reached");
-  return NULL;
+  return nullptr;
 }
 
 bool
@@ -59,6 +60,27 @@ ShadowLayersChild::DeallocPLayer(PLayerChild* actor)
 {
   delete actor;
   return true;
+}
+
+PCompositableChild*
+ShadowLayersChild::AllocPCompositable(const TextureInfo& aInfo)
+{
+  return new CompositableChild();
+}
+
+bool
+ShadowLayersChild::DeallocPCompositable(PCompositableChild* actor)
+{
+  delete actor;
+  return true;
+}
+
+void
+ShadowLayersChild::ActorDestroy(ActorDestroyReason why)
+{
+  if (why == AbnormalShutdown) {
+    NS_RUNTIMEABORT("ActorDestroy by IPC channel failure at ShadowLayersChild");
+  }
 }
 
 }  // namespace layers

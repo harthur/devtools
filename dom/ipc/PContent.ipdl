@@ -50,23 +50,6 @@ using gfxIntSize;
 namespace mozilla {
 namespace dom {
 
-// Data required to clone an existing DOMStorageImpl in the parent
-struct StorageClone
-{
-    // Existing cross-process storage actor to clone
-    PStorage actor;
-    // Result of calling IsCallerSecure() in the child
-    bool callerSecure;
-};
-
-// When creating a new PStorage protocol, an existing one can be
-// cloned (see nsDOMStorage2::Clone)
-union StorageConstructData
-{
-    null_t;
-    StorageClone;
-};
-
 struct FontListEntry {
     nsString  familyName;
     nsString  faceName;
@@ -309,12 +292,12 @@ child:
     async AudioChannelNotify();
 
     /**
-     * Dump the contents of about:memory to a file in our temp directory.
+     * Do a memory info dump to a file in our temp directory.
      *
      * For documentation on the args, see
-     * MemoryInfoDumper::dumpMemoryReportsToFile.
+     * MemoryInfoDumper::dumpMemoryInfoToTempDir.
      */
-    async DumpMemoryReportsToFile(nsString identifier,
+    async DumpMemoryInfoToTempDir(nsString identifier,
                                   bool minimizeMemoryUsage,
                                   bool dumpChildProcesses);
 
@@ -400,8 +383,8 @@ parent:
     PSms();
 
     PSpeechSynthesis();
-    
-    PStorage(StorageConstructData data);
+
+    PStorage();
 
     PBluetooth();
 

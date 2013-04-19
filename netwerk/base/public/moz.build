@@ -46,6 +46,7 @@ XPIDL_SOURCES += [
     'nsIInputStreamChannel.idl',
     'nsIInputStreamPump.idl',
     'nsILoadGroup.idl',
+    'nsILoadGroupChild.idl',
     'nsIMIMEInputStream.idl',
     'nsIMultiPartChannel.idl',
     'nsINSSErrorsService.idl',
@@ -107,6 +108,7 @@ XPIDL_SOURCES += [
     'nsIUploadChannel.idl',
     'nsIUploadChannel2.idl',
     'nsPISocketTransportService.idl',
+    'nsPILoadGroupInternal.idl',
 ]
 
 if CONFIG['MOZ_TOOLKIT_SEARCH']:
@@ -115,4 +117,16 @@ if CONFIG['MOZ_TOOLKIT_SEARCH']:
     ]
 
 MODULE = 'necko'
+
+EXPORTS += [
+    'netCore.h',
+    'nsASocketHandler.h',
+    'nsAsyncRedirectVerifyHelper.h',
+    'nsChannelProperties.h',
+    'nsNetStrings.h',
+    'nsNetUtil.h',
+    'nsReadLine.h',
+    'nsStreamListenerWrapper.h',
+    'nsURIHashKey.h',
+]
 

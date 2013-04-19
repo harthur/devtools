@@ -1,6 +1,5 @@
-/* -*- Mode: C; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=8 sw=4 et tw=99:
- *
+/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -516,6 +515,7 @@ class Shape : public js::gc::Cell
 
     static inline RawShape search(JSContext *cx, Shape *start, jsid id,
                                   Shape ***pspp, bool adding = false);
+    static inline Shape *searchNoHashify(Shape *start, jsid id);
 
     inline void removeFromDictionary(ObjectImpl *obj);
     inline void insertIntoDictionary(HeapPtrShape *dictp);
@@ -1090,6 +1090,30 @@ Shape::search(JSContext *cx, Shape *start, jsid id, Shape ***pspp, bool adding)
     }
 
     for (RawShape shape = start; shape; shape = shape->parent) {
+        if (shape->propidRef() == id)
+            return shape;
+    }
+
+    return NULL;
+}
+
+/*
+ * Keep this function in sync with search. It neither hashifies the start
+ * shape nor increments linear search count.
+ */
+inline Shape *
+Shape::searchNoHashify(Shape *start, jsid id)
+{
+    /*
+     * If we have a table, search in the shape table, else do a linear
+     * search. We never hashify into a table in parallel.
+     */
+    if (start->hasTable()) {
+        Shape **spp = start->table().search(id, false);
+        return SHAPE_FETCH(spp);
+    }
+
+    for (Shape *shape = start; shape; shape = shape->parent) {
         if (shape->propidRef() == id)
             return shape;
     }

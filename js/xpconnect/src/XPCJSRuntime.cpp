@@ -2150,14 +2150,6 @@ class JSCompartmentsMultiReporter MOZ_FINAL : public nsIMemoryMultiReporter
 
         return NS_OK;
     }
-
-    NS_IMETHOD
-    GetExplicitNonHeap(int64_t *n)
-    {
-        // This reporter does neither "explicit" nor NONHEAP measurements.
-        *n = 0;
-        return NS_OK;
-    }
 };
 
 NS_IMPL_THREADSAFE_ISUPPORTS1(JSCompartmentsMultiReporter
@@ -2425,14 +2417,6 @@ JSMemoryMultiReporter::CollectReports(WindowPaths *windowPaths,
     return NS_OK;
 }
 
-nsresult
-JSMemoryMultiReporter::GetExplicitNonHeap(int64_t *n)
-{
-    JSRuntime *rt = nsXPConnect::GetRuntimeInstance()->GetJSRuntime();
-    *reinterpret_cast<int64_t*>(n) = JS::GetExplicitNonHeapForRuntime(rt, JsMallocSizeOf);
-    return NS_OK;
-}
-
 } // namespace xpc
 
 #ifdef MOZ_CRASHREPORTER
@@ -2664,8 +2648,8 @@ XPCJSRuntime::XPCJSRuntime(nsXPConnect* aXPConnect)
    mWatchdogThread(nullptr),
    mWatchdogHibernating(false),
    mLastActiveTime(-1),
-   mExceptionManagerNotAvailable(false),
-   mJunkScope(nullptr)
+   mJunkScope(nullptr),
+   mExceptionManagerNotAvailable(false)
 #ifdef DEBUG
    , mObjectToUnlink(nullptr)
 #endif
@@ -3021,7 +3005,7 @@ XPCJSRuntime::GetJunkScope()
     if (!mJunkScope) {
         JS::Value v;
         SafeAutoJSContext cx;
-        SandboxOptions options;
+        SandboxOptions options(cx);
         options.sandboxName.AssignASCII("XPConnect Junk Compartment");
         JSAutoRequest ac(cx);
         nsresult rv = xpc_CreateSandboxObject(cx, &v,
@@ -3030,7 +3014,7 @@ XPCJSRuntime::GetJunkScope()
 
         NS_ENSURE_SUCCESS(rv, nullptr);
 
-        mJunkScope = js::UnwrapObject(&v.toObject());
+        mJunkScope = js::UncheckedUnwrap(&v.toObject());
         JS_AddNamedObjectRoot(cx, &mJunkScope, "XPConnect Junk Compartment");
     }
     return mJunkScope;

@@ -27,6 +27,7 @@ ToolbarView.prototype = {
     dumpn("Initializing the ToolbarView");
 
     this._instrumentsPaneToggleButton = document.getElementById("instruments-pane-toggle");
+    this._resumeOrderPanel = document.getElementById("resumption-order-panel");
     this._resumeButton = document.getElementById("resume");
     this._stepOverButton = document.getElementById("step-over");
     this._stepInButton = document.getElementById("step-in");
@@ -90,6 +91,19 @@ ToolbarView.prototype = {
   },
 
   /**
+   * Display a warning when trying to resume a debuggee while another is paused.
+   * Debuggees must be unpaused in a Last-In-First-Out order.
+   *
+   * @param string aPausedUrl
+   *        The URL of the last paused debuggee.
+   */
+  showResumeWarning: function DVT_showResumeWarning(aPausedUrl) {
+    let label = L10N.getFormatStr("resumptionOrderPanelTitle", [aPausedUrl]);
+    document.getElementById("resumption-panel-desc").textContent = label;
+    this._resumeOrderPanel.openPopup(this._resumeButton);
+  },
+
+  /**
    * Sets the chrome globals container hidden or visible. It's hidden by default.
    *
    * @param boolean aVisibleFlag
@@ -115,7 +129,8 @@ ToolbarView.prototype = {
    */
   _onResumePressed: function DVT__onResumePressed() {
     if (DebuggerController.activeThread.paused) {
-      DebuggerController.activeThread.resume();
+      let warn = DebuggerController._ensureResumptionOrder;
+      DebuggerController.activeThread.resume(warn);
     } else {
       DebuggerController.activeThread.interrupt();
     }
@@ -149,6 +164,7 @@ ToolbarView.prototype = {
   },
 
   _instrumentsPaneToggleButton: null,
+  _resumeOrderPanel: null,
   _resumeButton: null,
   _stepOverButton: null,
   _stepInButton: null,
@@ -171,6 +187,7 @@ function OptionsView() {
   this._toggleShowPanesOnStartup = this._toggleShowPanesOnStartup.bind(this);
   this._toggleShowVariablesOnlyEnum = this._toggleShowVariablesOnlyEnum.bind(this);
   this._toggleShowVariablesFilterBox = this._toggleShowVariablesFilterBox.bind(this);
+  this._toggleShowOriginalSource = this._toggleShowOriginalSource.bind(this);
 }
 
 OptionsView.prototype = {
@@ -185,11 +202,13 @@ OptionsView.prototype = {
     this._showPanesOnStartupItem = document.getElementById("show-panes-on-startup");
     this._showVariablesOnlyEnumItem = document.getElementById("show-vars-only-enum");
     this._showVariablesFilterBoxItem = document.getElementById("show-vars-filter-box");
+    this._showOriginalSourceItem = document.getElementById("show-original-source");
 
     this._pauseOnExceptionsItem.setAttribute("checked", Prefs.pauseOnExceptions);
     this._showPanesOnStartupItem.setAttribute("checked", Prefs.panesVisibleOnStartup);
     this._showVariablesOnlyEnumItem.setAttribute("checked", Prefs.variablesOnlyEnumVisible);
     this._showVariablesFilterBoxItem.setAttribute("checked", Prefs.variablesSearchboxVisible);
+    this._showOriginalSourceItem.setAttribute("checked", Prefs.sourceMapsEnabled);
   },
 
   /**
@@ -246,10 +265,21 @@ OptionsView.prototype = {
       this._showVariablesFilterBoxItem.getAttribute("checked") == "true";
   },
 
+  /**
+   * Listener handling the 'show original source' menuitem command.
+   */
+  _toggleShowOriginalSource: function DVO__toggleShowOriginalSource() {
+    let pref = Prefs.sourceMapsEnabled =
+      this._showOriginalSourceItem.getAttribute("checked") == "true";
+
+    DebuggerController.reconfigureThread(pref);
+  },
+
   _button: null,
   _pauseOnExceptionsItem: null,
   _showPanesOnStartupItem: null,
   _showVariablesOnlyEnumItem: null,
+  _showOriginalSourceItem: null,
   _showVariablesFilterBoxItem: null
 };
 

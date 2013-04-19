@@ -1,6 +1,5 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=4 sw=4 et tw=99:
- *
+/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -563,4 +562,16 @@ CodeGeneratorX86::postAsmJSCall(LAsmJSCall *lir)
     masm.fstp(Operand(esp, 0));
     masm.movsd(Operand(esp, 0), ReturnFloatReg);
     masm.freeStack(sizeof(double));
+}
+
+void
+ParallelGetPropertyIC::initializeAddCacheState(LInstruction *ins, AddCacheState *addState)
+{
+    // We don't have a scratch register, but only use the temp if we needed
+    // one, it's BogusTemp otherwise.
+    JS_ASSERT(ins->isGetPropertyCacheV() || ins->isGetPropertyCacheT());
+    if (ins->isGetPropertyCacheV() || ins->toGetPropertyCacheT()->temp()->isBogusTemp())
+        addState->dispatchScratch = output_.scratchReg().gpr();
+    else
+        addState->dispatchScratch = ToRegister(ins->toGetPropertyCacheT()->temp());
 }

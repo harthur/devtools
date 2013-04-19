@@ -404,8 +404,8 @@ VariablesView.prototype = {
       return;
     }
     this._searchboxContainer.parentNode.removeChild(this._searchboxContainer);
-    this._searchboxNode.addEventListener("input", this._onSearchboxInput, false);
-    this._searchboxNode.addEventListener("keypress", this._onSearchboxKeyPress, false);
+    this._searchboxNode.removeEventListener("input", this._onSearchboxInput, false);
+    this._searchboxNode.removeEventListener("keypress", this._onSearchboxKeyPress, false);
 
     this._searchboxContainer = null;
     this._searchboxNode = null;
@@ -734,40 +734,27 @@ VariablesView.prototype = {
         return;
 
       case e.DOM_VK_DOWN:
-        // Only expand scopes before advancing focus.
-        if (!(item instanceof Variable) &&
-            !(item instanceof Property) &&
-            !item._isExpanded && item._isArrowVisible) {
-          item.expand();
-        } else {
-          this.focusNextItem(true);
-        }
+        // Always advance focus.
+        this.focusNextItem(true);
         return;
 
       case e.DOM_VK_LEFT:
-        // If this is a collapsed or un-expandable item that has an expandable
-        // variable or property parent, collapse and focus the owner view.
-        if (!item._isExpanded || !item._isArrowVisible) {
-          let ownerView = item.ownerView;
-          if ((ownerView instanceof Variable ||
-               ownerView instanceof Property) &&
-               ownerView._isExpanded && ownerView._isArrowVisible) {
-            if (this._focusItem(ownerView, true)) {
-              return;
-            }
-          }
-        }
         // Collapse scopes, variables and properties before rewinding focus.
         if (item._isExpanded && item._isArrowVisible) {
           item.collapse();
         } else {
-          this.focusPrevItem(true);
+          this._focusItem(item.ownerView);
         }
         return;
 
       case e.DOM_VK_RIGHT:
+        // Nothing to do here if this item never expands.
+        if (!item._isArrowVisible) {
+          return;
+        }
+
         // Expand scopes, variables and properties before advancing focus.
-        if (!item._isExpanded && item._isArrowVisible) {
+        if (!item._isExpanded) {
           item.expand();
         } else {
           this.focusNextItem(true);
@@ -918,6 +905,18 @@ VariablesView.prototype = {
   _emptyTextValue: ""
 };
 
+VariablesView.NON_SORTABLE_CLASSES = [
+  "Array",
+  "Int8Array",
+  "Uint8Array",
+  "Int16Array",
+  "Uint16Array",
+  "Int32Array",
+  "Uint32Array",
+  "Float32Array",
+  "Float64Array"
+];
+
 /**
  * Generates the string evaluated when performing simple value changes.
  *
@@ -983,7 +982,8 @@ VariablesView.getterOrSetterEvalMacro = function(aItem, aCurrentString) {
       // morph it into a plain value.
       if ((type == "set" && propertyObject.getter.type == "undefined") ||
           (type == "get" && propertyObject.setter.type == "undefined")) {
-        return VariablesView.overrideValueEvalMacro(propertyObject, "undefined");
+        // Make sure the right getter/setter to value override macro is applied to the target object.
+        return propertyObject.evaluationMacro(propertyObject, "undefined");
       }
 
       // Construct and return the getter/setter removal evaluation string.
@@ -1041,7 +1041,10 @@ VariablesView.getterOrSetterEvalMacro = function(aItem, aCurrentString) {
  */
 VariablesView.getterOrSetterDeleteCallback = function(aItem) {
   aItem._disable();
-  aItem.ownerView.eval(VariablesView.getterOrSetterEvalMacro(aItem, ""));
+
+  // Make sure the right getter/setter to value override macro is applied to the target object.
+  aItem.ownerView.eval(aItem.evaluationMacro(aItem, ""));
+
   return true; // Don't hide the element.
 };
 
@@ -1417,6 +1420,13 @@ Scope.prototype = {
   },
 
   /**
+   * Focus this scope.
+   */
+  focus: function S_focus() {
+    this._variablesView._focusItem(this);
+  },
+
+  /**
    * Adds an event listener for a certain event on this scope's title.
    * @param string aName
    * @param function aCallback
@@ -1447,6 +1457,18 @@ Scope.prototype = {
    * @return string
    */
   get name() this._nameString,
+
+  /**
+   * Gets the displayed value for this item.
+   * @return string
+   */
+  get displayValue() this._valueString,
+
+  /**
+   * Gets the class names used for the displayed value.
+   * @return string
+   */
+  get displayValueClassName() this._valueClassName,
 
   /**
    * Gets the element associated with this item.
@@ -1521,11 +1543,13 @@ Scope.prototype = {
    * The click listener for this scope's title.
    */
   _onClick: function S__onClick(e) {
-    if (e.target == this._inputNode) {
+    if (e.target == this._inputNode ||
+        e.target == this._editNode ||
+        e.target == this._deleteNode) {
       return;
     }
     this.toggle();
-    this._variablesView._focusItem(this);
+    this.focus();
   },
 
   /**
@@ -1907,7 +1931,7 @@ ViewHelpers.create({ constructor: Variable, proto: Scope.prototype }, {
    *                 someProp4: { value: { type: "null" } },
    *                 someProp5: { value: { type: "object", class: "Object" } },
    *                 someProp6: { get: { type: "object", class: "Function" },
-   *                              set: { type: "undefined" } }
+   *                              set: { type: "undefined" } } }
    * @param object aOptions [optional]
    *        Additional options for adding the properties. Supported options:
    *        - sorted: true to sort all the properties before adding them
@@ -2190,6 +2214,7 @@ ViewHelpers.create({ constructor: Variable, proto: Scope.prototype }, {
       // evaluation method is provided.
       else {
         this.delete = null;
+        this.evaluationMacro = null;
       }
 
       let getter = this.addProperty("get", { value: descriptor.get });
@@ -2528,11 +2553,11 @@ ViewHelpers.create({ constructor: Variable, proto: Scope.prototype }, {
       case e.DOM_VK_RETURN:
       case e.DOM_VK_ENTER:
         this._saveNameInput(e);
-        this._variablesView._focusItem(this);
+        this.focus();
         return;
       case e.DOM_VK_ESCAPE:
         this._deactivateNameInput(e);
-        this._variablesView._focusItem(this);
+        this.focus();
         return;
     }
   },
@@ -2547,11 +2572,11 @@ ViewHelpers.create({ constructor: Variable, proto: Scope.prototype }, {
       case e.DOM_VK_RETURN:
       case e.DOM_VK_ENTER:
         this._saveValueInput(e);
-        this._variablesView._focusItem(this);
+        this.focus();
         return;
       case e.DOM_VK_ESCAPE:
         this._deactivateValueInput(e);
-        this._variablesView._focusItem(this);
+        this.focus();
         return;
     }
   },

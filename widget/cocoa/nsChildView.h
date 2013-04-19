@@ -22,6 +22,7 @@
 #include "TextInputHandler.h"
 #include "nsCocoaUtils.h"
 #include "gfxQuartzSurface.h"
+#include "GLContext.h"
 
 #include "nsString.h"
 #include "nsIDragService.h"
@@ -89,7 +90,7 @@ class TextureImage;
 }
 
 namespace layers {
-class LayerManagerOGL;
+class GLManager;
 }
 }
 
@@ -253,17 +254,26 @@ typedef NSInteger NSEventGestureAxis;
     eGestureState_None,
     eGestureState_StartGesture,
     eGestureState_MagnifyGesture,
-    eGestureState_RotateGesture
+    eGestureState_RotateGesture,
+    eGestureState_TapGesture
   } mGestureState;
   float mCumulativeMagnification;
   float mCumulativeRotation;
 
+  // Custom double tap gesture support
+  //
+  // mFirstTapTime keeps track of the time when the first tap occured
+  // and is used to check whether second tap should be recognized as
+  // a double tap gesture.
+  NSTimeInterval mFirstTapTime;
+
   BOOL mDidForceRefreshOpenGL;
   BOOL mWaitingForPaint;
 
-  // Support for fluid swipe tracking.
 #ifdef __LP64__
-  BOOL *mSwipeAnimationCancelled;
+  // Support for fluid swipe tracking.
+  BOOL* mCancelSwipeAnimation;
+  PRUint32 mCurrentSwipeDir;
 #endif
 
   // Whether this uses off-main-thread compositing.
@@ -324,10 +334,15 @@ typedef NSInteger NSEventGestureAxis;
 - (void)rotateWithEvent:(NSEvent *)anEvent;
 - (void)endGestureWithEvent:(NSEvent *)anEvent;
 
+// Not a genuine nsResponder method, but called by touchesBeganWithEvent
+// to simulate double-tap recognition
+- (void)tapWithEvent:(NSEvent *)anEvent;
+
 // Support for fluid swipe tracking.
 #ifdef __LP64__
 - (void)maybeTrackScrollEventAsSwipe:(NSEvent *)anEvent
-                      scrollOverflow:(double)overflow;
+                     scrollOverflowX:(double)overflowX
+                     scrollOverflowY:(double)overflowY;
 #endif
 
 - (void)setUsingOMTCompositor:(BOOL)aUseOMTC;
@@ -558,8 +573,8 @@ protected:
     return widget.forget();
   }
 
-  void MaybeDrawResizeIndicator(mozilla::layers::LayerManagerOGL* aManager, nsIntRect aRect);
-  void MaybeDrawRoundedBottomCorners(mozilla::layers::LayerManagerOGL* aManager, nsIntRect aRect);
+  void MaybeDrawResizeIndicator(mozilla::layers::GLManager* aManager, nsIntRect aRect);
+  void MaybeDrawRoundedBottomCorners(mozilla::layers::GLManager* aManager, nsIntRect aRect);
 
   nsIWidget* GetWidgetForListenerEvents();
 

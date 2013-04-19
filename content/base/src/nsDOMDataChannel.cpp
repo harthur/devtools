@@ -62,6 +62,7 @@ public:
     // Don't call us anymore!  Likely isn't an issue (or maybe just less of
     // one) once we block GC until all the (appropriate) onXxxx handlers
     // are dropped. (See WebRTC spec)
+    LOG(("Close()ing %p", mDataChannel.get()));
     mDataChannel->SetListener(nullptr, nullptr);
     mDataChannel->Close();
   }
@@ -71,7 +72,7 @@ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSIDOMDATACHANNEL
 
-  NS_FORWARD_NSIDOMEVENTTARGET(nsDOMEventTargetHelper::)
+  NS_REALLY_FORWARD_NSIDOMEVENTTARGET(nsDOMEventTargetHelper)
 
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(nsDOMDataChannel,
                                            nsDOMEventTargetHelper)
@@ -222,11 +223,12 @@ NS_IMETHODIMP
 nsDOMDataChannel::GetReadyState(nsAString& aReadyState)
 {
   uint16_t readyState = mDataChannel->GetReadyState();
+  // From the WebRTC spec
   const char * stateName[] = {
-    "Connecting",
-    "Open",
-    "Closing",
-    "Closed"
+    "connecting",
+    "open",
+    "closing",
+    "closed"
   };
   MOZ_ASSERT(/*readyState >= mozilla::DataChannel::CONNECTING && */ // Always true due to datatypes
              readyState <= mozilla::DataChannel::CLOSED);

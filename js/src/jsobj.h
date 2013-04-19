@@ -1,6 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=8 sw=4 et tw=78:
- *
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -192,16 +191,16 @@ extern JSBool
 SetElementAttributes(JSContext *cx, HandleObject obj, uint32_t index, unsigned *attrsp);
 
 extern JSBool
-DeleteProperty(JSContext *cx, HandleObject obj, HandlePropertyName name, MutableHandleValue rval, JSBool strict);
+DeleteProperty(JSContext *cx, HandleObject obj, HandlePropertyName name, JSBool *succeeded);
 
 extern JSBool
-DeleteElement(JSContext *cx, HandleObject obj, uint32_t index, MutableHandleValue rval, JSBool strict);
+DeleteElement(JSContext *cx, HandleObject obj, uint32_t index, JSBool *succeeded);
 
 extern JSBool
-DeleteSpecial(JSContext *cx, HandleObject obj, HandleSpecialId sid, MutableHandleValue rval, JSBool strict);
+DeleteSpecial(JSContext *cx, HandleObject obj, HandleSpecialId sid, JSBool *succeeded);
 
 extern JSBool
-DeleteGeneric(JSContext *cx, HandleObject obj, HandleId id, MutableHandleValue rval, JSBool strict);
+DeleteGeneric(JSContext *cx, HandleObject obj, HandleId id, JSBool *succeeded);
 
 } /* namespace js::baseops */
 
@@ -892,15 +891,13 @@ class JSObject : public js::ObjectImpl
 
     static inline bool deleteProperty(JSContext *cx, js::HandleObject obj,
                                       js::HandlePropertyName name,
-                                      js::MutableHandleValue rval, bool strict);
+                                      JSBool *succeeded);
     static inline bool deleteElement(JSContext *cx, js::HandleObject obj,
-                                     uint32_t index,
-                                     js::MutableHandleValue rval, bool strict);
+                                     uint32_t index, JSBool *succeeded);
     static inline bool deleteSpecial(JSContext *cx, js::HandleObject obj,
-                                     js::HandleSpecialId sid,
-                                     js::MutableHandleValue rval, bool strict);
+                                     js::HandleSpecialId sid, JSBool *succeeded);
     static bool deleteByValue(JSContext *cx, js::HandleObject obj,
-                              const js::Value &property, js::MutableHandleValue rval, bool strict);
+                              const js::Value &property, JSBool *succeeded);
 
     static inline bool enumerate(JSContext *cx, JS::HandleObject obj, JSIterateOp iterop,
                                  JS::MutableHandleValue statep, JS::MutableHandleId idp);
@@ -1180,7 +1177,14 @@ enum NewObjectKind {
      * be allocated on the correct heap, but are not automatically setup as a
      * singleton after allocation.
      */
-    MaybeSingletonObject
+    MaybeSingletonObject,
+
+    /*
+     * Objects which will not benefit from being allocated in the nursery
+     * (e.g. because they are known to have a long lifetime) may be allocated
+     * with this kind to place them immediately into the tenured generation.
+     */
+    TenuredObject
 };
 
 inline gc::InitialHeap
@@ -1330,6 +1334,18 @@ GetPropertyHelper(JSContext *cx, HandleObject obj, PropertyName *name, uint32_t 
 {
     RootedId id(cx, NameToId(name));
     return GetPropertyHelper(cx, obj, id, getHow, vp);
+}
+
+bool
+LookupPropertyPure(JSObject *obj, jsid id, JSObject **objp, Shape **propp);
+
+bool
+GetPropertyPure(JSObject *obj, jsid id, Value *vp);
+
+inline bool
+GetPropertyPure(JSObject *obj, PropertyName *name, Value *vp)
+{
+    return GetPropertyPure(obj, NameToId(name), vp);
 }
 
 bool

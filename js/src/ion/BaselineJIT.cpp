@@ -1,6 +1,5 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=4 sw=4 et tw=99:
- *
+/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -174,10 +173,8 @@ EnterBaseline(JSContext *cx, StackFrame *fp, void *jitcode, bool osr)
 IonExecStatus
 ion::EnterBaselineMethod(JSContext *cx, StackFrame *fp)
 {
-    RootedScript script(cx, fp->script());
-    BaselineScript *baseline = script->baseline;
-    IonCode *code = baseline->method();
-    void *jitcode = code->raw();
+    BaselineScript *baseline = fp->script()->baselineScript();
+    void *jitcode = baseline->method()->raw();
 
     return EnterBaseline(cx, fp, jitcode, /* osr = */false);
 }
@@ -187,9 +184,8 @@ ion::EnterBaselineAtBranch(JSContext *cx, StackFrame *fp, jsbytecode *pc)
 {
     JS_ASSERT(JSOp(*pc) == JSOP_LOOPENTRY);
 
-    RootedScript script(cx, fp->script());
-    BaselineScript *baseline = script->baseline;
-    uint8_t *jitcode = baseline->nativeCodeForPC(script, pc);
+    BaselineScript *baseline = fp->script()->baselineScript();
+    uint8_t *jitcode = baseline->nativeCodeForPC(fp->script(), pc);
 
     // Skip debug breakpoint/trap handler, the interpreter already handled it
     // for the current op.
@@ -202,7 +198,8 @@ ion::EnterBaselineAtBranch(JSContext *cx, StackFrame *fp, jsbytecode *pc)
 static MethodStatus
 BaselineCompile(JSContext *cx, HandleScript script)
 {
-    JS_ASSERT(!script->baseline);
+    JS_ASSERT(!script->hasBaselineScript());
+    JS_ASSERT(script->canBaselineCompile());
 
     LifoAlloc alloc(BASELINE_LIFO_ALLOC_PRIMARY_CHUNK_SIZE);
 
@@ -219,11 +216,11 @@ BaselineCompile(JSContext *cx, HandleScript script)
     AutoFlushCache afc("BaselineJIT", cx->runtime->ionRuntime());
     MethodStatus status = compiler.compile();
 
-    JS_ASSERT_IF(status == Method_Compiled, script->baseline);
-    JS_ASSERT_IF(status != Method_Compiled, !script->baseline);
+    JS_ASSERT_IF(status == Method_Compiled, script->hasBaselineScript());
+    JS_ASSERT_IF(status != Method_Compiled, !script->hasBaselineScript());
 
     if (status == Method_CantCompile)
-        script->baseline = BASELINE_DISABLED_SCRIPT;
+        script->setBaselineScript(BASELINE_DISABLED_SCRIPT);
 
     return status;
 }
@@ -235,7 +232,7 @@ ion::CanEnterBaselineJIT(JSContext *cx, JSScript *scriptArg, StackFrame *fp, boo
     JS_ASSERT(ion::IsBaselineEnabled(cx));
 
     // Skip if the script has been disabled.
-    if (scriptArg->baseline == BASELINE_DISABLED_SCRIPT)
+    if (!scriptArg->canBaselineCompile())
         return Method_Skipped;
 
     if (scriptArg->length > BaselineScript::MAX_JSSCRIPT_LENGTH)
@@ -261,10 +258,15 @@ ion::CanEnterBaselineJIT(JSContext *cx, JSScript *scriptArg, StackFrame *fp, boo
     if (script->hasBaselineScript())
         return Method_Compiled;
 
-    // Eagerly compile scripts if JSD is enabled, so that we don't have to OSR
-    // and don't have to update the frame pointer stored in JSD's frames list.
-    if (scriptArg->incUseCount() <= js_IonOptions.baselineUsesBeforeCompile && !IsJSDEnabled(cx))
+    // Check script use count. However, always eagerly compile scripts if JSD
+    // is enabled, so that we don't have to OSR and don't have to update the
+    // frame pointer stored in JSD's frames list.
+    if (IsJSDEnabled(cx)) {
+        if (JSOp(*cx->regs().pc) == JSOP_LOOPENTRY) // No OSR.
+            return Method_Skipped;
+    } else if (scriptArg->incUseCount() <= js_IonOptions.baselineUsesBeforeCompile) {
         return Method_Skipped;
+    }
 
     if (script->isCallsiteClone) {
         // Ensure the original function is compiled too, so that bailouts from
@@ -272,7 +274,7 @@ ion::CanEnterBaselineJIT(JSContext *cx, JSScript *scriptArg, StackFrame *fp, boo
         RootedScript original(cx, script->originalFunction()->nonLazyScript());
         JS_ASSERT(original != script);
 
-        if (original->baseline == BASELINE_DISABLED_SCRIPT)
+        if (!original->canBaselineCompile())
             return Method_CantCompile;
 
         if (!original->hasBaselineScript()) {
@@ -530,7 +532,7 @@ BaselineScript::copyPCMappingIndexEntries(const PCMappingIndexEntry *entries)
 uint8_t *
 BaselineScript::nativeCodeForPC(JSScript *script, jsbytecode *pc, PCMappingSlotInfo *slotInfo)
 {
-    JS_ASSERT(script->baseline == this);
+    JS_ASSERT(script->baselineScript() == this);
     JS_ASSERT(pc >= script->code);
     JS_ASSERT(pc < script->code + script->length);
 
@@ -581,7 +583,7 @@ BaselineScript::nativeCodeForPC(JSScript *script, jsbytecode *pc, PCMappingSlotI
 void
 BaselineScript::toggleDebugTraps(RawScript script, jsbytecode *pc)
 {
-    JS_ASSERT(script->baseline == this);
+    JS_ASSERT(script->baselineScript() == this);
 
     SrcNoteLineScanner scanner(script->notes(), script->lineno);
 
@@ -704,19 +706,19 @@ ion::FinishDiscardBaselineScript(FreeOp *fop, RawScript script)
     if (!script->hasBaselineScript())
         return;
 
-    if (script->baseline->active()) {
+    if (script->baselineScript()->active()) {
         // Script is live on the stack. Keep the BaselineScript, but destroy
         // stubs allocated in the optimized stub space.
-        script->baseline->purgeOptimizedStubs(script->zone());
+        script->baselineScript()->purgeOptimizedStubs(script->zone());
 
         // Reset |active| flag so that we don't need a separate script
         // iteration to unmark them.
-        script->baseline->resetActive();
+        script->baselineScript()->resetActive();
         return;
     }
 
-    BaselineScript::Destroy(fop, script->baseline);
-    script->baseline = NULL;
+    BaselineScript::Destroy(fop, script->baselineScript());
+    script->setBaselineScript(NULL);
 }
 
 void
@@ -736,7 +738,7 @@ ion::SizeOfBaselineData(JSScript *script, JSMallocSizeOfFun mallocSizeOf, size_t
     *fallbackStubs = 0;
 
     if (script->hasBaselineScript())
-        script->baseline->sizeOfIncludingThis(mallocSizeOf, data, fallbackStubs);
+        script->baselineScript()->sizeOfIncludingThis(mallocSizeOf, data, fallbackStubs);
 }
 
 void

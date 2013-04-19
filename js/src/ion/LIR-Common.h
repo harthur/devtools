@@ -1,6 +1,5 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=4 sw=4 et tw=99:
- *
+/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -479,6 +478,26 @@ class LParBailout : public LInstructionHelper<0, 0, 0>
     LIR_HEADER(ParBailout);
 };
 
+class LInitElem : public LCallInstructionHelper<0, 1 + 2*BOX_PIECES, 0>
+{
+  public:
+    LIR_HEADER(InitElem)
+
+    LInitElem(const LAllocation &object) {
+        setOperand(0, object);
+    }
+
+    static const size_t IdIndex = 1;
+    static const size_t ValueIndex = 1 + BOX_PIECES;
+
+    const LAllocation *getObject() {
+        return getOperand(0);
+    }
+    MInitElem *mir() const {
+        return mir_->toInitElem();
+    }
+};
+
 // Takes in an Object and a Value.
 class LInitProp : public LCallInstructionHelper<0, 1 + BOX_PIECES, 0>
 {
@@ -607,16 +626,26 @@ class LTypeOfV : public LInstructionHelper<1, BOX_PIECES, 0>
     }
 };
 
-class LToIdV : public LCallInstructionHelper<BOX_PIECES, 2 * BOX_PIECES, 0>
+class LToIdV : public LInstructionHelper<BOX_PIECES, 2 * BOX_PIECES, 1>
 {
   public:
     LIR_HEADER(ToIdV)
+    BOX_OUTPUT_ACCESSORS()
+
+    LToIdV(const LDefinition &temp)
+    {
+        setTemp(0, temp);
+    }
 
     static const size_t Object = 0;
     static const size_t Index = BOX_PIECES;
 
     MToId *mir() const {
         return mir_->toToId();
+    }
+
+    const LDefinition *tempFloat() {
+        return getTemp(0);
     }
 };
 
@@ -2149,14 +2178,15 @@ class LBinaryV : public LCallInstructionHelper<BOX_PIECES, 2 * BOX_PIECES, 0>
 };
 
 // Adds two string, returning a string.
-class LConcat : public LCallInstructionHelper<1, 2, 0>
+class LConcat : public LInstructionHelper<1, 2, 1>
 {
   public:
     LIR_HEADER(Concat)
 
-    LConcat(const LAllocation &lhs, const LAllocation &rhs) {
+    LConcat(const LAllocation &lhs, const LAllocation &rhs, const LDefinition &temp) {
         setOperand(0, lhs);
         setOperand(1, rhs);
+        setTemp(0, temp);
     }
 
     const LAllocation *lhs() {
@@ -2164,6 +2194,9 @@ class LConcat : public LCallInstructionHelper<1, 2, 0>
     }
     const LAllocation *rhs() {
         return this->getOperand(1);
+    }
+    const LDefinition *temp() {
+        return this->getTemp(0);
     }
 };
 
@@ -2709,15 +2742,18 @@ class LLoadElementV : public LInstructionHelper<BOX_PIECES, 2, 0>
     }
 };
 
-class LInArray : public LInstructionHelper<1, 3, 0>
+class LInArray : public LInstructionHelper<1, 4, 0>
 {
   public:
     LIR_HEADER(InArray)
 
-    LInArray(const LAllocation &elements, const LAllocation &index, const LAllocation &initLength) {
+    LInArray(const LAllocation &elements, const LAllocation &index,
+             const LAllocation &initLength, const LAllocation &object)
+    {
         setOperand(0, elements);
         setOperand(1, index);
         setOperand(2, initLength);
+        setOperand(3, object);
     }
     const MInArray *mir() const {
         return mir_->toInArray();
@@ -2730,6 +2766,9 @@ class LInArray : public LInstructionHelper<1, 3, 0>
     }
     const LAllocation *initLength() {
         return getOperand(2);
+    }
+    const LAllocation *object() {
+        return getOperand(3);
     }
 };
 
@@ -3319,13 +3358,17 @@ class LGetPropertyCacheV : public LInstructionHelper<BOX_PIECES, 1, 0>
 
 // Patchable jump to stubs generated for a GetProperty cache, which loads a
 // value of a known type, possibly into an FP register.
-class LGetPropertyCacheT : public LInstructionHelper<1, 1, 0>
+class LGetPropertyCacheT : public LInstructionHelper<1, 1, 1>
 {
   public:
     LIR_HEADER(GetPropertyCacheT)
 
-    LGetPropertyCacheT(const LAllocation &object) {
+    LGetPropertyCacheT(const LAllocation &object, const LDefinition &temp) {
         setOperand(0, object);
+        setTemp(0, temp);
+    }
+    const LDefinition *temp() {
+        return getTemp(0);
     }
     const MGetPropertyCache *mir() const {
         return mir_->toGetPropertyCache();

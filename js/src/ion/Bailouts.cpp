@@ -1,6 +1,5 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=4 sw=4 et tw=99:
- *
+/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -223,7 +222,7 @@ ConvertFrames(JSContext *cx, IonActivation *activation, IonBailoutIterator &it)
     // determine if we have a critical sequence of bailout.
     //
     // Note: frame conversion only occurs in sequential mode
-    if (it.script()->ion == it.ionScript()) {
+    if (it.script()->maybeIonScript() == it.ionScript()) {
         IonSpew(IonSpew_Bailouts, " Current script use count is %u",
                 it.script()->getUseCount());
     }
@@ -539,8 +538,7 @@ ion::ShapeGuardFailure()
     JSContext *cx = GetIonContext()->cx;
     RawScript script = GetBailedJSScript(cx);
 
-    JS_ASSERT(script->hasIonScript());
-    JS_ASSERT(!script->ion->invalidated());
+    JS_ASSERT(!script->ionScript()->invalidated());
 
     script->failedShapeGuard = true;
 
@@ -555,15 +553,14 @@ ion::CachedShapeGuardFailure()
     JSContext *cx = GetIonContext()->cx;
     RawScript script = GetBailedJSScript(cx);
 
-    JS_ASSERT(script->hasIonScript());
-    JS_ASSERT(!script->ion->invalidated());
+    JS_ASSERT(!script->ionScript()->invalidated());
 
     script->failedShapeGuard = true;
 
     // Purge JM caches in the script and all inlined script, to avoid baking in
     // the same shape guard next time.
-    for (size_t i = 0; i < script->ion->scriptEntries(); i++)
-        mjit::PurgeCaches(script->ion->getScript(i));
+    for (size_t i = 0; i < script->ionScript()->scriptEntries(); i++)
+        mjit::PurgeCaches(script->ionScript()->getScript(i));
 
     IonSpew(IonSpew_Invalidate, "Invalidating due to shape guard failure");
 

@@ -207,11 +207,6 @@
               0 0 4px 0 rgba(255,255,255,1.0) inset;
 }
 
-.side-menu-widget-container,
-.side-menu-widget-item-or-group {
-  box-shadow: none !important;
-}
-
 .side-menu-widget-item:nth-child(even) {
   background: rgba(255,255,255,0.05);
 }
@@ -301,4 +296,20 @@
 
 #timings-tabpanel .requests-menu-timings-total {
   transition: transform 0.2s ease-out;
+}
+
+/* Responsive sidebar */
+@media (max-width: 700px) {
+  #details-pane {
+    max-width: none;
+    margin: 0 !important;
+    /* To prevent all the margin hacks to hide the sidebar */
+  }
+
+  .requests-menu-size {
+    border-width: 0px !important;
+    box-shadow: none !important;
+    /* !important are required here because Timeline is not visible and thus
+       the right border and box-shadow of Size column should be hidden */
+  }
 }

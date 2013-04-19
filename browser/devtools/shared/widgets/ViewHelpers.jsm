@@ -108,6 +108,14 @@ this.ViewHelpers = {
    *        The element representing the pane to toggle.
    */
   togglePane: function VH_togglePane(aFlags, aPane) {
+    // Hiding is always handled via margins, not the hidden attribute.
+    aPane.removeAttribute("hidden");
+
+    // Add a class to the pane to handle min-widths, margins and animations.
+    if (!aPane.classList.contains("generic-toggled-side-pane")) {
+      aPane.classList.add("generic-toggled-side-pane");
+    }
+
     // Avoid useless toggles.
     if (aFlags.visible == !aPane.hasAttribute("pane-collapsed")) {
       if (aFlags.callback) aFlags.callback();
@@ -139,14 +147,6 @@ this.ViewHelpers = {
         if (aFlags.callback) aFlags.callback();
       }
     }
-
-    // Add a class to the pane to handle min-widths, margins and animations.
-    if (!aPane.classList.contains("generic-toggled-side-pane")) {
-      aPane.classList.add("generic-toggled-side-pane");
-    }
-
-    // Hiding is always handled via margins, not the hidden attribute.
-    aPane.removeAttribute("hidden");
 
     // The "animated" attributes enables animated toggles (slide in-out).
     if (aFlags.animated) {
@@ -201,6 +201,32 @@ ViewHelpers.L10N.prototype = {
    */
   getFormatStr: function L10N_getFormatStr(aName, ...aArgs) {
     return this.stringBundle.formatStringFromName(aName, aArgs, aArgs.length);
+  },
+
+  /**
+   * Converts a number to a locale-aware string format and keeps a certain
+   * number of decimals.
+   *
+   * @param number aNumber
+   *        The number to convert.
+   * @param number aDecimals [optional]
+   *        Total decimals to keep.
+   * @return string
+   *         The localized number as a string.
+   */
+  numberWithDecimals: function L10N__numberWithDecimals(aNumber, aDecimals = 0) {
+    // If this is an integer, don't do anything special.
+    if (aNumber == (aNumber | 0)) {
+      return aNumber;
+    }
+    // Remove {n} trailing decimals. Can't use toFixed(n) because
+    // toLocaleString converts the number to a string. Also can't use
+    // toLocaleString(, { maximumFractionDigits: n }) because it's not
+    // implemented on OS X (bug 368838). Gross.
+    let localized = aNumber.toLocaleString(); // localize
+    let padded = localized + new Array(aDecimals).join("0"); // pad with zeros
+    let match = padded.match("([^]*?\\d{" + aDecimals + "})\\d*$");
+    return match.pop();
   }
 };
 

@@ -52,6 +52,8 @@ function test() {
 
       is(tabpanel.querySelector("#headers-summary-url-value").getAttribute("value"),
         SIMPLE_SJS, "The url summary value is incorrect.");
+      is(tabpanel.querySelector("#headers-summary-url-value").getAttribute("tooltiptext"),
+        SIMPLE_SJS, "The url summary tooltiptext is incorrect.");
       is(tabpanel.querySelector("#headers-summary-method-value").getAttribute("value"),
         "GET", "The method summary value is incorrect.");
       is(tabpanel.querySelector("#headers-summary-status-circle").getAttribute("code"),
@@ -71,14 +73,15 @@ function test() {
 
       is(responseScope.querySelector(".name").getAttribute("value"),
         L10N.getStr("responseHeaders") + " (" +
-        L10N.getFormatStr("networkMenu.sizeKB", "0.169") + ")",
+        L10N.getFormatStr("networkMenu.sizeKB", L10N.numberWithDecimals(0.168, 3)) + ")",
         "The response headers scope doesn't have the correct title.");
 
       ok(requestScope.querySelector(".name").getAttribute("value").contains(
-        L10N.getStr("requestHeaders") + " (0."),
-        // Can't test for full request headers title because the size may
-        // vary across platforms ("User-Agent" header differs).
+        L10N.getStr("requestHeaders") + " (0"),
         "The request headers scope doesn't have the correct title.");
+      // Can't test for full request headers title because the size may
+      // vary across platforms ("User-Agent" header differs). We're pretty
+      // sure it's smaller than 1 MB though, so it starts with a 0.
 
       is(responseScope.querySelectorAll(".variables-view-variable .name")[0].getAttribute("value"),
         "Connection", "The first response header name was incorrect.");

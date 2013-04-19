@@ -5,8 +5,8 @@
 
 package org.mozilla.gecko;
 
-import org.mozilla.gecko.db.BrowserDB;
 import org.mozilla.gecko.db.BrowserContract.Combined;
+import org.mozilla.gecko.db.BrowserDB;
 import org.mozilla.gecko.util.GamepadUtils;
 import org.mozilla.gecko.util.StringUtils;
 import org.mozilla.gecko.util.ThreadUtils;
@@ -28,6 +28,7 @@ import android.text.InputType;
 import android.text.Spanned;
 import android.text.TextUtils;
 import android.text.TextWatcher;
+import android.util.AttributeSet;
 import android.util.Log;
 import android.view.ContextMenu;
 import android.view.ContextMenu.ContextMenuInfo;
@@ -40,21 +41,13 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
-import android.widget.ListView;
 import android.widget.TabWidget;
 import android.widget.Toast;
 
 import java.net.URLEncoder;
-import java.util.Arrays;
-import java.util.Collection;
 
 public class AwesomeBar extends GeckoActivity {
     private static final String LOGTAG = "GeckoAwesomeBar";
-
-    private static final Collection<String> sSwypeInputMethods = Arrays.asList(new String[] {
-                                                                 InputMethods.METHOD_SWYPE,
-                                                                 InputMethods.METHOD_SWYPE_BETA,
-                                                                 });
 
     public static final String URL_KEY = "url";
     public static final String CURRENT_URL_KEY = "currenturl";
@@ -70,16 +63,17 @@ public class AwesomeBar extends GeckoActivity {
     private CustomEditText mText;
     private ImageButton mGoButton;
     private ContextMenuSubject mContextMenuSubject;
-    private boolean mIsUsingSwype;
+    private boolean mIsUsingGestureKeyboard;
     private boolean mDelayRestartInput;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        LayoutInflater.from(this).setFactory(this);
+
         super.onCreate(savedInstanceState);
 
         Log.d(LOGTAG, "creating awesomebar");
 
-        LayoutInflater.from(this).setFactory(GeckoViewsFactory.getInstance());
         setContentView(R.layout.awesomebar);
 
         mGoButton = (ImageButton) findViewById(R.id.awesomebar_button);
@@ -272,6 +266,21 @@ public class AwesomeBar extends GeckoActivity {
         }
     }
 
+    /*
+     * Only one factory can be set on the inflater; however, we want to use two
+     * factories (GeckoViewsFactory and the FragmentActivity factory).
+     * Overriding onCreateView() here allows us to dispatch view creation to
+     * both factories.
+     */
+    @Override
+    public View onCreateView(String name, Context context, AttributeSet attrs) {
+        View view = GeckoViewsFactory.getInstance().onCreateView(name, context, attrs);
+        if (view == null) {
+            view = super.onCreateView(name, context, attrs);
+        }
+        return view;
+    }
+
     private boolean handleBackKey() {
         // Let mAwesomeTabs try to handle the back press, since we may be in a
         // bookmarks sub-folder.
@@ -297,17 +306,15 @@ public class AwesomeBar extends GeckoActivity {
         if (!hasFocus)
             return;
 
-        boolean wasUsingSwype = mIsUsingSwype;
-        mIsUsingSwype = sSwypeInputMethods.contains(InputMethods.getCurrentInputMethod(this));
-
-        if (mIsUsingSwype == wasUsingSwype)
+        boolean wasUsingGestureKeyboard = mIsUsingGestureKeyboard;
+        mIsUsingGestureKeyboard = InputMethods.isGestureKeyboard(this);
+        if (mIsUsingGestureKeyboard == wasUsingGestureKeyboard)
             return;
 
         int currentInputType = mText.getInputType();
-        int newInputType = mIsUsingSwype
-                           ? (currentInputType & ~InputType.TYPE_TEXT_VARIATION_URI)    // URL=OFF
-                           : (currentInputType | InputType.TYPE_TEXT_VARIATION_URI);    // URL=ON
-
+        int newInputType = mIsUsingGestureKeyboard
+                           ? (currentInputType & ~InputType.TYPE_TEXT_VARIATION_URI) // Text mode
+                           : (currentInputType | InputType.TYPE_TEXT_VARIATION_URI); // URL mode
         mText.setRawInputType(newInputType);
     }
 
@@ -340,13 +347,12 @@ public class AwesomeBar extends GeckoActivity {
             contentDescription = getString(R.string.search);
             imeAction = EditorInfo.IME_ACTION_SEARCH;
         }
-        mGoButton.setImageResource(imageResource);
-        mGoButton.setContentDescription(contentDescription);
 
         InputMethodManager imm = InputMethods.getInputMethodManager(mText.getContext());
         if (imm == null) {
             return;
         }
+        boolean restartInput = false;
         if (actionBits != imeAction) {
             int optionBits = mText.getImeOptions() & ~EditorInfo.IME_MASK_ACTION;
             mText.setImeOptions(optionBits | imeAction);
@@ -354,14 +360,19 @@ public class AwesomeBar extends GeckoActivity {
             mDelayRestartInput = (imeAction == EditorInfo.IME_ACTION_GO) &&
                                  (InputMethods.shouldDelayAwesomebarUpdate(mText.getContext()));
             if (!mDelayRestartInput) {
-                imm.restartInput(mText);
+                restartInput = true;
             }
         } else if (mDelayRestartInput) {
             // Only call delayed restartInput when actionBits == imeAction
             // so if there are two restarts in a row, the first restarts will
             // be discarded and the second restart will be properly delayed
             mDelayRestartInput = false;
+            restartInput = true;
+        }
+        if (restartInput) {
             imm.restartInput(mText);
+            mGoButton.setImageResource(imageResource);
+            mGoButton.setContentDescription(contentDescription);
         }
     }
 
@@ -392,25 +403,33 @@ public class AwesomeBar extends GeckoActivity {
         finishWithResult(resultIntent);
     }
 
-    private void openUserEnteredAndFinish(String url) {
-        int index = url.indexOf(' ');
-        String keywordUrl = null;
-        String keywordSearch = null;
+    private void openUserEnteredAndFinish(final String url) {
+        final int index = url.indexOf(' ');
 
-        if (index == -1) {
-            keywordUrl = BrowserDB.getUrlForKeyword(getContentResolver(), url);
-            keywordSearch = "";
+        // Check for a keyword if the URL looks like a search query
+        if (StringUtils.isSearchQuery(url, true)) {
+            ThreadUtils.postToBackgroundThread(new Runnable() {
+                @Override
+                public void run() {
+                    String keywordUrl = null;
+                    String keywordSearch = "";
+                    if (index == -1) {
+                        keywordUrl = BrowserDB.getUrlForKeyword(getContentResolver(), url);
+                    } else {
+                        keywordUrl = BrowserDB.getUrlForKeyword(getContentResolver(), url.substring(0, index));
+                        keywordSearch = url.substring(index + 1);
+                    }
+                    if (keywordUrl == null) {
+                        openUrlAndFinish(url, "", true);
+                    } else {
+                        String search = URLEncoder.encode(keywordSearch);
+                        openUrlAndFinish(keywordUrl.replace("%s", search), "", true);
+                    }
+                }
+            });
         } else {
-            keywordUrl = BrowserDB.getUrlForKeyword(getContentResolver(), url.substring(0, index));
-            keywordSearch = url.substring(index + 1);
+            openUrlAndFinish(url, "", true);
         }
-
-        if (keywordUrl != null) {
-            String search = URLEncoder.encode(keywordSearch);
-            url = keywordUrl.replace("%s", search);
-        }
-
-        openUrlAndFinish(url, "", true);
     }
 
     private void openSearchAndFinish(String url, String engine) {
@@ -524,7 +543,6 @@ public class AwesomeBar extends GeckoActivity {
     @Override
     public void onCreateContextMenu(ContextMenu menu, View view, ContextMenuInfo menuInfo) {
         super.onCreateContextMenu(menu, view, menuInfo);
-        ListView list = (ListView) view;
         AwesomeBarTab tab = mAwesomeTabs.getAwesomeBarTabForView(view);
         mContextMenuSubject = tab.getSubject(menu, view, menuInfo);
     }
@@ -539,7 +557,6 @@ public class AwesomeBar extends GeckoActivity {
         final byte[] b = mContextMenuSubject.favicon;
         final String title = mContextMenuSubject.title;
         final String keyword = mContextMenuSubject.keyword;
-        final int display = mContextMenuSubject.display;
 
         switch (item.getItemId()) {
             case R.id.open_in_reader: {

@@ -1,6 +1,5 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=4 sw=4 et tw=99:
- *
+/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -13,6 +12,8 @@
 
 #include "jsscript.h"
 #include "jstypedarrayinlines.h"
+
+#include "IonMacroAssembler.h"
 
 namespace js {
 
@@ -60,7 +61,7 @@ class AsmJSModule
                 uint32_t index_;
                 VarInitKind initKind_;
                 union {
-                    Value constant_;
+                    Value constant_; // will only contain int32/double
                     AsmJSCoercion coercion_;
                 } init;
             } var;
@@ -77,6 +78,8 @@ class AsmJSModule
         void trace(JSTracer *trc) {
             if (name_)
                 MarkString(trc, &name_, "asm.js global name");
+            JS_ASSERT_IF(which_ == Variable && u.var.initKind_ == InitConstant,
+                         !u.var.init.constant_.isMarkable());
         }
 
       public:
@@ -168,8 +171,11 @@ class AsmJSModule
             return u.code_;
         }
     };
-
+#ifdef JS_CPU_ARM
+    typedef int32_t (*CodePtr)(uint64_t *args, uint8_t *global);
+#else
     typedef int32_t (*CodePtr)(uint64_t *args);
+#endif
 
     typedef Vector<AsmJSCoercion, 0, SystemAllocPolicy> ArgCoercionVector;
 
@@ -296,11 +302,17 @@ class AsmJSModule
     typedef Vector<Global, 0, SystemAllocPolicy> GlobalVector;
     typedef Vector<Exit, 0, SystemAllocPolicy> ExitVector;
     typedef Vector<ion::AsmJSHeapAccess, 0, SystemAllocPolicy> HeapAccessVector;
+#if defined(JS_CPU_ARM)
+    typedef Vector<ion::AsmJSBoundsCheck, 0, SystemAllocPolicy> BoundsCheckVector;
+#endif
 
     GlobalVector                          globals_;
     ExitVector                            exits_;
     ExportedFunctionVector                exports_;
     HeapAccessVector                      heapAccesses_;
+#if defined(JS_CPU_ARM)
+    BoundsCheckVector                     boundsChecks_;
+#endif
     uint32_t                              numGlobalVars_;
     uint32_t                              numFFIs_;
     uint32_t                              numFuncPtrTableElems_;
@@ -322,13 +334,8 @@ class AsmJSModule
 
     PostLinkFailureInfo                   postLinkFailureInfo_;
 
-    uint8_t *globalData() const {
-        JS_ASSERT(code_);
-        return code_ + codeBytes_;
-    }
-
   public:
-    AsmJSModule(JSContext *cx)
+    explicit AsmJSModule(JSContext *cx)
       : numGlobalVars_(0),
         numFFIs_(0),
         numFuncPtrTableElems_(0),
@@ -364,6 +371,7 @@ class AsmJSModule
     }
 
     bool addGlobalVarInitConstant(const Value &v, uint32_t *globalIndex) {
+        JS_ASSERT(!v.isMarkable());
         if (numGlobalVars_ == UINT32_MAX)
             return false;
         Global g(Global::Variable);
@@ -445,7 +453,7 @@ class AsmJSModule
     unsigned numGlobals() const {
         return globals_.length();
     }
-    Global global(unsigned i) const {
+    Global &global(unsigned i) {
         return globals_[i];
     }
     unsigned numFuncPtrTableElems() const {
@@ -482,6 +490,11 @@ class AsmJSModule
     //
     // NB: The list of exits is extended while emitting function bodies and
     // thus exits must be at the end of the list to avoid invalidating indices.
+    uint8_t *globalData() const {
+        JS_ASSERT(code_);
+        return code_ + codeBytes_;
+    }
+
     size_t globalDataBytes() const {
         return sizeof(void*) +
                numGlobalVars_ * sizeof(uint64_t) +
@@ -551,6 +564,41 @@ class AsmJSModule
     const ion::AsmJSHeapAccess &heapAccess(unsigned i) const {
         return heapAccesses_[i];
     }
+#if defined(JS_CPU_ARM)
+    bool addBoundsChecks(const ion::AsmJSBoundsCheckVector &checks) {
+        if (!boundsChecks_.reserve(boundsChecks_.length() + checks.length()))
+            return false;
+        for (size_t i = 0; i < checks.length(); i++)
+            boundsChecks_.infallibleAppend(checks[i]);
+        return true;
+    }
+    void convertBoundsChecksToActualOffset(ion::MacroAssembler &masm) {
+        for (unsigned i = 0; i < boundsChecks_.length(); i++)
+            boundsChecks_[i].setOffset(masm.actualOffset(boundsChecks_[i].offset()));
+    }
+
+    void patchBoundsChecks(unsigned heapSize) {
+        ion::AutoFlushCache afc("patchBoundsCheck");
+        int bits = -1;
+        JS_CEILING_LOG2(bits, heapSize);
+        if (bits == -1) {
+            // tried to size the array to 0, that is bad, but not horrible
+            return;
+        }
+
+        for (unsigned i = 0; i < boundsChecks_.length(); i++)
+            ion::Assembler::updateBoundsCheck(bits, (ion::Instruction*)(boundsChecks_[i].offset() + code_));
+
+    }
+    unsigned numBoundsChecks() const {
+        return boundsChecks_.length();
+    }
+    const ion::AsmJSBoundsCheck &boundsCheck(unsigned i) const {
+        return boundsChecks_[i];
+    }
+#endif
+
+
 
     void takeOwnership(JSC::ExecutablePool *pool, uint8_t *code, size_t codeBytes, size_t totalBytes) {
         JS_ASSERT(uintptr_t(code) % gc::PageSize == 0);

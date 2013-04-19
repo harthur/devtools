@@ -87,6 +87,7 @@ class ImageLoader;
 } // namespace css
 
 namespace dom {
+class Attr;
 class CDATASection;
 class Comment;
 class DocumentFragment;
@@ -1950,11 +1951,10 @@ public:
                                             const nsAString& aQualifiedName,
                                             mozilla::ErrorResult& rv);
   already_AddRefed<mozilla::dom::DocumentFragment>
-    CreateDocumentFragment(mozilla::ErrorResult& rv) const;
-  already_AddRefed<nsTextNode> CreateTextNode(const nsAString& aData,
-                                              mozilla::ErrorResult& rv) const;
+    CreateDocumentFragment() const;
+  already_AddRefed<nsTextNode> CreateTextNode(const nsAString& aData) const;
   already_AddRefed<mozilla::dom::Comment>
-    CreateComment(const nsAString& aData, mozilla::ErrorResult& rv) const;
+    CreateComment(const nsAString& aData) const;
   already_AddRefed<mozilla::dom::ProcessingInstruction>
     CreateProcessingInstruction(const nsAString& target, const nsAString& data,
                                 mozilla::ErrorResult& rv) const;
@@ -1983,9 +1983,9 @@ public:
   // Deprecated WebIDL bits
   already_AddRefed<mozilla::dom::CDATASection>
     CreateCDATASection(const nsAString& aData, mozilla::ErrorResult& rv);
-  already_AddRefed<nsIDOMAttr>
+  already_AddRefed<mozilla::dom::Attr>
     CreateAttribute(const nsAString& aName, mozilla::ErrorResult& rv);
-  already_AddRefed<nsIDOMAttr>
+  already_AddRefed<mozilla::dom::Attr>
     CreateAttributeNS(const nsAString& aNamespaceURI,
                       const nsAString& aQualifiedName,
                       mozilla::ErrorResult& rv);
@@ -2430,7 +2430,7 @@ NS_DEFINE_STATIC_IID_ACCESSOR(nsIDocument, NS_IDOCUMENT_IID)
  * event is dispatched, if necessary, when the outermost mozAutoSubtreeModified
  * object is deleted.
  */
-class NS_STACK_CLASS mozAutoSubtreeModified
+class MOZ_STACK_CLASS mozAutoSubtreeModified
 {
 public:
   /**
@@ -2467,7 +2467,7 @@ private:
   nsCOMPtr<nsIDocument> mSubtreeOwner;
 };
 
-class NS_STACK_CLASS nsAutoSyncOperation
+class MOZ_STACK_CLASS nsAutoSyncOperation
 {
 public:
   nsAutoSyncOperation(nsIDocument* aDocument);
@@ -2490,18 +2490,8 @@ NS_NewSVGDocument(nsIDocument** aInstancePtrResult);
 nsresult
 NS_NewImageDocument(nsIDocument** aInstancePtrResult);
 
-#ifdef MOZ_MEDIA
 nsresult
 NS_NewVideoDocument(nsIDocument** aInstancePtrResult);
-#endif
-
-already_AddRefed<mozilla::dom::DocumentFragment>
-NS_NewDocumentFragment(nsNodeInfoManager* aNodeInfoManager,
-                       mozilla::ErrorResult& aRv);
-
-nsresult
-NS_NewDocumentFragment(nsIDOMDocumentFragment** aInstancePtrResult,
-                       nsNodeInfoManager *aNodeInfoManager);
 
 // Note: it's the caller's responsibility to create or get aPrincipal as needed
 // -- this method will not attempt to get a principal based on aDocumentURI.

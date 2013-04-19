@@ -1,6 +1,5 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=4 sw=4 et tw=99:
- *
+/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -76,7 +75,7 @@ InvokeFunction(JSContext *cx, HandleFunction fun0, uint32_t argc, Value *argv, V
         if (cx->methodJitEnabled && !fun->nonLazyScript()->canIonCompile()) {
             RawScript script = GetTopIonJSScript(cx);
             if (script->hasIonScript() &&
-                ++script->ion->slowCallCount >= js_IonOptions.slowCallLimit)
+                ++script->ionScript()->slowCallCount >= js_IonOptions.slowCallLimit)
             {
                 AutoFlushCache afc("InvokeFunction");
 
@@ -495,9 +494,8 @@ SPSExit(JSContext *cx, HandleScript script)
 bool
 OperatorIn(JSContext *cx, HandleValue key, HandleObject obj, JSBool *out)
 {
-    RootedValue dummy(cx); // Disregards atomization changes: no way to propagate.
     RootedId id(cx);
-    if (!FetchElementId(cx, obj, key, &id, &dummy))
+    if (!ValueToId<CanGC>(cx, key, &id))
         return false;
 
     RootedObject obj2(cx);
@@ -507,6 +505,13 @@ OperatorIn(JSContext *cx, HandleValue key, HandleObject obj, JSBool *out)
 
     *out = !!prop;
     return true;
+}
+
+bool
+OperatorInI(JSContext *cx, uint32_t index, HandleObject obj, JSBool *out)
+{
+    RootedValue key(cx, Int32Value(index));
+    return OperatorIn(cx, key, obj, out);
 }
 
 bool
@@ -526,7 +531,10 @@ CreateThis(JSContext *cx, HandleObject callee, MutableHandleValue rval)
             JSScript *script = fun->getOrCreateScript(cx);
             if (!script || !script->ensureHasTypes(cx))
                 return false;
-            rval.set(ObjectValue(*CreateThisForFunction(cx, callee, false)));
+            JSObject *thisObj = CreateThisForFunction(cx, callee, false);
+            if (!thisObj)
+                return false;
+            rval.set(ObjectValue(*thisObj));
         }
     }
 
@@ -639,6 +647,9 @@ DebugEpilogue(JSContext *cx, BaselineFrame *frame, JSBool ok)
     if (frame->isNonEvalFunctionFrame()) {
         JS_ASSERT_IF(ok, frame->hasReturnValue());
         DebugScopes::onPopCall(frame, cx);
+    } else if (frame->isStrictEvalFrame()) {
+        JS_ASSERT_IF(frame->hasCallObj(), frame->scopeChain()->asCall().isForEval());
+        DebugScopes::onPopStrictEvalScope(frame);
     }
 
     if (!ok) {
@@ -679,8 +690,8 @@ HandleDebugTrap(JSContext *cx, BaselineFrame *frame, uint8_t *retAddr, JSBool *m
 {
     *mustReturn = false;
 
-    RootedScript script(cx, GetTopIonJSScript(cx));
-    jsbytecode *pc = script->baseline->icEntryFromReturnAddress(retAddr).pc(script);
+    RootedScript script(cx, frame->script());
+    jsbytecode *pc = script->baselineScript()->icEntryFromReturnAddress(retAddr).pc(script);
 
     JS_ASSERT(cx->compartment->debugMode());
     JS_ASSERT(script->stepModeEnabled() || script->hasBreakpointsAt(pc));

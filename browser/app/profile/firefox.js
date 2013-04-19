@@ -42,6 +42,7 @@ pref("extensions.getAddons.getWithPerformance.url", "https://services.addons.moz
 pref("extensions.getAddons.search.browseURL", "https://addons.mozilla.org/%LOCALE%/firefox/search?q=%TERMS%&platform=%OS%&appver=%VERSION%");
 pref("extensions.getAddons.search.url", "https://services.addons.mozilla.org/%LOCALE%/firefox/api/%API_VERSION%/search/%TERMS%/all/%MAX_RESULTS%/%OS%/%VERSION%/%COMPATIBILITY_MODE%?src=firefox");
 pref("extensions.webservice.discoverURL", "https://services.addons.mozilla.org/%LOCALE%/firefox/discovery/pane/%VERSION%/%OS%/%COMPATIBILITY_MODE%");
+pref("extensions.getAddons.recommended.url", "https://services.addons.mozilla.org/%LOCALE%/%APP%/api/%API_VERSION%/list/recommended/all/%MAX_RESULTS%/%OS%/%VERSION%?src=firefox");
 
 // Blocklist preferences
 pref("extensions.blocklist.enabled", true);
@@ -210,9 +211,6 @@ pref("xpinstall.whitelist.add.180", "marketplace.firefox.com");
 pref("lightweightThemes.update.enabled", true);
 
 pref("keyword.enabled", true);
-// Override the default keyword.URL. Empty value means
-// "use the search service's default engine"
-pref("keyword.URL", "");
 
 pref("general.useragent.locale", "@AB_CD@");
 pref("general.skins.selectedSkin", "classic/1.0");
@@ -539,6 +537,8 @@ pref("browser.gesture.twist.right", "cmd_gestureRotateRight");
 pref("browser.gesture.twist.left", "cmd_gestureRotateLeft");
 pref("browser.gesture.twist.end", "cmd_gestureRotateEnd");
 pref("browser.gesture.tap", "cmd_fullZoomReset");
+
+pref("browser.snapshots.limit", 0);
 
 // 0: Nothing happens
 // 1: Scrolling contents
@@ -1015,8 +1015,8 @@ pref("services.sync.prefs.sync.security.OCSP.disable_button.managecrl", true);
 pref("services.sync.prefs.sync.security.OCSP.enabled", true);
 pref("services.sync.prefs.sync.security.OCSP.require", true);
 pref("services.sync.prefs.sync.security.default_personal_cert", true);
-pref("services.sync.prefs.sync.security.enable_ssl3", true);
-pref("services.sync.prefs.sync.security.enable_tls", true);
+pref("services.sync.prefs.sync.security.tls.version.min", true);
+pref("services.sync.prefs.sync.security.tls.version.max", true);
 pref("services.sync.prefs.sync.signon.rememberSignons", true);
 pref("services.sync.prefs.sync.spellchecker.dictionary", true);
 pref("services.sync.prefs.sync.xpinstall.whitelist.required", true);
@@ -1038,6 +1038,7 @@ pref("devtools.toolbox.host", "bottom");
 pref("devtools.toolbox.selectedTool", "webconsole");
 pref("devtools.toolbox.toolbarSpec", '["paintflashing toggle","tilt toggle","scratchpad","resize toggle"]');
 pref("devtools.toolbox.sideEnabled", true);
+pref("devtools.toolbox.disabledTools", "[]");
 
 // Enable the Inspector
 pref("devtools.inspector.enabled", true);
@@ -1060,6 +1061,7 @@ pref("devtools.debugger.remote-host", "localhost");
 pref("devtools.debugger.remote-autoconnect", false);
 pref("devtools.debugger.remote-connection-retries", 3);
 pref("devtools.debugger.remote-timeout", 20000);
+pref("devtools.debugger.source-maps-enabled", false);
 
 // The default Debugger UI settings
 pref("devtools.debugger.ui.win-x", 0);

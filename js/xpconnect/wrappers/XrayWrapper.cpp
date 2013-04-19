@@ -42,7 +42,7 @@ namespace XrayUtils {
 JSClass HolderClass = {
     "NativePropertyHolder",
     JSCLASS_HAS_RESERVED_SLOTS(2),
-    JS_PropertyStub,        JS_PropertyStub, holder_get,      holder_set,
+    JS_PropertyStub,        JS_DeletePropertyStub, holder_get,      holder_set,
     JS_EnumerateStub,       JS_ResolveStub,  JS_ConvertStub
 };
 }
@@ -52,7 +52,7 @@ using namespace XrayUtils;
 XrayType
 GetXrayType(JSObject *obj)
 {
-    obj = js::UnwrapObject(obj, /* stopAtOuter = */ false);
+    obj = js::UncheckedUnwrap(obj, /* stopAtOuter = */ false);
     if (mozilla::dom::UseDOMXray(obj))
         return XrayForDOMObject;
 
@@ -131,7 +131,7 @@ class XrayTraits
 {
 public:
     static JSObject* getTargetObject(JSObject *wrapper) {
-        return js::UnwrapObject(wrapper, /* stopAtOuter = */ false);
+        return js::UncheckedUnwrap(wrapper, /* stopAtOuter = */ false);
     }
 
     virtual bool resolveOwnProperty(JSContext *cx, Wrapper &jsWrapper,
@@ -320,7 +320,7 @@ ExpandoObjectFinalize(JSFreeOp *fop, JSObject *obj)
 JSClass ExpandoObjectClass = {
     "XrayExpandoObject",
     JSCLASS_HAS_RESERVED_SLOTS(JSSLOT_EXPANDO_COUNT),
-    JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_StrictPropertyStub,
+    JS_PropertyStub, JS_DeletePropertyStub, JS_PropertyStub, JS_StrictPropertyStub,
     JS_EnumerateStub, JS_ResolveStub, JS_ConvertStub, ExpandoObjectFinalize
 };
 
@@ -362,11 +362,11 @@ XrayTraits::expandoObjectMatchesConsumer(JSContext *cx,
 JSObject *
 XrayTraits::getExpandoObjectInternal(JSContext *cx, HandleObject target,
                                      nsIPrincipal *origin,
-                                     JSObject *exclusiveGlobal_)
+                                     JSObject *exclusiveGlobalArg)
 {
     // The expando object lives in the compartment of the target, so all our
     // work needs to happen there.
-    RootedObject exclusiveGlobal(cx, exclusiveGlobal_);
+    RootedObject exclusiveGlobal(cx, exclusiveGlobalArg);
     JSAutoCompartment ac(cx, target);
     if (!JS_WrapObject(cx, exclusiveGlobal.address()))
         return NULL;
@@ -477,10 +477,10 @@ XrayTraits::cloneExpandoChain(JSContext *cx, HandleObject dst, HandleObject src)
 }
 
 namespace XrayUtils {
-bool CloneExpandoChain(JSContext *cx, JSObject *dst_, JSObject *src_)
+bool CloneExpandoChain(JSContext *cx, JSObject *dstArg, JSObject *srcArg)
 {
-    RootedObject dst(cx, dst_);
-    RootedObject src(cx, src_);
+    RootedObject dst(cx, dstArg);
+    RootedObject src(cx, srcArg);
     return GetXrayTraits(src)->cloneExpandoChain(cx, dst, src);
 }
 }
@@ -496,26 +496,6 @@ GetWrappedNative(JSObject *obj)
 {
     MOZ_ASSERT(IS_WN_WRAPPER_OBJECT(obj));
     return static_cast<XPCWrappedNative *>(js::GetObjectPrivate(obj));
-}
-
-static inline JSObject *
-FindWrapper(JSContext *cx, JSObject *wrapper_)
-{
-    RootedObject wrapper(cx, wrapper_);
-    while (!js::IsWrapper(wrapper) ||
-           !(Wrapper::wrapperHandler(wrapper)->flags() &
-             WrapperFactory::IS_XRAY_WRAPPER_FLAG)) {
-        if (js::IsWrapper(wrapper) &&
-            js::GetProxyHandler(wrapper) == &sandboxProxyHandler) {
-            wrapper = SandboxProxyHandler::wrappedObject(wrapper);
-        } else {
-            if (!js::GetObjectProto(cx, wrapper, wrapper.address()))
-                return nullptr;
-        }
-        // NB: we must eventually hit our wrapper.
-    }
-
-    return wrapper;
 }
 
 JSObject*
@@ -552,12 +532,12 @@ XPCWrappedNativeXrayTraits::isResolving(JSContext *cx, JSObject *holder,
 // getter/setter and rely on the class getter/setter. We install a
 // class getter/setter on the holder object to trigger them.
 JSBool
-holder_get(JSContext *cx, HandleObject wrapperArg, HandleId id, MutableHandleValue vp)
+holder_get(JSContext *cx, HandleObject wrapper, HandleId id, MutableHandleValue vp)
 {
-    RootedObject wrapper(cx, FindWrapper(cx, wrapperArg));
-    if (!wrapper)
-        return false;
-
+    // JSClass::getProperty is wacky enough that it's hard to be sure someone
+    // can't inherit this getter by prototyping a random object to an
+    // XrayWrapper. Be safe.
+    NS_ENSURE_TRUE(WrapperFactory::IsXrayWrapper(wrapper), true);
     JSObject *holder = GetHolder(wrapper);
 
     XPCWrappedNative *wn = XPCWrappedNativeXrayTraits::getWN(wrapper);
@@ -576,12 +556,12 @@ holder_get(JSContext *cx, HandleObject wrapperArg, HandleId id, MutableHandleVal
 }
 
 JSBool
-holder_set(JSContext *cx, HandleObject wrapperArg, HandleId id, JSBool strict, MutableHandleValue vp)
+holder_set(JSContext *cx, HandleObject wrapper, HandleId id, JSBool strict, MutableHandleValue vp)
 {
-    RootedObject wrapper(cx, FindWrapper(cx, wrapperArg));
-    if (!wrapper)
-        return false;
-
+    // JSClass::setProperty is wacky enough that it's hard to be sure someone
+    // can't inherit this getter by prototyping a random object to an
+    // XrayWrapper. Be safe.
+    NS_ENSURE_TRUE(WrapperFactory::IsXrayWrapper(wrapper), true);
     JSObject *holder = GetHolder(wrapper);
     if (XPCWrappedNativeXrayTraits::isResolving(cx, holder, id)) {
         return true;
@@ -641,7 +621,7 @@ XPCWrappedNativeXrayTraits::resolveDOMCollectionProperty(JSContext *cx, HandleOb
     XPCWrappedNative *wn = getWN(wrapper);
     if (!wn) {
         // This should NEVER happen, but let's be extra careful here
-        // becaue of the reported crashes (Bug 832091).
+        // because of the reported crashes (Bug 832091).
         XPCThrower::Throw(NS_ERROR_UNEXPECTED, cx);
         return false;
     }

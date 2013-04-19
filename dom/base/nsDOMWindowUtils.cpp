@@ -1190,7 +1190,13 @@ nsDOMWindowUtils::SendSimpleGestureEvent(const nsAString& aType,
     return NS_ERROR_FAILURE;
 
   int32_t msg;
-  if (aType.EqualsLiteral("MozSwipeGesture"))
+  if (aType.EqualsLiteral("MozSwipeGestureStart"))
+    msg = NS_SIMPLE_GESTURE_SWIPE_START;
+  else if (aType.EqualsLiteral("MozSwipeGestureUpdate"))
+    msg = NS_SIMPLE_GESTURE_SWIPE_UPDATE;
+  else if (aType.EqualsLiteral("MozSwipeGestureEnd"))
+    msg = NS_SIMPLE_GESTURE_SWIPE_END;
+  else if (aType.EqualsLiteral("MozSwipeGesture"))
     msg = NS_SIMPLE_GESTURE_SWIPE;
   else if (aType.EqualsLiteral("MozMagnifyGestureStart"))
     msg = NS_SIMPLE_GESTURE_MAGNIFY_START;
@@ -2202,6 +2208,25 @@ nsDOMWindowUtils::GetLayerManagerType(nsAString& aType)
 }
 
 NS_IMETHODIMP
+nsDOMWindowUtils::GetLayerManagerRemote(bool* retval)
+{
+  if (!nsContentUtils::IsCallerChrome()) {
+    return NS_ERROR_DOM_SECURITY_ERR;
+  }
+
+  nsCOMPtr<nsIWidget> widget = GetWidget();
+  if (!widget)
+    return NS_ERROR_FAILURE;
+
+  LayerManager *mgr = widget->GetLayerManager();
+  if (!mgr)
+    return NS_ERROR_FAILURE;
+
+  *retval = !!mgr->AsShadowForwarder();
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 nsDOMWindowUtils::StartFrameTimeRecording(uint32_t *startIndex)
 {
   if (!nsContentUtils::IsCallerChrome()) {
@@ -2641,8 +2666,8 @@ GetXPConnectNative(JSContext* aCx, JSObject* aObj) {
 }
 
 static nsresult
-GetFileOrBlob(const nsAString& aName, const jsval& aBlobParts,
-              const jsval& aParameters, JSContext* aCx,
+GetFileOrBlob(const nsAString& aName, const JS::Value& aBlobParts,
+              const JS::Value& aParameters, JSContext* aCx,
               uint8_t aOptionalArgCount, nsISupports** aResult)
 {
   if (!nsContentUtils::IsCallerChrome()) {
@@ -2664,7 +2689,7 @@ GetFileOrBlob(const nsAString& aName, const jsval& aBlobParts,
   nsDOMMultipartFile* domFile =
     static_cast<nsDOMMultipartFile*>(static_cast<nsIDOMFile*>(file.get()));
 
-  jsval args[2] = { aBlobParts, aParameters };
+  JS::Value args[2] = { aBlobParts, aParameters };
 
   rv = domFile->InitBlob(aCx, aOptionalArgCount, args, GetXPConnectNative);
   NS_ENSURE_SUCCESS(rv, rv);
@@ -2674,8 +2699,8 @@ GetFileOrBlob(const nsAString& aName, const jsval& aBlobParts,
 }
 
 NS_IMETHODIMP
-nsDOMWindowUtils::GetFile(const nsAString& aName, const jsval& aBlobParts,
-                          const jsval& aParameters, JSContext* aCx,
+nsDOMWindowUtils::GetFile(const nsAString& aName, const JS::Value& aBlobParts,
+                          const JS::Value& aParameters, JSContext* aCx,
                           uint8_t aOptionalArgCount, nsIDOMFile** aResult)
 {
   if (!nsContentUtils::IsCallerChrome()) {
@@ -2694,9 +2719,9 @@ nsDOMWindowUtils::GetFile(const nsAString& aName, const jsval& aBlobParts,
 }
 
 NS_IMETHODIMP
-nsDOMWindowUtils::GetBlob(const jsval& aBlobParts, const jsval& aParameters,
-                          JSContext* aCx, uint8_t aOptionalArgCount,
-                          nsIDOMBlob** aResult)
+nsDOMWindowUtils::GetBlob(const JS::Value& aBlobParts,
+                          const JS::Value& aParameters, JSContext* aCx,
+                          uint8_t aOptionalArgCount, nsIDOMBlob** aResult)
 {
   if (!nsContentUtils::IsCallerChrome()) {
     return NS_ERROR_DOM_SECURITY_ERR;
@@ -2714,7 +2739,7 @@ nsDOMWindowUtils::GetBlob(const jsval& aBlobParts, const jsval& aParameters,
 }
 
 NS_IMETHODIMP
-nsDOMWindowUtils::GetFileId(const jsval& aFile, JSContext* aCx,
+nsDOMWindowUtils::GetFileId(const JS::Value& aFile, JSContext* aCx,
                             int64_t* aResult)
 {
   if (!nsContentUtils::IsCallerChrome()) {
@@ -2903,7 +2928,7 @@ nsDOMWindowUtils::GetPaintingSuppressed(bool *aPaintingSuppressed)
 }
 
 NS_IMETHODIMP
-nsDOMWindowUtils::GetPlugins(JSContext* cx, jsval* aPlugins)
+nsDOMWindowUtils::GetPlugins(JSContext* cx, JS::Value* aPlugins)
 {
   if (!nsContentUtils::IsCallerChrome()) {
     return NS_ERROR_DOM_SECURITY_ERR;

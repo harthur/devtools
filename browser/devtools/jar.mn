@@ -4,6 +4,7 @@
 
 browser.jar:
     content/browser/devtools/widgets.css          (shared/widgets/widgets.css)
+    content/browser/devtools/widgets/VariablesView.xul (shared/widgets/VariablesView.xul)
     content/browser/devtools/markup-view.xhtml    (markupview/markup-view.xhtml)
     content/browser/devtools/markup-view.css      (markupview/markup-view.css)
     content/browser/devtools/netmonitor.xul           (netmonitor/netmonitor.xul)
@@ -37,7 +38,6 @@ browser.jar:
     content/browser/debugger-toolbar.js           (debugger/debugger-toolbar.js)
     content/browser/debugger-panes.js             (debugger/debugger-panes.js)
     content/browser/profiler.xul                  (profiler/profiler.xul)
-    content/browser/profiler.css                  (profiler/profiler.css)
     content/browser/devtools/cleopatra.html       (profiler/cleopatra/cleopatra.html)
     content/browser/devtools/profiler/cleopatra/css/ui.css              (profiler/cleopatra/css/ui.css)
     content/browser/devtools/profiler/cleopatra/css/tree.css            (profiler/cleopatra/css/tree.css)
@@ -57,6 +57,8 @@ browser.jar:
     content/browser/devtools/commandlineoutput.xhtml  (commandline/commandlineoutput.xhtml)
     content/browser/devtools/commandlinetooltip.xhtml  (commandline/commandlinetooltip.xhtml)
     content/browser/devtools/framework/toolbox-window.xul    (framework/toolbox-window.xul)
+    content/browser/devtools/framework/toolbox-options.xul   (framework/toolbox-options.xul)
+    content/browser/devtools/framework/toolbox-options.js    (framework/toolbox-options.js)
 *   content/browser/devtools/framework/toolbox.xul           (framework/toolbox.xul)
     content/browser/devtools/framework/toolbox.css           (framework/toolbox.css)
     content/browser/devtools/inspector/inspector.xul         (inspector/inspector.xul)

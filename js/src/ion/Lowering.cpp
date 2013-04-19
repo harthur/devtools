@@ -1,6 +1,5 @@
-/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=4 sw=4 et tw=99:
- *
+/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -236,6 +235,18 @@ LIRGenerator::visitParBailout(MParBailout *ins)
 {
     LParBailout *lir = new LParBailout();
     return add(lir, ins);
+}
+
+bool
+LIRGenerator::visitInitElem(MInitElem *ins)
+{
+    LInitElem *lir = new LInitElem(useRegisterAtStart(ins->getObject()));
+    if (!useBoxAtStart(lir, LInitElem::IdIndex, ins->getId()))
+        return false;
+    if (!useBoxAtStart(lir, LInitElem::ValueIndex, ins->getValue()))
+        return false;
+
+    return add(lir, ins) && assignSafepoint(lir, ins);
 }
 
 bool
@@ -875,14 +886,12 @@ LIRGenerator::visitTypeOf(MTypeOf *ins)
 bool
 LIRGenerator::visitToId(MToId *ins)
 {
-    LToIdV *lir = new LToIdV();
-    if (!useBoxAtStart(lir, LToIdV::Object, ins->lhs()))
+    LToIdV *lir = new LToIdV(tempFloat());
+    if (!useBox(lir, LToIdV::Object, ins->lhs()))
         return false;
-    if (!useBoxAtStart(lir, LToIdV::Index, ins->rhs()))
+    if (!useBox(lir, LToIdV::Index, ins->rhs()))
         return false;
-    if (!defineReturn(lir, ins))
-        return false;
-    return assignSafepoint(lir, ins);
+    return defineBox(lir, ins) && assignSafepoint(lir, ins);
 }
 
 bool
@@ -1268,9 +1277,10 @@ LIRGenerator::visitConcat(MConcat *ins)
 
     JS_ASSERT(lhs->type() == MIRType_String);
     JS_ASSERT(rhs->type() == MIRType_String);
+    JS_ASSERT(ins->type() == MIRType_String);
 
-    LConcat *lir = new LConcat(useRegisterAtStart(lhs), useRegisterAtStart(rhs));
-    if (!defineReturn(lir, ins))
+    LConcat *lir = new LConcat(useRegister(lhs), useRegister(rhs), temp());
+    if (!define(lir, ins))
         return false;
     return assignSafepoint(lir, ins);
 }
@@ -1822,11 +1832,19 @@ LIRGenerator::visitInArray(MInArray *ins)
     JS_ASSERT(ins->elements()->type() == MIRType_Elements);
     JS_ASSERT(ins->index()->type() == MIRType_Int32);
     JS_ASSERT(ins->initLength()->type() == MIRType_Int32);
+    JS_ASSERT(ins->object()->type() == MIRType_Object);
     JS_ASSERT(ins->type() == MIRType_Boolean);
+
+    LAllocation object;
+    if (ins->needsNegativeIntCheck())
+        object = useRegister(ins->object());
+    else
+        object = LConstantIndex::Bogus();
 
     LInArray *lir = new LInArray(useRegister(ins->elements()),
                                  useRegisterOrConstant(ins->index()),
-                                 useRegister(ins->initLength()));
+                                 useRegister(ins->initLength()),
+                                 object);
     return define(lir, ins) && assignSafepoint(lir, ins);
 }
 
@@ -2147,7 +2165,7 @@ LIRGenerator::visitGetPropertyCache(MGetPropertyCache *ins)
         return assignSafepoint(lir, ins);
     }
 
-    LGetPropertyCacheT *lir = new LGetPropertyCacheT(useRegister(ins->object()));
+    LGetPropertyCacheT *lir = newLGetPropertyCacheT(ins);
     if (!define(lir, ins))
         return false;
     return assignSafepoint(lir, ins);
@@ -2771,4 +2789,3 @@ LIRGenerator::generate()
     JS_ASSERT(prepareCallStack_.empty());
     return true;
 }
-

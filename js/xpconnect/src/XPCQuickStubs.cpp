@@ -94,7 +94,7 @@ PointerFinalize(JSFreeOp *fop, JSObject *obj)
 JSClass
 PointerHolderClass = {
     "Pointer", JSCLASS_HAS_PRIVATE,
-    JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_StrictPropertyStub,
+    JS_PropertyStub, JS_DeletePropertyStub, JS_PropertyStub, JS_StrictPropertyStub,
     JS_EnumerateStub, JS_ResolveStub, JS_ConvertStub, PointerFinalize
 };
 
@@ -114,7 +114,6 @@ xpc_qsDefineQuickStubs(JSContext *cx, JSObject *proto, unsigned flags,
      * searching the interfaces forward.  Here, definitions toward the
      * front of 'interfaces' overwrite those toward the back.
      */
-    bool definedProperty = false;
     for (uint32_t i = ifacec; i-- != 0;) {
         const nsID &iid = *interfaces[i];
         const xpc_qsHashEntry *entry =
@@ -126,7 +125,6 @@ xpc_qsDefineQuickStubs(JSContext *cx, JSObject *proto, unsigned flags,
                 const xpc_qsPropertySpec *ps = propspecs + entry->prop_index;
                 const xpc_qsPropertySpec *ps_end = ps + entry->n_props;
                 for ( ; ps < ps_end; ++ps) {
-                    definedProperty = true;
                     if (!JS_DefineProperty(cx, proto,
                                            stringTable + ps->name_index,
                                            JSVAL_VOID,
@@ -547,9 +545,9 @@ getWrapper(JSContext *cx,
     // * A (possible) outer window
     //
     // If we pass stopAtOuter == false, we can handle all three with one call
-    // to js::UnwrapObjectChecked.
+    // to js::CheckedUnwrap.
     if (js::IsWrapper(obj)) {
-        obj = js::UnwrapObjectChecked(obj, /* stopAtOuter = */ false);
+        obj = js::CheckedUnwrap(obj, /* stopAtOuter = */ false);
 
         // The safe unwrap might have failed if we encountered an object that
         // we're not allowed to unwrap. If it didn't fail though, we should be
