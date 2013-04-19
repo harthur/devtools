@@ -67,7 +67,7 @@ function testEditorAdded(aEvent, aEditor)
 
   aEditor.styleSheet.once("style-applied", function() {
     // when changes have been completely applied to live stylesheet after transisiton
-    let summary = gUI.getSummaryElementForEditor(aEditor);
+    let summary = aEditor.summary;
     let ruleCount = summary.querySelector(".stylesheet-rule-count").textContent;
     is(parseInt(ruleCount), 1,
        "new editor shows 1 rule after modification");
@@ -83,7 +83,7 @@ function testEditor(aEditor) {
   waitForFocus(function () {
   gOriginalHref = aEditor.styleSheet.href;
 
-  let summary = gUI.getSummaryElementForEditor(aEditor);
+  let summary = aEditor.summary;
 
   ok(aEditor.sourceLoaded,
      "new editor is loaded when attached");
@@ -93,7 +93,7 @@ function testEditor(aEditor) {
   ok(aEditor.sourceEditor.hasFocus(),
      "new editor has focus");
 
-  let summary = gUI.getSummaryElementForEditor(aEditor);
+  let summary = aEditor.summary;
   let ruleCount = summary.querySelector(".stylesheet-rule-count").textContent;
   is(parseInt(ruleCount), 0,
      "new editor initially shows 0 rules");

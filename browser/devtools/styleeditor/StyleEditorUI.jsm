@@ -223,7 +223,7 @@ StyleEditorUI.prototype = {
 
   /**
    * Handler for an StyleSheetEditor's 'source-load' event.
-   * Create a summary UI for the editor and select it if it's to be selected.
+   * Create a summary UI for the editor.
    *
    * @param  {StyleSheetEditor} editor
    *         Editor to create UI for.
@@ -278,6 +278,18 @@ StyleEditorUI.prototype = {
           this._selectEditor(editor);
         }
 
+        if (this._styleSheetToSelect
+            && this._styleSheetToSelect.href == editor.styleSheet.href) {
+          this.switchToSelectedSheet();
+        }
+
+        // If this is the first stylesheet, select it
+        if (this.selectedStyleSheetIndex == -1
+            && !this._styleSheetToSelect
+            && editor.styleSheet.styleSheetIndex == 0) {
+          this._selectEditor(editor);
+        }
+
         this.emit("editor-added", editor);
       }.bind(this),
 
@@ -291,17 +303,20 @@ StyleEditorUI.prototype = {
         editor.onShow();
       }
     });
+  },
 
-    if (this._styleSheetToSelect
-        && this._styleSheetToSelect.href == editor.styleSheet.href) {
-      this.switchToSelectedSheet();
-    }
+  /**
+   * Switch to the editor that has been marked to be selected.
+   */
+  switchToSelectedSheet: function() {
+    let sheet = this._styleSheetToSelect;
 
-    // If this is the first stylesheet, select it
-    if (this.selectedStyleSheetIndex == -1
-        && !this._styleSheetToSelect
-        && editor.styleSheet.styleSheetIndex == 0) {
-      this._selectEditor(editor);
+    for each (let editor in this.editors) {
+      if (editor.styleSheet.href == sheet.href) {
+        this._selectEditor(editor, sheet.line, sheet.col);
+        this._styleSheetToSelect = null;
+        break;
+      }
     }
   },
 

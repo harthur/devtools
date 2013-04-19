@@ -30,13 +30,13 @@ function runTests()
 
 function getStylesheetNameLinkFor(aEditor)
 {
-  return gUI.getSummaryElementForEditor(aEditor).querySelector(".stylesheet-name");
+  return aEditor.summary.querySelector(".stylesheet-name");
 }
 
 function onEditor0Attach(aEditor)
 {
   waitForFocus(function () {
-    let summary = gUI.getSummaryElementForEditor(aEditor);
+    let summary = aEditor.summary;
     EventUtils.synthesizeMouseAtCenter(summary, {}, gPanelWindow);
 
     let item = getStylesheetNameLinkFor(gUI.editors[0]);

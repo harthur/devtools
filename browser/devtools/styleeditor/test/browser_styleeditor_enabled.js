@@ -32,7 +32,7 @@ function runTests(UI, editor)
 
 function testEnabledToggle(UI, editor)
 {
-  let summary = UI.getSummaryElementForEditor(editor);
+  let summary = editor.summary;
   let enabledToggle = summary.querySelector(".stylesheet-enabled");
   ok(enabledToggle, "enabled toggle button exists");
 

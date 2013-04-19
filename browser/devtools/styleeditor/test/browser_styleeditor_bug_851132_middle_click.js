@@ -31,7 +31,7 @@ function runTests() {
 }
 
 function getStylesheetNameLinkFor(aEditor) {
-  return gUI.getSummaryElementForEditor(aEditor).querySelector(".stylesheet-name");
+  return aEditor.summary.querySelector(".stylesheet-name");
 }
 
 function onEditor0Attach(aEditor) {

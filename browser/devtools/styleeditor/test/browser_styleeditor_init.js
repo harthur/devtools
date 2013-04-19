@@ -49,7 +49,7 @@ function testFirstStyleSheetEditor(aEditor)
   is(aEditor, gUI.editors[0],
      "first stylesheet corresponds to StyleEditorChrome.editors[0]");
 
-  let summary = gUI.getSummaryElementForEditor(aEditor);
+  let summary = aEditor.summary;
 
   let name = summary.querySelector(".stylesheet-name > label").getAttribute("value");
   is(name, "simple.css",
@@ -72,7 +72,7 @@ function testSecondStyleSheetEditor(aEditor)
   is(aEditor, gUI.editors[1],
      "second stylesheet corresponds to StyleEditorChrome.editors[1]");
 
-  let summary = gUI.getSummaryElementForEditor(aEditor);
+  let summary = aEditor.summary;
 
   let name = summary.querySelector(".stylesheet-name > label").getAttribute("value");
   ok(/^<.*>$/.test(name),

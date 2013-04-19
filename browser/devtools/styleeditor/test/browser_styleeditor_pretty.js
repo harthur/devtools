@@ -32,7 +32,7 @@ function testEditor(aEditor)
     ok(prettifiedSourceRE.test(aEditor.sourceEditor.getText()),
        "minified source has been prettified automatically");
     editorTestedCount++;
-    let summary = gUI.getSummaryElementForEditor(gUI.editors[1]);
+    let summary = gUI.editors[1].summary;
     EventUtils.synthesizeMouseAtCenter(summary, {}, gPanelWindow);
   }
 
