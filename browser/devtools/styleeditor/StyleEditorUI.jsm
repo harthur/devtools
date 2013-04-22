@@ -17,7 +17,6 @@ Cu.import("resource://gre/modules/NetUtil.jsm");
 Cu.import("resource://gre/modules/FileUtils.jsm");
 Cu.import("resource://gre/modules/commonjs/sdk/core/promise.js");
 Cu.import("resource:///modules/devtools/EventEmitter.jsm");
-Cu.import("resource:///modules/devtools/StyleEditor.jsm");
 Cu.import("resource:///modules/devtools/StyleEditorUtil.jsm");
 Cu.import("resource:///modules/devtools/SplitView.jsm");
 
@@ -686,8 +685,7 @@ StyleSheetEditor.prototype = {
   },
 
   /**
-   * Event handler for when the editor is shown. Call this after the editor is
-   * shown.
+   * Event handler for when the editor is shown.
    */
   onShow: function() {
     if (this._sourceEditor) {
@@ -804,7 +802,7 @@ StyleSheetEditor.prototype = {
     * Retrieve custom key bindings objects as expected by SourceEditor.
     * SourceEditor action names are not displayed to the user.
     *
-    * @return Array
+    * @return {array} key binding objects for the source editor
     */
   _getKeyBindings: function() {
     let bindings = [];

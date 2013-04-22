@@ -108,7 +108,7 @@ function forEach(aObject, aCallback)
 
 /**
  * Log a message to the console.
- * 
+ *
  * @param ...rest
  *        One or multiple arguments to log.
  *        If multiple arguments are given, they will be joined by " " in the log.

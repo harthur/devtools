@@ -76,6 +76,9 @@ StyleEditorActor.prototype = {
    */
   get doc() this._window.document,
 
+  /**
+   * A window object, usually the browser window
+   */
   _window: null,
 
   actorPrefix: "styleEditor",
@@ -102,17 +105,29 @@ StyleEditorActor.prototype = {
     this.conn = this._window = null;
   },
 
-  releaseActor: function(aActor)
+  /**
+   * Release an actor from our actor pool.
+   */
+  releaseActor: function(actor)
   {
     if (this._actorPool) {
-      this._actorPool.removeActor(aActor.actorID);
+      this._actorPool.removeActor(actor.actorID);
     }
   },
 
+  /**
+   * Get the BaseURI for the document.
+   *
+   * @return {object} JSON message to with BaseURI
+   */
   onGetBaseURI: function() {
     return { baseURI: this.doc.baseURIObject };
   },
 
+  /**
+   * Called when target navigates to a new document.
+   * Adds load listeners to document.
+   */
   onNewDocument: function() {
     // delete previous document's actors
     this._clearStyleSheetActors();
@@ -128,6 +143,23 @@ StyleEditorActor.prototype = {
     return {};
   },
 
+  /**
+   * Event handler for document loaded event.
+   */
+  _onDocumentLoaded: function(event) {
+    if (event) {
+      this.win.removeEventListener("load", this._onDocumentLoaded, false);
+    }
+    let styleSheets = [];
+
+    if (this.doc.styleSheets.length) {
+      this._addStyleSheets(this.doc.styleSheets);
+    }
+  },
+
+  /**
+   * Clear all the current stylesheet actors in map.
+   */
   _clearStyleSheetActors: function() {
     for (let actor in this._sheets) {
       this.releaseActor(this._sheets[actor]);
@@ -135,6 +167,11 @@ StyleEditorActor.prototype = {
     this._sheets.clear();
   },
 
+  /**
+   * Get the actors of all the stylesheets in the current document.
+   *
+   * @return {object} JSON message with the stylesheet actors' forms
+   */
   onGetStyleSheets: function() {
     let styleSheets = [];
 
@@ -147,25 +184,22 @@ StyleEditorActor.prototype = {
     return { "styleSheets": styleSheets };
   },
 
-  _onDocumentLoaded: function(aEvent) {
-    if (aEvent) {
-      this.win.removeEventListener("load", this._onDocumentLoaded, false);
-    }
-    let styleSheets = [];
-
-    if (this.doc.styleSheets.length) {
-      this._addStyleSheets(this.doc.styleSheets);
-    }
-  },
-
+  /**
+   * Add all the stylesheets to the map and create an actor
+   * for each one if not already created. Send event that there
+   * are new stylesheets.
+   *
+   * @param {[DOMStyleSheet]} styleSheets
+   *        Stylesheets to add
+   */
   _addStyleSheets: function(styleSheets)
   {
-    // Get all sheets, including imported ones
     let sheets = [];
     for (let i = 0; i < styleSheets.length; i++) {
       let styleSheet = styleSheets[i];
       sheets.push(styleSheet);
 
+      // Get all sheets, including imported ones
       let imports = this._getImported(styleSheet);
       sheets = sheets.concat(imports);
     }
@@ -178,6 +212,12 @@ StyleEditorActor.prototype = {
     this._notifyStyleSheetsAdded(actors);
   },
 
+  /**
+   * Send an event notifying that there are new style sheets
+   *
+   * @param  {[object]} actors
+   *         Forms of the new style sheet actors
+   */
   _notifyStyleSheetsAdded: function(actors)
   {
     this.conn.send({
@@ -187,6 +227,14 @@ StyleEditorActor.prototype = {
     });
   },
 
+  /**
+   * Get all the stylesheets @imported from a stylesheet.
+   *
+   * @param  {DOMStyleSheet} styleSheet
+   *         Style sheet to search
+   * @return {array}
+   *         All the imported stylesheets
+   */
   _getImported: function(styleSheet) {
    let imported = [];
 
@@ -211,6 +259,15 @@ StyleEditorActor.prototype = {
     return imported;
   },
 
+  /**
+   * Create a new actor for a style sheet, if it hasn't
+   * already been created, and return it.
+   *
+   * @param  {DOMStyleSheet} aStyleSheet
+   *         The style sheet to create an actor for.
+   * @return {StyleSheetActor}
+   *         The actor for this style sheet
+   */
   _createStyleSheetActor: function(aStyleSheet)
   {
     if (this._sheets.has(aStyleSheet)) {
@@ -222,6 +279,12 @@ StyleEditorActor.prototype = {
     return actor;
   },
 
+  /**
+   * Handler for style sheet loading event. Add
+   * a new actor for the sheet and notify.
+   *
+   * @param  {Event} event
+   */
   _onSheetLoaded: function(event) {
     let style = event.target;
     style.removeEventListener("load", this._onSheetLoaded, false);
@@ -230,6 +293,15 @@ StyleEditorActor.prototype = {
     this._notifyStyleSheetsAdded([actor.form()]);
   },
 
+  /**
+   * Create a new style sheet in the document with the given text.
+   * Return an actor for it.
+   *
+   * @param  {object} request
+   *         Debugging protocol request object, with 'text property'
+   * @return {object}
+   *         Object with 'styelSheet' property for form on new actor.
+   */
   onNewStyleSheet: function(request) {
     let parent = this.doc.documentElement;
     let style = this.doc.createElementNS("http://www.w3.org/1999/xhtml", "style");
@@ -292,10 +364,16 @@ StyleSheetActor.prototype = {
     this.parentActor.releaseActor(this);
   },
 
+  /**
+   * Window of target
+   */
   get win() {
     return this.parentActor._window;
   },
 
+  /**
+   * Document of target.
+   */
   get doc() {
     return this.win.document;
   },
@@ -318,6 +396,13 @@ StyleSheetActor.prototype = {
     return this._styleSheetIndex;
   },
 
+  /**
+   * Get the current state of the actor
+   *
+   * @return {object}
+   *         With properties of the underlying stylesheet, plus 'text',
+   *        'styleSheetIndex' and 'parentActor' if it's @imported
+   */
   form: function() {
     let form = {
       actor: this.actorID,  // actorID is set when this actor is added to a pool
@@ -357,13 +442,26 @@ StyleSheetActor.prototype = {
     return form;
   },
 
-  onToggleDisabled: function(aRequest) {
+  /**
+   * Toggle the disabled property of the style sheet
+   *
+   * @return {object}
+   *         'disabled' - the disabled state after toggling.
+   */
+  onToggleDisabled: function() {
     this.styleSheet.disabled = !this.styleSheet.disabled;
     this._notifyPropertyChanged("disabled");
 
     return { disabled: this.styleSheet.disabled };
   },
 
+  /**
+   * Send an event notifying that a property of the stylesheet
+   * has changed.
+   *
+   * @param  {string} property
+   *         Name of the changed property
+   */
   _notifyPropertyChanged: function(property) {
     this.conn.send({
       from: this.actorID,
@@ -373,6 +471,12 @@ StyleSheetActor.prototype = {
     })
   },
 
+  /**
+   * Send an event notifying that an error has occured
+   *
+   * @param  {string} message
+   *         Error message
+   */
   _notifyError: function(message) {
     this.conn.send({
       from: this.actorID,
@@ -381,6 +485,15 @@ StyleSheetActor.prototype = {
     });
   },
 
+  /**
+   * Handler for event when the style sheet's full text has been
+   * loaded from its source.
+   *
+   * @param  {string} source
+   *         Text of the style sheet
+   * @param  {[type]} charset
+   *         Optional charset of the source
+   */
   _onSourceLoad: function(source, charset) {
     this.text = this._decodeCSSCharset(source, charset || "");
 
@@ -391,6 +504,9 @@ StyleSheetActor.prototype = {
     });
   },
 
+  /**
+   * Fetch the source of the style sheet from its URL
+   */
   onFetchSource: function() {
     if (!this.styleSheet.href) {
       // this is an inline <style> sheet
@@ -475,6 +591,7 @@ StyleSheetActor.prototype = {
 
   /**
    * Convert a given string, encoded in a given character set, to unicode.
+   *
    * @param string string
    *        A string.
    * @param string charset
@@ -482,7 +599,7 @@ StyleSheetActor.prototype = {
    * @return string
    *         A unicode string.
    */
-  _convertToUnicode: function SE__convertToUnicode(string, charset) {
+  _convertToUnicode: function(string, charset) {
     // Decoding primitives.
     let converter = Cc["@mozilla.org/intl/scriptableunicodeconverter"]
         .createInstance(Ci.nsIScriptableUnicodeConverter);
@@ -560,6 +677,13 @@ StyleSheetActor.prototype = {
     channel.asyncOpen(streamListener, null);
   },
 
+  /**
+   * Update the style sheet in place with new text
+   *
+   * @param  {object} request
+   *         'text' - new text
+   *         'transition' - whether to do CSS transition for change.
+   */
   onUpdate: function(request) {
     DOMUtils.parseStyleSheet(this.styleSheet, request.text);
     this._notifyPropertyChanged("cssRules");
@@ -573,6 +697,10 @@ StyleSheetActor.prototype = {
     return {};
   },
 
+  /**
+   * Insert a catch-all transition rule into the document. Set a timeout
+   * to remove the rule after a certain time.
+   */
   _insertTransistionRule: function() {
     // Insert the global transition rule
     // Use a ref count to make sure we do not add it multiple times.. and remove
@@ -591,8 +719,8 @@ StyleSheetActor.prototype = {
   },
 
   /**
-    * This cleans up class and rule added for transition effect and then trigger
-    * Commit as the changes have been completed.
+    * This cleans up class and rule added for transition effect and then
+    * notifies that the style has been applied.
     */
   _onTransitionEnd: function()
   {
@@ -604,6 +732,9 @@ StyleSheetActor.prototype = {
     this._notifyStyleApplied();
   },
 
+  /**
+   * Send and event notifying that the new style has been applied fully.
+   */
   _notifyStyleApplied: function()
   {
     this.conn.send({

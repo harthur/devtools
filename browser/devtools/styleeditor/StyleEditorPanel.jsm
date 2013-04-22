@@ -71,6 +71,7 @@ StyleEditorPanel.prototype = {
   /**
    * Show an error message from the style editor in the toolbox
    * notification box.
+   *
    * @param  {string} event
    *         Type of event
    * @param  {string} errorCode
@@ -88,10 +89,13 @@ StyleEditorPanel.prototype = {
 
   /**
    * Before navigating to a new page or reloading the page.
+   *
+   * @param {string} event
+   *        Event type
+   * @param {object} payload
+   *        The payload of the event
    */
-  beforeNavigate: function(event, payload, other) {
-    dump("HEATHER: before navigate" + "\n");
-    dump("HEATHER: arg " + payload._navPayload + "\n");
+  beforeNavigate: function(event, payload) {
     let request = payload._navPayload || payload;
 
     if (this.UI.isDirty) {
@@ -101,6 +105,10 @@ StyleEditorPanel.prototype = {
 
   /**
    * Show a notificiation about losing unsaved changes.
+   *
+   * @param {nsIRequest} request
+   *        The request to cancel if the user selects to not navigate
+   *        from the page.
    */
   preventNavigate: function(request) {
     request.suspend();
@@ -167,7 +175,7 @@ StyleEditorPanel.prototype = {
   },
 
   /**
-   * Select a stylesheet
+   * Select a stylesheet.
    *
    * @param {string} href
    *        Url of stylesheet to find and select in editor
@@ -185,7 +193,7 @@ StyleEditorPanel.prototype = {
   },
 
   /**
-   * Destroy StyleEditor
+   * Destroy the style editor.
    */
   destroy: function() {
     if (!this._destroyed) {

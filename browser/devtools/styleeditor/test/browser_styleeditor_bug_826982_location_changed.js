@@ -40,13 +40,11 @@ function runTests(aUI) {
 
   gBrowser.selectedBrowser.addEventListener("load", onPageLoad, true);
 
-  dump("HEATHER: setting content to test1 location" + "\n");
   content.location = "data:text/html,<div>location change test 1 for " +
     "styleeditor</div><p>test1</p>";
 }
 
 function alertActive1() {
-  dump("HEATHER: alert active1 called"  + "\n");
   alertActive1_called = true;
   notificationBox.removeEventListener("AlertActive", alertActive1, false);
 
@@ -75,7 +73,6 @@ function locationTest2() {
 }
 
 function alertActive2() {
-  dump("HEATHER: alert active 2"  + "\n");
   alertActive2_called = true;
   notificationBox.removeEventListener("AlertActive", alertActive2, false);
 
@@ -101,10 +98,7 @@ function alertActive2() {
 }
 
 function onPageLoad() {
-  dump("HEATHER: on page load" + "\n");
   gBrowser.selectedBrowser.removeEventListener("load", onPageLoad, true);
-
-  dump("HEATHER: page: " + content.document.querySelector("p").textContent + "\n");
 
   isnot(content.location.href.indexOf("test2"), -1,
         "page navigated to the correct location");

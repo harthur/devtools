@@ -49,14 +49,26 @@ let StyleEditorDebuggee = function(target) {
 }
 
 StyleEditorDebuggee.prototype = {
-  styleSheets: null, /* list of StyleSheet objects for this target */
+  /**
+   * list of StyleSheet objects for this target
+   */
+  styleSheets: null,
 
-  baseURI: null,   /* baseURIObject for the current document */
+  /**
+   * baseURIObject for the current document
+   */
+  baseURI: null,
 
+  /**
+   * The target we're debugging
+   */
   get target() {
     return this._target;
   },
 
+  /**
+   * Client for communicating with server with remote debug protocol.
+   */
   get client() {
     return this._target.client;
   },
