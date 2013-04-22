@@ -29,7 +29,6 @@ this.StyleEditorPanel = function StyleEditorPanel(panelWin, toolbox) {
   this._panelDoc = panelWin.document;
 
   this.destroy = this.destroy.bind(this);
-  this.beforeNavigate = this.beforeNavigate.bind(this);
   this._showError = this._showError.bind(this);
 }
 
@@ -53,7 +52,6 @@ StyleEditorPanel.prototype = {
     }
 
     promise.then(() => {
-      this.target.on("will-navigate", this.beforeNavigate);
       this.target.on("close", this.destroy);
 
       this._debuggee = new StyleEditorDebuggee(this.target);
@@ -85,93 +83,6 @@ StyleEditorPanel.prototype = {
       notificationBox.appendNotification(message,
         "styleeditor-error", "", notificationBox.PRIORITY_CRITICAL_LOW);
     }
-  },
-
-  /**
-   * Before navigating to a new page or reloading the page.
-   *
-   * @param {string} event
-   *        Event type
-   * @param {object} payload
-   *        The payload of the event
-   */
-  beforeNavigate: function(event, payload) {
-    let request = payload._navPayload || payload;
-
-    if (this.UI.isDirty) {
-      this.preventNavigate(request);
-    }
-  },
-
-  /**
-   * Show a notificiation about losing unsaved changes.
-   *
-   * @param {nsIRequest} request
-   *        The request to cancel if the user selects to not navigate
-   *        from the page.
-   */
-  preventNavigate: function(request) {
-    request.suspend();
-
-    let notificationBox = null;
-    if (this._target.isLocalTab) {
-      let gBrowser = this._target.tab.ownerDocument.defaultView.gBrowser;
-      notificationBox = gBrowser.getNotificationBox();
-    }
-    else {
-      notificationBox = this._toolbox.getNotificationBox();
-    }
-
-    let notification = notificationBox.
-      getNotificationWithValue("styleeditor-page-navigation");
-
-    if (notification) {
-      notificationBox.removeNotification(notification, true);
-    }
-
-    let cancelRequest = function onCancelRequest() {
-      if (request) {
-        request.cancel(Cr.NS_BINDING_ABORTED);
-        request.resume(); // needed to allow the connection to be cancelled.
-        request = null;
-      }
-    };
-
-    let eventCallback = function onNotificationCallback(event) {
-      if (event == "removed") {
-        cancelRequest();
-      }
-    };
-
-    let buttons = [
-      {
-        id: "styleeditor.confirmNavigationAway.buttonLeave",
-        label: this.strings.GetStringFromName("confirmNavigationAway.buttonLeave"),
-        accessKey: this.strings.GetStringFromName("confirmNavigationAway.buttonLeaveAccesskey"),
-        callback: function onButtonLeave() {
-          if (request) {
-            request.resume();
-            request = null;
-          }
-        }.bind(this),
-      },
-      {
-        id: "styleeditor.confirmNavigationAway.buttonStay",
-        label: this.strings.GetStringFromName("confirmNavigationAway.buttonStay"),
-        accessKey: this.strings.GetStringFromName("confirmNavigationAway.buttonStayAccesskey"),
-        callback: cancelRequest
-      },
-    ];
-
-    let message = this.strings.GetStringFromName("confirmNavigationAway.message");
-
-    notification = notificationBox.appendNotification(message,
-      "styleeditor-page-navigation", "chrome://browser/skin/Info.png",
-      notificationBox.PRIORITY_WARNING_HIGH, buttons, eventCallback);
-
-    // Make sure this not a transient notification, to avoid the automatic
-    // transient notification removal.
-    notification.persistence = -1;
   },
 
   /**

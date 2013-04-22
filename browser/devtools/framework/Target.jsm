@@ -482,7 +482,6 @@ TabWebProgressListener.prototype = {
   onStatusChange: function() {},
 
   onLocationChange: function TWPL_onLocationChange(webProgress, request, URI, flags) {
-    dump("HEATHER: onLocationChange " + "\n");
     if (this.target &&
         !(flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_SAME_DOCUMENT)) {
       let window = webProgress.DOMWindow;
