@@ -75,7 +75,7 @@ StyleEditorUI.prototype = {
     if (this._markedDirty === true) {
       return true;
     }
-    return this.editors.some(function(editor) {
+    return this.editors.some((editor) => {
       return editor.sourceEditor && editor.sourceEditor.dirty;
     });
   },
@@ -121,7 +121,7 @@ StyleEditorUI.prototype = {
         this.emit("error", LOAD_ERROR);
         return;
       }
-      NetUtil.asyncFetch(file, function onAsyncFetch(stream, status) {
+      NetUtil.asyncFetch(file, (stream, status) => {
         if (!Components.isSuccessCode(status)) {
           this.emit("error", LOAD_ERROR);
           return;
@@ -129,10 +129,10 @@ StyleEditorUI.prototype = {
         let source = NetUtil.readInputStreamToString(stream, stream.available());
         stream.close();
 
-        this._debuggee.createStyleSheet(source, function(styleSheet) {
+        this._debuggee.createStyleSheet(source, (styleSheet) => {
           this._onStyleSheetCreated(styleSheet, file);
-        }.bind(this));
-      }.bind(this));
+        });
+      });
 
     }.bind(this);
 
@@ -335,7 +335,7 @@ StyleEditorUI.prototype = {
 
     this.selectedStyleSheetIndex = editor.styleSheet.styleSheetIndex;
 
-    editor.getSourceEditor().then(function() {
+    editor.getSourceEditor().then(() => {
       editor.sourceEditor.setCaretPosition(line - 1, col - 1);
     });
 
@@ -667,9 +667,9 @@ StyleSheetEditor.prototype = {
     if (this.sourceEditor) {
       return Promise.resolve(this);
     }
-    this.on("source-editor-load", function(event) {
+    this.on("source-editor-load", (event) => {
       deferred.resolve(this);
-    }.bind(this))
+    });
     return deferred.promise;
   },
 
@@ -775,7 +775,7 @@ StyleSheetEditor.prototype = {
       converter.charset = "UTF-8";
       let istream = converter.convertToInputStream(this._state.text);
 
-      NetUtil.asyncCopy(istream, ostream, function SE_onStreamCopied(status) {
+      NetUtil.asyncCopy(istream, ostream, function onStreamCopied(status) {
         if (!Components.isSuccessCode(status)) {
           if (callback) {
             callback(null);
