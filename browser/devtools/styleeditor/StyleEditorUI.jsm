@@ -98,6 +98,39 @@ StyleEditorUI.prototype = {
     wire(this._view.rootElement, ".style-editor-importButton", function onImport() {
       this._importFromFile(this._mockImportFile || null, this._window);
     }.bind(this));
+
+    wire(this._root, "#node-rule-up", this._jumpToNextRule);
+
+    wire(this._root, "#node-rule-down", this._jumpToPrevRule);
+  },
+
+  showCurrentNode: function() {
+    let toolbox = gDevTools.getToolbox(this.target);
+
+    let inspector = toolbox.getPanel("inspector");
+
+    let selection = inspector.selection;
+    dump("HEATHER: selection " + selection + "\n");
+    if (selection) {
+      this._updateNodeBar(selection);
+    }
+  },
+
+  _updateNodeBar: function(selection) {
+    this._rules = this._getRulesForSelection(selection);
+    this._ruleIndex = 0;
+  },
+
+  _jumpToNextRule: function() {
+
+  },
+
+  _jumpToPrevRule: function() {
+
+  },
+
+  _getRulesForSelection: function(selection) {
+
   },
 
   /**

@@ -306,6 +306,10 @@ StyleEditorActor.prototype = {
 
     let actor = this._createStyleSheetActor(style.sheet);
     return { styleSheet: actor.form() };
+  },
+
+  onGetRulesForNode: function() {
+
   }
 };
 

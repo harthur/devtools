@@ -99,6 +99,10 @@
           <xul:resizer class="splitview-landscape-resizer"
                       dir="bottomend"
                       element="splitview-resizer-target"/>
+          <xul:label id="node-rules-count"/>
+          <xul:label id="node-rules-label" value=" rules for current node"/>
+          <xul:toolbarbutton id="node-rule-up" label="/\" class="devtools-toolbarbutton"/>
+          <xul:toolbarbutton id="node-rule-down" label="\/" class="devtools-toolbarbutton"/>
         </xul:toolbar>
         <xul:box class="stylesheet-editor-input textbox"
                 data-placeholder="&editorTextbox.placeholder;"/>
