@@ -1782,7 +1782,7 @@ NetworkMonitor.prototype = {
     dump("HEATHER: on modify request"  + "\n");
     var request = subject.QueryInterface(Ci.nsIHttpChannel);
 
-    let test = /css/.test(request.URI.asciiSpec);
+    let test = /api-dev.bugzilla/.test(request.URI.asciiSpec);
     if (test) {
       request.suspend();
     }
