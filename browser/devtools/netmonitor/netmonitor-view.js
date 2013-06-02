@@ -204,6 +204,36 @@ let NetMonitorView = {
   _isDestroyed: false
 };
 
+function BreakpointsView() {
+  this._el = $("#breakpoints-list");
+}
+
+BreakpointsView.prototype = {
+  addBreakpoint: function(aXHR, aFilter) {
+    // Create the element node for the breakpoint item.
+    let breakpointView = this._createBreakpointView(aXHR, aFilter);
+
+    this._el.appendChild(breakpointView);
+  },
+
+  createBreakpointView: function(aXHR, aFilter) {
+    let template = $("#breakpoint-item-template");
+    let fragment = document.createDocumentFragment();
+
+    let xhr = $(".breakpoint-item-xhr", template);
+    xhr.setAttribute("value", aXHR);
+
+    let filter = $(".breakpoint-item-filter", template);
+    filter.setAttribute("value", aFilter);
+
+    // Flatten the DOM by removing one redundant box (the template container).
+    for (let node of template.childNodes) {
+      fragment.appendChild(node.cloneNode(true));
+    }
+    return fragment;
+  }
+}
+
 /**
  * Functions handling the toolbar view: expand/collapse button etc.
  */
@@ -1772,3 +1802,4 @@ drain.store = new Map();
 NetMonitorView.Toolbar = new ToolbarView();
 NetMonitorView.RequestsMenu = new RequestsMenuView();
 NetMonitorView.NetworkDetails = new NetworkDetailsView();
+NetMonitorView.Breakpoints = new BreakpointsView();

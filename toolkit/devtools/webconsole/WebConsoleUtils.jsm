@@ -1710,6 +1710,7 @@ function NetworkMonitor(aWindow, aOwner)
   this.openRequests = {};
   this.openResponses = {};
   this._httpResponseExaminer = this._httpResponseExaminer.bind(this);
+  this._onModifyRequest = this._onModifyRequest.bind(this);
 }
 
 NetworkMonitor.prototype = {
@@ -1765,6 +1766,30 @@ NetworkMonitor.prototype = {
 
     Services.obs.addObserver(this._httpResponseExaminer,
                              "http-on-examine-response", false);
+    Services.obs.addObserver(this._onOpeningRequest,
+                             "http-on-opening-request", false);
+    Services.obs.addObserver(this._onModifyRequest,
+                             "http-on-modify-request", false);
+    Services.obs.addObserver(this._onExamineCachedResponse,
+                             "http-on-examine-cached-response", false);
+  },
+
+  _onOpeningRequest: function() {
+    dump("HEATHER: on open request"  + "\n");
+  },
+
+  _onModifyRequest: function(subject, topic, data) {
+    dump("HEATHER: on modify request"  + "\n");
+    var request = subject.QueryInterface(Ci.nsIHttpChannel);
+
+    let test = /css/.test(request.URI.asciiSpec);
+    if (test) {
+      request.suspend();
+    }
+  },
+
+  _onExamineCachedResponse: function() {
+     dump("HEATHER: on examine cached response" + "\n");
   },
 
   /**

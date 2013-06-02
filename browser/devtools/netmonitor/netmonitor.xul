@@ -20,6 +20,12 @@
   <box id="body"
        class="devtools-responsive-container"
        flex="1">
+    <vbox id="breakpoints-list" flex="1">
+      <hbox id="breakpoint-item-template" hidden="true">
+        <label class="breakpoint-item-xhr" crop="end"/>
+        <label class="breakpoint-item-filter" crop="end"/>
+      </hbox>
+    </vbox>
     <vbox id="network-table" flex="1">
       <toolbar id="requests-menu-toolbar"
                class="devtools-toolbar"
