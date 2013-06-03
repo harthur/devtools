@@ -284,6 +284,17 @@ WebConsoleClient.prototype = {
     this._client.request(packet, aOnResponse);
   },
 
+  sendHTTPRequest: function(aData, aOnResponse) {
+    let packet = {
+      to: this._actor,
+      type: "sendHTTPRequest"
+    };
+    for (let prop of ["method", "url", "headers", "body"]) {
+      packet[prop] = aData[prop];
+    }
+    this._client.request(packet, aOnResponse);
+  },
+
   /**
    * Start the given Web Console listeners.
    *

@@ -15,6 +15,24 @@
   overflow: auto;
 }
 
+#custom-pane {
+  overflow: auto;
+  padding: 0.6em 0.5em;
+}
+
+#custom-pane textbox {
+  font-family: Menlo, Monaco, monospace;
+}
+
+#custom-pane menulist {
+  width: 75px;
+}
+
+#headers-summary-resend {
+  margin: 0 6px;
+  min-height: 20px;
+}
+
 #timings-summary-blocked {
   display: none; /* This doesn't work yet. */
 }
