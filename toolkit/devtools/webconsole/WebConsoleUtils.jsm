@@ -46,6 +46,9 @@ this.EXPORTED_SYMBOLS = ["WebConsoleUtils", "JSPropertyProvider", "JSTermHelpers
                          "NetworkResponseListener", "NetworkMonitor",
                          "ConsoleProgressListener"];
 
+  dump("HEATHER: utils" + "\n");
+
+
 // Match the function name from the result of toString() or toSource().
 //
 // Examples:
@@ -1577,6 +1580,7 @@ NetworkResponseListener.prototype = {
    */
   onStreamClose: function NRL_onStreamClose()
   {
+    dump("HEATHER: onStreamClose"  + "\n");
     if (!this.httpActivity) {
       return;
     }
@@ -1586,16 +1590,19 @@ NetworkResponseListener.prototype = {
     this._findOpenResponse();
 
     if (!this.httpActivity.discardResponseBody && this.receivedData.length) {
+      dump("HEATHER: not from cache " + "\n");
       this._onComplete(this.receivedData);
     }
     else if (!this.httpActivity.discardResponseBody &&
              this.httpActivity.responseStatus == 304) {
+      dump("HEATHER: from cache " + "\n");
       // Response is cached, so we load it from cache.
       let charset = this.request.contentCharset || this.httpActivity.charset;
       NetworkHelper.loadFromCache(this.httpActivity.url, charset,
                                   this._onComplete.bind(this));
     }
     else {
+      dump("HEATHER: not any--" +  + "\n");
       this._onComplete();
     }
   },
@@ -1614,6 +1621,8 @@ NetworkResponseListener.prototype = {
       mimeType: "",
       text: aData || "",
     };
+
+    dump("HEATHER: _onComplete " + (aData && aData.length) + "\n");
 
     response.size = response.text.length;
 
@@ -1693,10 +1702,10 @@ NetworkResponseListener.prototype = {
  *        window is given, all browser network requests are logged.
  * @param object aOwner
  *        The network monitor owner. This object needs to hold:
- *        - onNetworkEvent(aRequestInfo). This method is invoked once for every
- *        new network request and it is given one arguments: the initial network
- *        request information. onNetworkEvent() must return an object which
- *        holds several add*() methods which are used to add further network
+ *        - onNetworkEvent(aRequestInfo, aChannel). This method is invoked once for
+ *        every new network request and it is given two arguments: the initial network
+ *        request information, and the channel. onNetworkEvent() must return an object
+ *        which holds several add*() methods which are used to add further network
  *        request/response information.
  *        - saveRequestAndResponseBodies property which tells if you want to log
  *        request and response bodies.
@@ -1763,6 +1772,14 @@ NetworkMonitor.prototype = {
 
     Services.obs.addObserver(this._httpResponseExaminer,
                              "http-on-examine-response", false);
+
+    Services.obs.addObserver(this._httpCachedResponseExaminer,
+                             "http-on-examine-cached-response", false);
+  },
+
+  _httpCachedResponseExaminer: function()
+  {
+    dump("HEATHER: Cached response " + "\n");
   },
 
   /**
@@ -1787,6 +1804,8 @@ NetworkMonitor.prototype = {
     }
 
     let channel = aSubject.QueryInterface(Ci.nsIHttpChannel);
+
+    dump("HEATHER: Response " + channel.URI.spec.slice(0, 40) + "\n");
 
     if (this.window) {
       // Try to get the source window of the request.
@@ -1997,7 +2016,7 @@ NetworkMonitor.prototype = {
       cookies = NetworkHelper.parseCookieHeader(cookieHeader);
     }
 
-    httpActivity.owner = this.owner.onNetworkEvent(event);
+    httpActivity.owner = this.owner.onNetworkEvent(event, aChannel);
 
     this._setupResponseListener(httpActivity);
 

@@ -40,6 +40,9 @@ XPCOMUtils.defineLazyModuleGetter(this, "ConsoleAPIStorage",
                                   "resource://gre/modules/ConsoleAPIStorage.jsm");
 
 
+      dump("HEATHER: web console" + "\n");
+
+
 /**
  * The WebConsoleActor implements capabilities needed for the Web Console
  * feature.
@@ -52,6 +55,8 @@ XPCOMUtils.defineLazyModuleGetter(this, "ConsoleAPIStorage",
  */
 function WebConsoleActor(aConnection, aParentActor)
 {
+      dump("HEATHER: bout to create"  + "\n");
+
   this.conn = aConnection;
 
   if (aParentActor instanceof BrowserTabActor &&
@@ -89,6 +94,7 @@ function WebConsoleActor(aConnection, aParentActor)
 
   this._protoChains = new Map();
   this._dbgGlobals = new Map();
+  this._netEvents = new Map();
   this._getDebuggerGlobal(this.window);
 
   this._onObserverNotification = this._onObserverNotification.bind(this);
@@ -98,6 +104,8 @@ function WebConsoleActor(aConnection, aParentActor)
     Services.obs.addObserver(this._onObserverNotification,
                              "last-pb-context-exited", false);
   }
+        dump("HEATHER: created WebConsoleActor"  + "\n");
+
 }
 
 WebConsoleActor.prototype =
@@ -252,6 +260,8 @@ WebConsoleActor.prototype =
                                   "last-pb-context-exited");
     }
     this._actorPool = null;
+    this._netEvents.clear();
+
     this._protoChains.clear();
     this._dbgGlobals.clear();
     this._jstermHelpers = null;
@@ -418,10 +428,14 @@ WebConsoleActor.prototype =
           startedListeners.push(listener);
           break;
         case "NetworkActivity":
+              dump("HEATHER: bout to init monitor"  + "\n");
+
           if (!this.networkMonitor) {
             this.networkMonitor =
               new NetworkMonitor(window, this);
             this.networkMonitor.init();
+            dump("HEATHER: inited monitor" + "\n");
+
           }
           startedListeners.push(listener);
           break;
@@ -995,10 +1009,10 @@ WebConsoleActor.prototype =
    *         A new NetworkEventActor is returned. This is used for tracking the
    *         network request and response.
    */
-  onNetworkEvent: function WCA_onNetworkEvent(aEvent)
+  onNetworkEvent: function WCA_onNetworkEvent(aEvent, aChannel)
   {
-    let actor = new NetworkEventActor(aEvent, this);
-    this._actorPool.addActor(actor);
+    let actor = this.getNetworkEventActor(aChannel);
+    actor.setEvent(aEvent);
 
     let packet = {
       from: this.actorID,
@@ -1009,6 +1023,40 @@ WebConsoleActor.prototype =
     this.conn.send(packet);
 
     return actor;
+  },
+
+  getNetworkEventActor: function(aChannel) {
+    let actor;
+    if (actor = this._netEvents.get(aChannel)) {
+      this._netEvents.delete(aChannel);
+      return actor;
+    }
+
+    actor = new NetworkEventActor(aChannel, this);
+    this._actorPool.addActor(actor);
+    return actor;
+  },
+
+  onSendHTTPRequest: function WCA_onSendRequest(aRequest)
+  {
+    // send request from target's window
+    let request = new this._window.XMLHttpRequest();
+    request.open(aRequest.method, aRequest.url, true);
+
+    for (let {name, value} of aRequest.headers) {
+      request.setRequestHeader(name, value);
+    }
+    request.send(aRequest.body);
+
+    let actor = this.getNetworkEventActor(request.channel);
+
+    // map channel to actor so we can associate future events with it
+    this._netEvents.set(request.channel, actor);
+
+    return {
+      from: this.actorID,
+      eventActor: actor.grip()
+    };
   },
 
   /**
@@ -1108,7 +1156,7 @@ WebConsoleActor.prototype =
         });
         break;
     }
-  },
+  }
 };
 
 WebConsoleActor.prototype.requestTypes =
@@ -1120,6 +1168,7 @@ WebConsoleActor.prototype.requestTypes =
   autocomplete: WebConsoleActor.prototype.onAutocomplete,
   clearMessagesCache: WebConsoleActor.prototype.onClearMessagesCache,
   setPreferences: WebConsoleActor.prototype.onSetPreferences,
+  sendHTTPRequest: WebConsoleActor.prototype.onSendHTTPRequest
 };
 
 /**
@@ -1131,21 +1180,19 @@ WebConsoleActor.prototype.requestTypes =
  * @param object aWebConsoleActor
  *        The parent WebConsoleActor instance for this object.
  */
-function NetworkEventActor(aNetworkEvent, aWebConsoleActor)
+function NetworkEventActor(aChannel, aWebConsoleActor)
 {
   this.parent = aWebConsoleActor;
   this.conn = this.parent.conn;
-
-  this._startedDateTime = aNetworkEvent.startedDateTime;
-  this._isXHR = aNetworkEvent.isXHR;
+  this.channel = aChannel;
 
   this._request = {
-    method: aNetworkEvent.method,
-    url: aNetworkEvent.url,
-    httpVersion: aNetworkEvent.httpVersion,
+    method: null,
+    url: null,
+    httpVersion: null,
     headers: [],
     cookies: [],
-    headersSize: aNetworkEvent.headersSize,
+    headersSize: null,
     postData: {},
   };
 
@@ -1159,10 +1206,6 @@ function NetworkEventActor(aNetworkEvent, aWebConsoleActor)
 
   // Keep track of LongStringActors owned by this NetworkEventActor.
   this._longStringActors = new Set();
-
-  this._discardRequestBody = aNetworkEvent.discardRequestBody;
-  this._discardResponseBody = aNetworkEvent.discardResponseBody;
-  this._private = aNetworkEvent.private;
 }
 
 NetworkEventActor.prototype =
@@ -1201,6 +1244,8 @@ NetworkEventActor.prototype =
       }
     }
     this._longStringActors = new Set();
+
+    this.parent._netEvents.delete(this.channel);
     this.parent.releaseActor(this);
   },
 
@@ -1211,6 +1256,20 @@ NetworkEventActor.prototype =
   {
     this.release();
     return {};
+  },
+
+  setEvent: function setEvent(aNetworkEvent)
+  {
+    this._startedDateTime = aNetworkEvent.startedDateTime;
+    this._isXHR = aNetworkEvent.isXHR;
+
+    for (let prop of ['method', 'url', 'httpVersion', 'headersSize']) {
+      this._request[prop] = aNetworkEvent[prop];
+    }
+
+    this._discardRequestBody = aNetworkEvent.discardRequestBody;
+    this._discardResponseBody = aNetworkEvent.discardResponseBody;
+    this._private = aNetworkEvent.private;
   },
 
   /**
@@ -1540,4 +1599,5 @@ NetworkEventActor.prototype.requestTypes =
 DebuggerServer.addTabActor(WebConsoleActor, "consoleActor");
 DebuggerServer.addGlobalActor(WebConsoleActor, "consoleActor");
 
+      dump("HEATHER: parsed all" + "\n");
 

@@ -17,6 +17,15 @@
   <script type="text/javascript" src="netmonitor-controller.js"/>
   <script type="text/javascript" src="netmonitor-view.js"/>
 
+  <popupset id="networkPopupSet">
+    <menupopup id="network-request-popup">
+      <menuitem id="request-menu-clone"
+        label="Resend"
+        accesskey="R"
+        oncommand="NetMonitorView.RequestsMenu.cloneRequest();"/>
+    </menupopup>
+  </popupset>
+
   <box id="body"
        class="devtools-responsive-container"
        flex="1">
@@ -103,7 +112,7 @@
       </toolbar>
       <label id="requests-menu-empty-notice"
              value="&netmonitorUI.emptyNotice;"/>
-      <vbox id="requests-menu-contents" flex="1">
+      <vbox id="requests-menu-contents" flex="1" context="network-request-popup">
         <hbox id="requests-menu-item-template" hidden="true">
           <hbox class="requests-menu-subitem requests-menu-status-and-method"
                 align="center">
@@ -193,9 +202,59 @@
 
     <splitter class="devtools-side-splitter"/>
 
+    <deck id="side-pane"
+          hidden="true">
+      <vbox id="custom-pane">
+        <hbox align="center">
+          <label value="New Request"
+                 class="plain tabpanel-summary-label"/>
+          <hbox flex="1" pack="end">
+            <button class="devtools-toolbarbutton" label="Send"
+                    onclick="NetMonitorView.RequestsMenu.sendRequest();"/>
+            <button class="devtools-toolbarbutton" label="Cancel"
+                    onclick="NetMonitorView.RequestsMenu.closeCustomRequest();"/>
+          </hbox>
+        </hbox>
+        <hbox id="custom-method-and-url"
+              class="tabpanel-summary-container"
+              align="center">
+          <menulist id="custom-method-value"
+                    oncommand="NetMonitorView.RequestsMenu.updateCustomRequest();">
+            <menupopup>
+              <menuitem label="GET" value="GET"/>
+              <menuitem label="POST" value="POST"/>
+              <menuitem label="PUT" value="PUT"/>
+              <menuitem label="HEAD" value="HEAD"/>
+            </menupopup>
+          </menulist>
+          <textbox id="custom-url-value"
+             flex="1"
+             oninput="NetMonitorView.RequestsMenu.updateCustomRequest();"/>
+        </hbox>
+        <vbox id="custom-headers"
+              class="tabpanel-summary-container">
+          <label class="plain tabpanel-summary-label"
+                 value="Request Headers:"/>
+          <textbox id="custom-headers-value"
+                   class="tabpanel-summary-input"
+                   multiline="true"
+                   rows="6"
+                   wrap="off"
+                   oninput="NetMonitorView.RequestsMenu.updateCustomRequest();"/>
+        </vbox>
+        <vbox id="custom-postdata"
+              class="tabpanel-summary-container">
+          <label class="plain tabpanel-summary-label"
+                 value="Request Body:"/>
+          <textbox id="custom-postdata-value"
+                   class="tabpanel-summary-input"
+                   multiline="true" rows="5"
+                   wrap="off"
+                   oninput="NetMonitorView.RequestsMenu.updateCustomRequest();"/>
+        </vbox>
+      </vbox>
     <tabbox id="details-pane"
-            class="devtools-sidebar-tabs"
-            hidden="true">
+            class="devtools-sidebar-tabs">
       <tabs>
         <tab label="&netmonitorUI.tab.headers;"/>
         <tab label="&netmonitorUI.tab.cookies;"/>
@@ -238,6 +297,10 @@
                      class="plain tabpanel-summary-value"
                      crop="end"
                      flex="1"/>
+              <button id="headers-summary-resend"
+                     label="Resend"
+                     class="devtools-toolbarbutton"
+                     onclick="NetMonitorView.RequestsMenu.cloneRequest();"/>
             </hbox>
             <hbox id="headers-summary-version"
                   class="tabpanel-summary-container"
@@ -371,6 +434,7 @@
         </tabpanel>
       </tabpanels>
     </tabbox>
+  </deck>
   </box>
 
 </window>
