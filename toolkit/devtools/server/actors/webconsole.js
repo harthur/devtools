@@ -980,8 +980,7 @@ WebConsoleActor.prototype =
    */
   onNetworkEvent: function WCA_onNetworkEvent(aEvent)
   {
-    let actor = new NetworkEventActor(aEvent, this);
-    this._actorPool.addActor(actor);
+    let actor = this.createNetworkEventActor(aEvent);
 
     let packet = {
       from: this.actorID,
@@ -992,6 +991,23 @@ WebConsoleActor.prototype =
     this.conn.send(packet);
 
     return actor;
+  },
+
+  createNetworkEventActor: function(aEvent) {
+    let actor = new NetworkEventActor(aEvent, this);
+    this._actorPool.addActor(actor);
+
+    return actor;
+  },
+
+  onSendHTTPRequest: function WCA_onSendRequest(aRequest)
+  {
+    // send request from target's window
+    let request = new this._window.XMLHttpRequest();
+    request.open(aRequest.method, aRequest.url, true);
+    dump("HEATHER: request channel " + request.channel + "\n");
+    request.send();
+    dump("HEATHER: request channel " + request.channel + "\n");
   },
 
   /**
@@ -1091,7 +1107,7 @@ WebConsoleActor.prototype =
         });
         break;
     }
-  },
+  }
 };
 
 WebConsoleActor.prototype.requestTypes =
@@ -1103,6 +1119,7 @@ WebConsoleActor.prototype.requestTypes =
   autocomplete: WebConsoleActor.prototype.onAutocomplete,
   clearMessagesCache: WebConsoleActor.prototype.onClearMessagesCache,
   setPreferences: WebConsoleActor.prototype.onSetPreferences,
+  sendHTTPRequest: WebConsoleActor.prototype.onSendHTTPRequest
 };
 
 /**

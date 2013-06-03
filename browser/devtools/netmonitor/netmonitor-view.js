@@ -386,8 +386,8 @@ create({ constructor: RequestsMenuView, proto: MenuContainer.prototype }, {
   sendRequest: function() {
     let data = this.selectedItem.attachment;
 
-    let request = new XMLHttpRequest();
     this.remove(this.selectedItem);
+    NetMonitorController.webConsoleClient.sendHTTPRequest(data);
     dump("HEATHER: sending request" + "\n");
   },
 

@@ -1960,6 +1960,7 @@ NetworkMonitor.prototype = {
     event.method = aChannel.requestMethod;
     event.url = aChannel.URI.spec;
     event.private = httpActivity.private;
+    event.channel = aChannel;
 
     // Determine if this is an XHR request.
     try {
