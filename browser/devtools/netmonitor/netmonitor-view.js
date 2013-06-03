@@ -105,14 +105,14 @@ let NetMonitorView = {
     dumpn("Initializing the NetMonitorView panes");
 
     this._body = $("#body");
-    this._detailsPane = $("#details-pane");
-    this._detailsPaneToggleButton = $("#details-pane-toggle");
+    this._sidePane = $("#side-pane");
+    this._sidePaneToggleButton = $("#details-pane-toggle");
 
     this._collapsePaneString = L10N.getStr("collapseDetailsPane");
     this._expandPaneString = L10N.getStr("expandDetailsPane");
 
-    this._detailsPane.setAttribute("width", Prefs.networkDetailsWidth);
-    this._detailsPane.setAttribute("height", Prefs.networkDetailsHeight);
+    this._sidePane.setAttribute("width", Prefs.networkDetailsWidth);
+    this._sidePane.setAttribute("height", Prefs.networkDetailsHeight);
     this.toggleDetailsPane({ visible: false });
   },
 
@@ -122,19 +122,19 @@ let NetMonitorView = {
   _destroyPanes: function() {
     dumpn("Destroying the NetMonitorView panes");
 
-    Prefs.networkDetailsWidth = this._detailsPane.getAttribute("width");
-    Prefs.networkDetailsHeight = this._detailsPane.getAttribute("height");
+    Prefs.networkDetailsWidth = this._sidePane.getAttribute("width");
+    Prefs.networkDetailsHeight = this._sidePane.getAttribute("height");
 
-    this._detailsPane = null;
-    this._detailsPaneToggleButton = null;
+    this._sidePane = null;
+    this._sidePaneToggleButton = null;
   },
 
   /**
    * Gets the visibility state of the network details pane.
    * @return boolean
    */
-  get detailsPaneHidden()
-    this._detailsPane.hasAttribute("pane-collapsed"),
+  get sidePaneHidden()
+    this._sidePane.hasAttribute("pane-collapsed"),
 
   /**
    * Sets the network details pane hidden or visible.
@@ -149,8 +149,8 @@ let NetMonitorView = {
    *        The index of the intended selected tab in the details pane.
    */
   toggleDetailsPane: function(aFlags, aTabIndex) {
-    let pane = this._detailsPane;
-    let button = this._detailsPaneToggleButton;
+    let pane = this._sidePane;
+    let button = this._sidePaneToggleButton;
 
     ViewHelpers.togglePane(aFlags, pane);
 
@@ -195,8 +195,8 @@ let NetMonitorView = {
   },
 
   _body: null,
-  _detailsPane: null,
-  _detailsPaneToggleButton: null,
+  _sidePane: null,
+  _sidePaneToggleButton: null,
   _collapsePaneString: "",
   _expandPaneString: "",
   _editorPromises: new Map(),
@@ -220,8 +220,8 @@ ToolbarView.prototype = {
   initialize: function() {
     dumpn("Initializing the ToolbarView");
 
-    this._detailsPaneToggleButton = $("#details-pane-toggle");
-    this._detailsPaneToggleButton.addEventListener("mousedown", this._onTogglePanesPressed, false);
+    this._sidePaneToggleButton = $("#details-pane-toggle");
+    this._sidePaneToggleButton.addEventListener("mousedown", this._onTogglePanesPressed, false);
   },
 
   /**
@@ -230,7 +230,7 @@ ToolbarView.prototype = {
   destroy: function() {
     dumpn("Destroying the ToolbarView");
 
-    this._detailsPaneToggleButton.removeEventListener("mousedown", this._onTogglePanesPressed, false);
+    this._sidePaneToggleButton.removeEventListener("mousedown", this._onTogglePanesPressed, false);
   },
 
   /**
@@ -249,7 +249,7 @@ ToolbarView.prototype = {
     }
   },
 
-  _detailsPaneToggleButton: null
+  _sidePaneToggleButton: null
 };
 
 /**
@@ -285,6 +285,16 @@ create({ constructor: RequestsMenuView, proto: MenuContainer.prototype }, {
 
     this.node.addEventListener("select", this._onSelect, false);
     window.addEventListener("resize", this._onResize, false);
+  },
+
+  cloneRequest: function() {
+    this.addNewRequest();
+    dump("HEATHER: cloneRequest" + "\n");
+  },
+
+  createRequest: function() {
+    this.addNewRequest();
+    dump("HEATHER: createRequest" + "\n");
   },
 
   /**
@@ -355,6 +365,30 @@ create({ constructor: RequestsMenuView, proto: MenuContainer.prototype }, {
 
     this.refreshSummary();
     this._cache.set(aId, requestItem);
+  },
+
+  /*
+   * Add a custom request to the menu
+   */
+  addNewRequest: function() {
+    let label = document.createElement("label");
+    label.setAttribute("value", "New Request");
+
+    let newItem = this.push(label, {
+      attachment: {
+        isNew: true,
+        url: "https://github.com/harthur/some-json/raw/gh-pages/2.json",
+        method: "GET"
+      }
+    });
+  },
+
+  sendRequest: function() {
+    let data = this.selectedItem.attachment;
+
+    let request = new XMLHttpRequest();
+    this.remove(this.selectedItem);
+    dump("HEATHER: sending request" + "\n");
   },
 
   /**
@@ -1220,6 +1254,13 @@ create({ constructor: RequestsMenuView, proto: MenuContainer.prototype }, {
   _resizeTimeout: null
 });
 
+function RequestModifierView() {
+
+}
+RequestModifierView.prototype = {
+
+}
+
 /**
  * Functions handling the requests details view.
  */
@@ -1302,6 +1343,25 @@ NetworkDetailsView.prototype = {
    *        The data source (this should be the attachment of a request item).
    */
   populate: function(aData) {
+    if (aData.isNew) {
+      this.populateCustom(aData);
+    } else {
+      this.populateDetails(aData);
+    }
+  },
+
+  populateCustom: function(aData) {
+     dump("pop custom \n");
+     $("#custom-url-value").setAttribute("value", aData.url);
+     // method
+     // headers
+     // body
+
+     $("#side-pane").selectedIndex = 0;
+  },
+
+  populateDetails: function(aData) {
+    dump("HEATHER: pop dets"  + "\n");
     $("#request-params-box").setAttribute("flex", "1");
     $("#request-params-box").hidden = false;
     $("#request-post-data-textarea-box").hidden = true;
@@ -1316,6 +1376,8 @@ NetworkDetailsView.prototype = {
 
     this._dataSrc = { src: aData, populated: [] };
     this._onTabSelect();
+
+    $("#side-pane").selectedIndex = 1;
   },
 
   /**
@@ -1772,3 +1834,4 @@ drain.store = new Map();
 NetMonitorView.Toolbar = new ToolbarView();
 NetMonitorView.RequestsMenu = new RequestsMenuView();
 NetMonitorView.NetworkDetails = new NetworkDetailsView();
+NetMonitorView.RequestModifier = new RequestModifierView();

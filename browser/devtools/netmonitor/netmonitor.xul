@@ -17,6 +17,20 @@
   <script type="text/javascript" src="netmonitor-controller.js"/>
   <script type="text/javascript" src="netmonitor-view.js"/>
 
+  <popupset id="networkPopupSet">
+    <menupopup id="network-request-popup">
+      <menuitem id="request-menu-clone"
+        label="Clone Request"
+        accesskey="C"
+        oncommand="NetMonitorView.RequestsMenu.cloneRequest();"/>
+      <menuitem id="request-menu-create"
+        label="New Request"
+        accesskey="N"
+        oncommand="NetMonitorView.RequestsMenu.customRequest();"
+        hidden="true"/>
+    </menupopup>
+  </popupset>
+
   <box id="body"
        class="devtools-responsive-container"
        flex="1">
@@ -97,7 +111,7 @@
       </toolbar>
       <label id="requests-menu-empty-notice"
              value="&netmonitorUI.emptyNotice;"/>
-      <vbox id="requests-menu-contents" flex="1">
+      <vbox id="requests-menu-contents" flex="1" context="network-request-popup">
         <hbox id="requests-menu-item-template" hidden="true">
           <hbox class="requests-menu-subitem requests-menu-status-and-method"
                 align="center">
@@ -187,9 +201,31 @@
 
     <splitter class="devtools-side-splitter"/>
 
+    <deck id="side-pane"
+          hidden="true">
+      <vbox id="custom-pane">
+        <label value="New Request" class="plain tabpanel-summary-label"/>
+        <hbox id="custom-url"
+              class="tabpanel-summary-container"
+              align="center">
+          <label class="plain tabpanel-summary-label"
+                 value="URL:"/>
+          <textbox id="custom-url-value"
+                   class="tabpanel-summary-input"/>
+        </hbox>
+        <hbox id="custom-method"
+              class="tabpanel-summary-container"
+              align="center">
+          <label class="plain tabpanel-summary-label"
+                 value="Method:"/>
+          <textbox id="custom-method-value"
+                   class="tabpanel-summary-input"/>
+        </hbox>
+        <button label="Send"
+                onclick="NetMonitorView.RequestsMenu.sendRequest();"></button>
+      </vbox>
     <tabbox id="details-pane"
-            class="devtools-sidebar-tabs"
-            hidden="true">
+            class="devtools-sidebar-tabs">
       <tabs>
         <tab label="&netmonitorUI.tab.headers;"/>
         <tab label="&netmonitorUI.tab.cookies;"/>
@@ -364,6 +400,7 @@
         </tabpanel>
       </tabpanels>
     </tabbox>
+  </deck>
   </box>
 
 </window>
