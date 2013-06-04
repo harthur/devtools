@@ -89,6 +89,7 @@ function WebConsoleActor(aConnection, aParentActor)
 
   this._protoChains = new Map();
   this._dbgGlobals = new Map();
+  this._netEvents = new Map();
   this._getDebuggerGlobal(this.window);
 
   this._onObserverNotification = this._onObserverNotification.bind(this);
@@ -252,6 +253,8 @@ WebConsoleActor.prototype =
                                   "last-pb-context-exited");
     }
     this._actorPool = null;
+    this._netEvents.clear();
+
     this._protoChains.clear();
     this._dbgGlobals.clear();
     this._jstermHelpers = null;
@@ -980,7 +983,8 @@ WebConsoleActor.prototype =
    */
   onNetworkEvent: function WCA_onNetworkEvent(aEvent)
   {
-    let actor = this.createNetworkEventActor(aEvent);
+    let actor = this.getNetworkEventActor(aEvent.channel);
+    actor.setEvent(aEvent);
 
     let packet = {
       from: this.actorID,
@@ -993,10 +997,13 @@ WebConsoleActor.prototype =
     return actor;
   },
 
-  createNetworkEventActor: function(aEvent) {
-    let actor = new NetworkEventActor(aEvent, this);
+  getNetworkEventActor: function(aChannel) {
+    if (this._netEvents.has(aChannel)) {
+      return this._netEvents.get(aChannel);
+    }
+    let actor = new NetworkEventActor(aChannel, this);
     this._actorPool.addActor(actor);
-
+    this._netEvents.set(aChannel, actor);
     return actor;
   },
 
@@ -1005,9 +1012,23 @@ WebConsoleActor.prototype =
     // send request from target's window
     let request = new this._window.XMLHttpRequest();
     request.open(aRequest.method, aRequest.url, true);
-    dump("HEATHER: request channel " + request.channel + "\n");
+    dump("HEATHER: sendin on request channel " + request.channel + "\n");
     request.send();
-    dump("HEATHER: request channel " + request.channel + "\n");
+    /*
+      var headers = spy.requestHeaders;
+            for (var i=0; headers && i<headers.length; i++)
+            {
+                var header = headers[i];
+                request.setRequestHeader(header.name, header.value);
+            }
+
+            var postData = NetUtils.getPostText(spy, context, true);
+            request.send(postData);
+     */
+    let actor = this.getNetworkEventActor(request.channel);
+    return {
+      eventActor: actor.grip()
+    }
   },
 
   /**
@@ -1131,21 +1152,19 @@ WebConsoleActor.prototype.requestTypes =
  * @param object aWebConsoleActor
  *        The parent WebConsoleActor instance for this object.
  */
-function NetworkEventActor(aNetworkEvent, aWebConsoleActor)
+function NetworkEventActor(aChannel, aWebConsoleActor)
 {
   this.parent = aWebConsoleActor;
   this.conn = this.parent.conn;
-
-  this._startedDateTime = aNetworkEvent.startedDateTime;
-  this._isXHR = aNetworkEvent.isXHR;
+  this.channel = aChannel;
 
   this._request = {
-    method: aNetworkEvent.method,
-    url: aNetworkEvent.url,
-    httpVersion: aNetworkEvent.httpVersion,
+    method: null,
+    url: null,
+    httpVersion: null,
     headers: [],
     cookies: [],
-    headersSize: aNetworkEvent.headersSize,
+    headersSize: null,
     postData: {},
   };
 
@@ -1157,10 +1176,6 @@ function NetworkEventActor(aNetworkEvent, aWebConsoleActor)
 
   this._timings = {};
   this._longStringActors = new Set();
-
-  this._discardRequestBody = aNetworkEvent.discardRequestBody;
-  this._discardResponseBody = aNetworkEvent.discardResponseBody;
-  this._private = aNetworkEvent.private;
 }
 
 NetworkEventActor.prototype =
@@ -1199,6 +1214,8 @@ NetworkEventActor.prototype =
       }
     }
     this._longStringActors = new Set();
+
+    this.parent._netEvents.delete(this.channel);
     this.parent.releaseActor(this);
   },
 
@@ -1209,6 +1226,20 @@ NetworkEventActor.prototype =
   {
     this.release();
     return {};
+  },
+
+  setEvent: function setEvent(aNetworkEvent)
+  {
+    this._startedDateTime = aNetworkEvent.startedDateTime;
+    this._isXHR = aNetworkEvent.isXHR;
+
+    for (let prop of ['method', 'url', 'httpVersion', 'headersSize']) {
+      this._request[prop] = aNetworkEvent[prop];
+    }
+
+    this._discardRequestBody = aNetworkEvent.discardRequestBody;
+    this._discardResponseBody = aNetworkEvent.discardResponseBody;
+    this._private = aNetworkEvent.private;
   },
 
   /**

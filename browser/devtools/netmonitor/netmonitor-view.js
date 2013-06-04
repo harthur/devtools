@@ -387,7 +387,9 @@ create({ constructor: RequestsMenuView, proto: MenuContainer.prototype }, {
     let data = this.selectedItem.attachment;
 
     this.remove(this.selectedItem);
-    NetMonitorController.webConsoleClient.sendHTTPRequest(data);
+    NetMonitorController.webConsoleClient.sendHTTPRequest(data, (response) => {
+      let actor = response.eventActor;
+    });
     dump("HEATHER: sending request" + "\n");
   },
 
