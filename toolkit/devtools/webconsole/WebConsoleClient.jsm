@@ -287,10 +287,11 @@ WebConsoleClient.prototype = {
   sendHTTPRequest: function(aData, aOnResponse) {
     let packet = {
       to: this._actor,
-      type: "sendHTTPRequest",
-      url: aData.url,
-      method: aData.method
+      type: "sendHTTPRequest"
     };
+    for (let prop of ["method", "url", "headers", "body"]) {
+      packet[prop] = aData[prop];
+    }
     this._client.request(packet, aOnResponse);
   },
 

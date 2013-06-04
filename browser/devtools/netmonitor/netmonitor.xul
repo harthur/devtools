@@ -223,6 +223,22 @@
         </hbox>
         <button label="Send"
                 onclick="NetMonitorView.RequestsMenu.sendRequest();"></button>
+        <hbox id="custom-headers"
+              class="tabpanel-summary-container"
+              align="center">
+          <label class="plain tabpanel-summary-label"
+                 value="Headers:"/>
+          <textbox id="custom-headers-value"
+                   class="tabpanel-summary-input"/>
+        </hbox>
+        <hbox id="custom-postdata"
+              class="tabpanel-summary-container"
+              align="center">
+          <label class="plain tabpanel-summary-label"
+                 value="Body:"/>
+          <textbox id="custom-postdata-value"
+                   class="tabpanel-summary-input"/>
+        </hbox>
       </vbox>
     <tabbox id="details-pane"
             class="devtools-sidebar-tabs">

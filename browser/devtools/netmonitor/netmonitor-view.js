@@ -107,6 +107,7 @@ let NetMonitorView = {
     this._body = $("#body");
     this._sidePane = $("#side-pane");
     this._sidePaneToggleButton = $("#details-pane-toggle");
+    this._detailsPane = $("#details-pane");
 
     this._collapsePaneString = L10N.getStr("collapseDetailsPane");
     this._expandPaneString = L10N.getStr("expandDetailsPane");
@@ -287,11 +288,6 @@ create({ constructor: RequestsMenuView, proto: MenuContainer.prototype }, {
     window.addEventListener("resize", this._onResize, false);
   },
 
-  cloneRequest: function() {
-    this.addNewRequest();
-    dump("HEATHER: cloneRequest" + "\n");
-  },
-
   createRequest: function() {
     this.addNewRequest();
     dump("HEATHER: createRequest" + "\n");
@@ -365,30 +361,47 @@ create({ constructor: RequestsMenuView, proto: MenuContainer.prototype }, {
 
     this.refreshSummary();
     this._cache.set(aId, requestItem);
+
+    dump("HEATHER: id: " + aId + " " + this._itemToSelect + "\n");
+    if (aId == this._itemToSelectId) {
+      this.selectedItem = requestItem;
+    }
   },
 
   /*
    * Add a custom request to the menu
    */
-  addNewRequest: function() {
+  cloneRequest: function() {
     let label = document.createElement("label");
     label.setAttribute("value", "New Request");
+
+    let selected = this.selectedItem.attachment;
 
     let newItem = this.push(label, {
       attachment: {
         isNew: true,
-        url: "https://github.com/harthur/some-json/raw/gh-pages/2.json",
-        method: "GET"
+        method: selected.method,
+        url: selected.url,
+        headers: selected.requestHeaders.headers,
+        body: selected.requestPostData
       }
     });
+
+    // immediately switch to new request pane
+    this.selectedItem = newItem;
   },
 
   sendRequest: function() {
-    let data = this.selectedItem.attachment;
+    let selectedItem = this.selectedItem;
+    let data = selectedItem.attachment;
 
-    this.remove(this.selectedItem);
-    NetMonitorController.webConsoleClient.sendHTTPRequest(data, (response) => {
-      let actor = response.eventActor;
+    NetMonitorController.webConsoleClient.sendHTTPRequest(data, (response, t) => {
+      this.remove(selectedItem);
+      dump("HEATHER: resp: " + JSON.stringify(response) + t + "\n");
+
+      let id = response.eventActor.actor;
+      this._itemToSelectId = id;
+      dump("HEATHER: itemtosel" + this._itemToSelect + "\n");
     });
     dump("HEATHER: sending request" + "\n");
   },
@@ -1353,17 +1366,15 @@ NetworkDetailsView.prototype = {
   },
 
   populateCustom: function(aData) {
-     dump("pop custom \n");
-     $("#custom-url-value").setAttribute("value", aData.url);
-     // method
-     // headers
-     // body
+    $("#custom-url-value").setAttribute("value", aData.url);
+    $("#custom-method-value").setAttribute("value", aData.method);
+    $("#custom-headers-value").setAttribute("value", aData.requestHeaders);
+    $("#custom-postdata-value").setAttribute("value", aData.requestPostData);
 
-     $("#side-pane").selectedIndex = 0;
+    $("#side-pane").selectedIndex = 0;
   },
 
   populateDetails: function(aData) {
-    dump("HEATHER: pop dets"  + "\n");
     $("#request-params-box").setAttribute("flex", "1");
     $("#request-params-box").hidden = false;
     $("#request-post-data-textarea-box").hidden = true;
@@ -1731,7 +1742,7 @@ NetworkDetailsView.prototype = {
     }
     let { blocked, dns, connect, send, wait, receive } = aResponse.timings;
 
-    let tabboxWidth = $("#details-pane").getAttribute("width");
+    let tabboxWidth = $("#side-pane").getAttribute("width");
     let availableWidth = tabboxWidth / 2; // Other nodes also take some space.
     let scale = Math.max(availableWidth / aResponse.totalTime, 0);
 

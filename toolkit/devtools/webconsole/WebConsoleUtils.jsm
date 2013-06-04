@@ -46,6 +46,9 @@ this.EXPORTED_SYMBOLS = ["WebConsoleUtils", "JSPropertyProvider", "JSTermHelpers
                          "NetworkResponseListener", "NetworkMonitor",
                          "ConsoleProgressListener"];
 
+  dump("HEATHER: utils" + "\n");
+
+
 // Match the function name from the result of toString() or toSource().
 //
 // Examples:
@@ -1934,6 +1937,8 @@ NetworkMonitor.prototype = {
   _onRequestHeader:
   function NM__onRequestHeader(aChannel, aTimestamp, aExtraStringData)
   {
+    dump("HEATHER: on req header"  + "\n");
+
     let win = NetworkHelper.getWindowForRequest(aChannel);
 
     // Try to get the source window of the request.

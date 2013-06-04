@@ -40,6 +40,9 @@ XPCOMUtils.defineLazyModuleGetter(this, "ConsoleAPIStorage",
                                   "resource://gre/modules/ConsoleAPIStorage.jsm");
 
 
+      dump("HEATHER: web console" + "\n");
+
+
 /**
  * The WebConsoleActor implements capabilities needed for the Web Console
  * feature.
@@ -52,6 +55,8 @@ XPCOMUtils.defineLazyModuleGetter(this, "ConsoleAPIStorage",
  */
 function WebConsoleActor(aConnection, aParentActor)
 {
+      dump("HEATHER: bout to create"  + "\n");
+
   this.conn = aConnection;
 
   if (aParentActor instanceof BrowserTabActor &&
@@ -99,6 +104,8 @@ function WebConsoleActor(aConnection, aParentActor)
     Services.obs.addObserver(this._onObserverNotification,
                              "last-pb-context-exited", false);
   }
+        dump("HEATHER: created WebConsoleActor"  + "\n");
+
 }
 
 WebConsoleActor.prototype =
@@ -403,10 +410,14 @@ WebConsoleActor.prototype =
           startedListeners.push(listener);
           break;
         case "NetworkActivity":
+              dump("HEATHER: bout to init monitor"  + "\n");
+
           if (!this.networkMonitor) {
             this.networkMonitor =
               new NetworkMonitor(window, this);
             this.networkMonitor.init();
+            dump("HEATHER: inited monitor" + "\n");
+
           }
           startedListeners.push(listener);
           break;
@@ -983,6 +994,7 @@ WebConsoleActor.prototype =
    */
   onNetworkEvent: function WCA_onNetworkEvent(aEvent)
   {
+    dump("HEATHER: onnet event" + "\n");
     let actor = this.getNetworkEventActor(aEvent.channel);
     actor.setEvent(aEvent);
 
@@ -999,6 +1011,7 @@ WebConsoleActor.prototype =
 
   getNetworkEventActor: function(aChannel) {
     if (this._netEvents.has(aChannel)) {
+      dump("HEATHER: already got actor"  + "\n");
       return this._netEvents.get(aChannel);
     }
     let actor = new NetworkEventActor(aChannel, this);
@@ -1013,7 +1026,13 @@ WebConsoleActor.prototype =
     let request = new this._window.XMLHttpRequest();
     request.open(aRequest.method, aRequest.url, true);
     dump("HEATHER: sendin on request channel " + request.channel + "\n");
-    request.send();
+
+    dump("HEATHER: heads " + aRequest.headers + "\n");
+    dump("HEATHER: stringify " + JSON.stringify(aRequest.headers) + "\n");
+
+    for (let {name, value} of aRequest.headers) {
+      request.setRequestHeader(name, value);
+    }
     /*
       var headers = spy.requestHeaders;
             for (var i=0; headers && i<headers.length; i++)
@@ -1025,10 +1044,14 @@ WebConsoleActor.prototype =
             var postData = NetUtils.getPostText(spy, context, true);
             request.send(postData);
      */
+    request.send(aRequest.body);
+
     let actor = this.getNetworkEventActor(request.channel);
+    dump("HEATHER: got actor " + actor.grip() + "\n");
     return {
+      from: this.actorID,
       eventActor: actor.grip()
-    }
+    };
   },
 
   /**
@@ -1587,4 +1610,5 @@ NetworkEventActor.prototype.requestTypes =
 DebuggerServer.addTabActor(WebConsoleActor, "consoleActor");
 DebuggerServer.addGlobalActor(WebConsoleActor, "consoleActor");
 
+      dump("HEATHER: parsed all" + "\n");
 
