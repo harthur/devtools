@@ -204,41 +204,45 @@
     <deck id="side-pane"
           hidden="true">
       <vbox id="custom-pane">
-        <label value="New Request" class="plain tabpanel-summary-label"/>
-        <hbox id="custom-url"
+        <hbox align="center">
+          <label value="New Request"
+                 class="plain tabpanel-summary-label"/>
+          <hbox flex="1" pack="end">
+            <button label="Send"
+                  onclick="NetMonitorView.RequestsMenu.sendRequest();"></button>
+          </hbox>
+        </hbox>
+        <hbox id="custom-method-and-url"
               class="tabpanel-summary-container"
               align="center">
-          <label class="plain tabpanel-summary-label"
-                 value="URL:"/>
+          <menulist id="custom-method-value">
+            <menupopup>
+              <menuitem label="GET" value="GET"/>
+              <menuitem label="POST" value="POST"/>
+              <menuitem label="PUT" value="PUT"/>
+              <menuitem label="HEAD" value="HEAD"/>
+            </menupopup>
+          </menulist>
           <textbox id="custom-url-value"
-                   class="tabpanel-summary-input"/>
+             flex="1"/>
         </hbox>
-        <hbox id="custom-method"
-              class="tabpanel-summary-container"
-              align="center">
+        <vbox id="custom-headers"
+              class="tabpanel-summary-container">
           <label class="plain tabpanel-summary-label"
-                 value="Method:"/>
-          <textbox id="custom-method-value"
-                   class="tabpanel-summary-input"/>
-        </hbox>
-        <button label="Send"
-                onclick="NetMonitorView.RequestsMenu.sendRequest();"></button>
-        <hbox id="custom-headers"
-              class="tabpanel-summary-container"
-              align="center">
-          <label class="plain tabpanel-summary-label"
-                 value="Headers:"/>
+                 value="Request Headers:"/>
           <textbox id="custom-headers-value"
-                   class="tabpanel-summary-input"/>
-        </hbox>
-        <hbox id="custom-postdata"
-              class="tabpanel-summary-container"
-              align="center">
+                   class="tabpanel-summary-input"
+                   multiline="true"
+                   rows="6" cols="60"/>
+        </vbox>
+        <vbox id="custom-postdata"
+              class="tabpanel-summary-container">
           <label class="plain tabpanel-summary-label"
-                 value="Body:"/>
+                 value="Request Body:"/>
           <textbox id="custom-postdata-value"
-                   class="tabpanel-summary-input"/>
-        </hbox>
+                   class="tabpanel-summary-input"
+                   multiline="true" rows="5" cols="60"/>
+        </vbox>
       </vbox>
     <tabbox id="details-pane"
             class="devtools-sidebar-tabs">
@@ -284,6 +288,8 @@
                      class="plain tabpanel-summary-value"
                      crop="end"
                      flex="1"/>
+              <button label="Resend"
+                     onclick="NetMonitorView.RequestsMenu.cloneRequest();"/>
             </hbox>
             <hbox id="headers-summary-version"
                   class="tabpanel-summary-container"

@@ -387,6 +387,8 @@ create({ constructor: RequestsMenuView, proto: MenuContainer.prototype }, {
       }
     });
 
+    dump("HEATHER: pushed new\n");
+
     // immediately switch to new request pane
     this.selectedItem = newItem;
   },
@@ -1269,13 +1271,6 @@ create({ constructor: RequestsMenuView, proto: MenuContainer.prototype }, {
   _resizeTimeout: null
 });
 
-function RequestModifierView() {
-
-}
-RequestModifierView.prototype = {
-
-}
-
 /**
  * Functions handling the requests details view.
  */
@@ -1367,9 +1362,9 @@ NetworkDetailsView.prototype = {
 
   populateCustom: function(aData) {
     $("#custom-url-value").setAttribute("value", aData.url);
-    $("#custom-method-value").setAttribute("value", aData.method);
-    $("#custom-headers-value").setAttribute("value", aData.requestHeaders);
-    $("#custom-postdata-value").setAttribute("value", aData.requestPostData);
+    $("#custom-headers-value").setAttribute("value", aData.headers);
+    $("#custom-postdata-value").setAttribute("value", aData.body);
+    $("#custom-method-value").value = aData.method;
 
     $("#side-pane").selectedIndex = 0;
   },
@@ -1847,4 +1842,3 @@ drain.store = new Map();
 NetMonitorView.Toolbar = new ToolbarView();
 NetMonitorView.RequestsMenu = new RequestsMenuView();
 NetMonitorView.NetworkDetails = new NetworkDetailsView();
-NetMonitorView.RequestModifier = new RequestModifierView();

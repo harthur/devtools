@@ -1026,10 +1026,7 @@ WebConsoleActor.prototype =
     let request = new this._window.XMLHttpRequest();
     request.open(aRequest.method, aRequest.url, true);
     dump("HEATHER: sendin on request channel " + request.channel + "\n");
-
-    dump("HEATHER: heads " + aRequest.headers + "\n");
-    dump("HEATHER: stringify " + JSON.stringify(aRequest.headers) + "\n");
-
+    dump("HEATHER: " + JSON.stringify(aRequest) + "\n");
     for (let {name, value} of aRequest.headers) {
       request.setRequestHeader(name, value);
     }
@@ -1047,7 +1044,6 @@ WebConsoleActor.prototype =
     request.send(aRequest.body);
 
     let actor = this.getNetworkEventActor(request.channel);
-    dump("HEATHER: got actor " + actor.grip() + "\n");
     return {
       from: this.actorID,
       eventActor: actor.grip()

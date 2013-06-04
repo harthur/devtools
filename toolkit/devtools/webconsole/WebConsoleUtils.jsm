@@ -1582,6 +1582,7 @@ NetworkResponseListener.prototype = {
    */
   onStreamClose: function NRL_onStreamClose()
   {
+    dump("HEATHER: onStreamClose"  + "\n");
     if (!this.httpActivity) {
       return;
     }
@@ -1591,16 +1592,19 @@ NetworkResponseListener.prototype = {
     this._findOpenResponse();
 
     if (!this.httpActivity.discardResponseBody && this.receivedData.length) {
+      dump("HEATHER: not from cache " + "\n");
       this._onComplete(this.receivedData);
     }
     else if (!this.httpActivity.discardResponseBody &&
              this.httpActivity.responseStatus == 304) {
+      dump("HEATHER: from cache " + "\n");
       // Response is cached, so we load it from cache.
       let charset = this.request.contentCharset || this.httpActivity.charset;
       NetworkHelper.loadFromCache(this.httpActivity.url, charset,
                                   this._onComplete.bind(this));
     }
     else {
+      dump("HEATHER: not any--" +  + "\n");
       this._onComplete();
     }
   },
@@ -1619,6 +1623,8 @@ NetworkResponseListener.prototype = {
       mimeType: "",
       text: aData || "",
     };
+
+    dump("HEATHER: _onComplete " + aData && aData.length + "\n");
 
     response.size = response.text.length;
 
@@ -1793,6 +1799,9 @@ NetworkMonitor.prototype = {
 
     let channel = aSubject.QueryInterface(Ci.nsIHttpChannel);
 
+      dump("HEATHER: onResponse " + channel.URI.spec + "\n");
+
+
     if (this.window) {
       // Try to get the source window of the request.
       let win = NetworkHelper.getWindowForRequest(channel);
@@ -1937,8 +1946,6 @@ NetworkMonitor.prototype = {
   _onRequestHeader:
   function NM__onRequestHeader(aChannel, aTimestamp, aExtraStringData)
   {
-    dump("HEATHER: on req header"  + "\n");
-
     let win = NetworkHelper.getWindowForRequest(aChannel);
 
     // Try to get the source window of the request.
