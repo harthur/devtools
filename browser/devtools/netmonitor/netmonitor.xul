@@ -20,7 +20,7 @@
   <popupset id="networkPopupSet">
     <menupopup id="network-request-popup">
       <menuitem id="request-menu-clone"
-        label="Clone Request"
+        label="Resend"
         accesskey="C"
         oncommand="NetMonitorView.RequestsMenu.cloneRequest();"/>
       <menuitem id="request-menu-create"
@@ -215,7 +215,8 @@
         <hbox id="custom-method-and-url"
               class="tabpanel-summary-container"
               align="center">
-          <menulist id="custom-method-value">
+          <menulist id="custom-method-value"
+                    oncommand="NetMonitorView.RequestsMenu.updateCustomRequest();">
             <menupopup>
               <menuitem label="GET" value="GET"/>
               <menuitem label="POST" value="POST"/>
@@ -224,7 +225,8 @@
             </menupopup>
           </menulist>
           <textbox id="custom-url-value"
-             flex="1"/>
+             flex="1"
+             oninput="NetMonitorView.RequestsMenu.updateCustomRequest();"/>
         </hbox>
         <vbox id="custom-headers"
               class="tabpanel-summary-container">
@@ -233,7 +235,9 @@
           <textbox id="custom-headers-value"
                    class="tabpanel-summary-input"
                    multiline="true"
-                   rows="6" cols="60"/>
+                   rows="6"
+                   wrap="off"
+                   oninput="NetMonitorView.RequestsMenu.updateCustomRequest();"/>
         </vbox>
         <vbox id="custom-postdata"
               class="tabpanel-summary-container">
@@ -241,7 +245,9 @@
                  value="Request Body:"/>
           <textbox id="custom-postdata-value"
                    class="tabpanel-summary-input"
-                   multiline="true" rows="5" cols="60"/>
+                   multiline="true" rows="5"
+                   wrap="off"
+                   oninput="NetMonitorView.RequestsMenu.updateCustomRequest();"/>
         </vbox>
       </vbox>
     <tabbox id="details-pane"

@@ -1025,22 +1025,10 @@ WebConsoleActor.prototype =
     // send request from target's window
     let request = new this._window.XMLHttpRequest();
     request.open(aRequest.method, aRequest.url, true);
-    dump("HEATHER: sendin on request channel " + request.channel + "\n");
-    dump("HEATHER: " + JSON.stringify(aRequest) + "\n");
+
     for (let {name, value} of aRequest.headers) {
       request.setRequestHeader(name, value);
     }
-    /*
-      var headers = spy.requestHeaders;
-            for (var i=0; headers && i<headers.length; i++)
-            {
-                var header = headers[i];
-                request.setRequestHeader(header.name, header.value);
-            }
-
-            var postData = NetUtils.getPostText(spy, context, true);
-            request.send(postData);
-     */
     request.send(aRequest.body);
 
     let actor = this.getNetworkEventActor(request.channel);
