@@ -393,12 +393,31 @@ create({ constructor: RequestsMenuView, proto: MenuContainer.prototype }, {
     this.selectedItem = newItem;
   },
 
+  updateCustomRequest: function() {
+    let data = {};
+    data.url = $("#custom-url-value").value;
+    data.body = $("#custom-postdata-value").value;
+    data.method = $("#custom-method-value").value;
+
+    let headersString = $("#custom-headers-value").value;
+    let headers = [];
+    for (let line of headersString.split("\n")) {
+      let matches;
+      if (matches = /(.*?)\:(.*)/.exec(line)) {
+        let [, name, value] = matches;
+        headers.push({name: name, value: value});
+      }
+    }
+    data.headers = headers;
+
+    this.selectedItem.attachment = data;
+  },
+
   sendRequest: function() {
     let selectedItem = this.selectedItem;
     let data = selectedItem.attachment;
 
     NetMonitorController.webConsoleClient.sendHTTPRequest(data, (response, t) => {
-      this.remove(selectedItem);
       dump("HEATHER: resp: " + JSON.stringify(response) + t + "\n");
 
       let id = response.eventActor.actor;
@@ -406,6 +425,7 @@ create({ constructor: RequestsMenuView, proto: MenuContainer.prototype }, {
       dump("HEATHER: itemtosel" + this._itemToSelect + "\n");
     });
     dump("HEATHER: sending request" + "\n");
+    this.remove(selectedItem);
   },
 
   /**
@@ -1362,9 +1382,14 @@ NetworkDetailsView.prototype = {
 
   populateCustom: function(aData) {
     $("#custom-url-value").setAttribute("value", aData.url);
-    $("#custom-headers-value").setAttribute("value", aData.headers);
-    $("#custom-postdata-value").setAttribute("value", aData.body);
+    $("#custom-postdata-value").setAttribute("value", aData.body || "");
     $("#custom-method-value").value = aData.method;
+
+    let headersString = "";
+    for (let {name, value} of aData.headers) {
+      headersString += name + ": " + value + "\n";
+    }
+    $("#custom-headers-value").setAttribute("value", headersString);
 
     $("#side-pane").selectedIndex = 0;
   },
