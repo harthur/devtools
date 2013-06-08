@@ -994,7 +994,6 @@ WebConsoleActor.prototype =
    */
   onNetworkEvent: function WCA_onNetworkEvent(aEvent)
   {
-    dump("HEATHER: onnet event" + "\n");
     let actor = this.getNetworkEventActor(aEvent.channel);
     actor.setEvent(aEvent);
 
@@ -1011,12 +1010,10 @@ WebConsoleActor.prototype =
 
   getNetworkEventActor: function(aChannel) {
     if (this._netEvents.has(aChannel)) {
-      dump("HEATHER: already got actor"  + "\n");
       return this._netEvents.get(aChannel);
     }
     let actor = new NetworkEventActor(aChannel, this);
     this._actorPool.addActor(actor);
-    this._netEvents.set(aChannel, actor);
     return actor;
   },
 
@@ -1032,6 +1029,10 @@ WebConsoleActor.prototype =
     request.send(aRequest.body);
 
     let actor = this.getNetworkEventActor(request.channel);
+
+    // map channel to actor so we can associate future events with it
+    this._netEvents.set(request.channel, actor);
+
     return {
       from: this.actorID,
       eventActor: actor.grip()

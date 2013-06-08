@@ -1624,7 +1624,7 @@ NetworkResponseListener.prototype = {
       text: aData || "",
     };
 
-    dump("HEATHER: _onComplete " + aData && aData.length + "\n");
+    dump("HEATHER: _onComplete " + (aData && aData.length) + "\n");
 
     response.size = response.text.length;
 
@@ -1774,6 +1774,14 @@ NetworkMonitor.prototype = {
 
     Services.obs.addObserver(this._httpResponseExaminer,
                              "http-on-examine-response", false);
+
+    Services.obs.addObserver(this._httpCachedResponseExaminer,
+                             "http-on-examine-cached-response", false);
+  },
+
+  _httpCachedResponseExaminer: function()
+  {
+    dump("HEATHER: Cached response " + "\n");
   },
 
   /**
@@ -1799,7 +1807,7 @@ NetworkMonitor.prototype = {
 
     let channel = aSubject.QueryInterface(Ci.nsIHttpChannel);
 
-      dump("HEATHER: onResponse " + channel.URI.spec + "\n");
+      dump("HEATHER: Response " + channel.URI.spec.slice(0, 40) + "\n");
 
 
     if (this.window) {

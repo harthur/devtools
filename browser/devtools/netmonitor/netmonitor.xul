@@ -21,13 +21,8 @@
     <menupopup id="network-request-popup">
       <menuitem id="request-menu-clone"
         label="Resend"
-        accesskey="C"
+        accesskey="R"
         oncommand="NetMonitorView.RequestsMenu.cloneRequest();"/>
-      <menuitem id="request-menu-create"
-        label="New Request"
-        accesskey="N"
-        oncommand="NetMonitorView.RequestsMenu.customRequest();"
-        hidden="true"/>
     </menupopup>
   </popupset>
 
@@ -210,6 +205,8 @@
           <hbox flex="1" pack="end">
             <button label="Send"
                   onclick="NetMonitorView.RequestsMenu.sendRequest();"></button>
+            <button label="Cancel"
+                  onclick="NetMonitorView.RequestsMenu.closeCustomRequest();"></button>
           </hbox>
         </hbox>
         <hbox id="custom-method-and-url"

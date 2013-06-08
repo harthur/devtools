@@ -409,11 +409,18 @@ create({ constructor: RequestsMenuView, proto: MenuContainer.prototype }, {
     let selectedItem = this.selectedItem;
     let data = selectedItem.attachment;
 
-    NetMonitorController.webConsoleClient.sendHTTPRequest(data, (response, t) => {
+    NetMonitorController.webConsoleClient.sendHTTPRequest(data, (response) => {
       let id = response.eventActor.actor;
       this._itemToSelectId = id;
     });
+    this.closeCustomRequest();
+  },
+
+  closeCustomRequest: function() {
+    let selectedItem = this.selectedItem;
     this.remove(selectedItem);
+
+    NetMonitorView.NetworkDetails.toggle(false);
   },
 
   /**
