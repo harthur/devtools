@@ -1704,10 +1704,10 @@ NetworkResponseListener.prototype = {
  *        window is given, all browser network requests are logged.
  * @param object aOwner
  *        The network monitor owner. This object needs to hold:
- *        - onNetworkEvent(aRequestInfo). This method is invoked once for every
- *        new network request and it is given one arguments: the initial network
- *        request information. onNetworkEvent() must return an object which
- *        holds several add*() methods which are used to add further network
+ *        - onNetworkEvent(aRequestInfo, aChannel). This method is invoked once for
+ *        every new network request and it is given two arguments: the initial network
+ *        request information, and the channel. onNetworkEvent() must return an object
+ *        which holds several add*() methods which are used to add further network
  *        request/response information.
  *        - saveRequestAndResponseBodies property which tells if you want to log
  *        request and response bodies.
@@ -1807,8 +1807,7 @@ NetworkMonitor.prototype = {
 
     let channel = aSubject.QueryInterface(Ci.nsIHttpChannel);
 
-      dump("HEATHER: Response " + channel.URI.spec.slice(0, 40) + "\n");
-
+    dump("HEATHER: Response " + channel.URI.spec.slice(0, 40) + "\n");
 
     if (this.window) {
       // Try to get the source window of the request.
@@ -1980,7 +1979,6 @@ NetworkMonitor.prototype = {
     event.method = aChannel.requestMethod;
     event.url = aChannel.URI.spec;
     event.private = httpActivity.private;
-    event.channel = aChannel;
 
     // Determine if this is an XHR request.
     try {
@@ -2020,7 +2018,7 @@ NetworkMonitor.prototype = {
       cookies = NetworkHelper.parseCookieHeader(cookieHeader);
     }
 
-    httpActivity.owner = this.owner.onNetworkEvent(event);
+    httpActivity.owner = this.owner.onNetworkEvent(event, aChannel);
 
     this._setupResponseListener(httpActivity);
 

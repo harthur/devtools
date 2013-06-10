@@ -992,9 +992,9 @@ WebConsoleActor.prototype =
    *         A new NetworkEventActor is returned. This is used for tracking the
    *         network request and response.
    */
-  onNetworkEvent: function WCA_onNetworkEvent(aEvent)
+  onNetworkEvent: function WCA_onNetworkEvent(aEvent, aChannel)
   {
-    let actor = this.getNetworkEventActor(aEvent.channel);
+    let actor = this.getNetworkEventActor(aChannel);
     actor.setEvent(aEvent);
 
     let packet = {
@@ -1009,10 +1009,13 @@ WebConsoleActor.prototype =
   },
 
   getNetworkEventActor: function(aChannel) {
-    if (this._netEvents.has(aChannel)) {
-      return this._netEvents.get(aChannel);
+    let actor;
+    if (actor = this._netEvents.get(aChannel)) {
+      this._netEvents.delete(aChannel);
+      return actor;
     }
-    let actor = new NetworkEventActor(aChannel, this);
+
+    actor = new NetworkEventActor(aChannel, this);
     this._actorPool.addActor(actor);
     return actor;
   },

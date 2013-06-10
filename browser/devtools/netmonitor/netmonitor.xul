@@ -203,10 +203,10 @@
           <label value="New Request"
                  class="plain tabpanel-summary-label"/>
           <hbox flex="1" pack="end">
-            <button label="Send"
-                  onclick="NetMonitorView.RequestsMenu.sendRequest();"></button>
-            <button label="Cancel"
-                  onclick="NetMonitorView.RequestsMenu.closeCustomRequest();"></button>
+            <button class="devtools-toolbarbutton" label="Send"
+                    onclick="NetMonitorView.RequestsMenu.sendRequest();"/>
+            <button class="devtools-toolbarbutton" label="Cancel"
+                    onclick="NetMonitorView.RequestsMenu.closeCustomRequest();"/>
           </hbox>
         </hbox>
         <hbox id="custom-method-and-url"
@@ -291,7 +291,9 @@
                      class="plain tabpanel-summary-value"
                      crop="end"
                      flex="1"/>
-              <button label="Resend"
+              <button id="headers-summary-resend"
+                     label="Resend"
+                     class="devtools-toolbarbutton"
                      onclick="NetMonitorView.RequestsMenu.cloneRequest();"/>
             </hbox>
             <hbox id="headers-summary-version"
