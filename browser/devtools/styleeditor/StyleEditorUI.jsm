@@ -48,7 +48,7 @@ function StyleEditorUI(debuggee, panelDoc) {
   this._root = this._panelDoc.getElementById("style-editor-chrome");
 
   this.editors = [];
-  this.selectedStyleSheetIndex = -1;
+  this.selectedEditor = null;
 
   this._onStyleSheetCreated = this._onStyleSheetCreated.bind(this);
   this._onStyleSheetsCleared = this._onStyleSheetsCleared.bind(this);
@@ -82,6 +82,14 @@ StyleEditorUI.prototype = {
    */
   set isDirty(value) {
     this._markedDirty = value;
+  },
+
+  /*
+   * Index of selected stylesheet in document.styleSheets
+   */
+  get selectedStyleSheetIndex() {
+    return this.selectedEditor ? this.selectedEditor.styleSheet.styleSheetIndex
+           : -1;
   },
 
   /**
@@ -140,10 +148,15 @@ StyleEditorUI.prototype = {
    * Handler for debuggee's 'stylesheets-cleared' event. Remove all editors.
    */
   _onStyleSheetsCleared: function() {
-    this._clearStyleSheetEditors();
+    // remember selected sheet and line number for next load
+    let href = this.selectedEditor.styleSheet.href;
+    let {line, col} = this.selectedEditor.sourceEditor.getCaretPosition();
+    this.selectStyleSheet(href, line, col);
 
+    this._clearStyleSheetEditors();
     this._view.removeAll();
-    this.selectedStyleSheetIndex = -1;
+
+    this.selectedEditor = null;
 
     this._root.classList.add("loading");
   },
@@ -301,7 +314,10 @@ StyleEditorUI.prototype = {
           editor.load(inputElement);
         }
         editor.onShow();
-      }
+
+        this.selectedEditor = editor;
+        this._styleSheetToSelect = null;
+      }.bind(this)
     });
   },
 
@@ -314,7 +330,6 @@ StyleEditorUI.prototype = {
     for each (let editor in this.editors) {
       if (editor.styleSheet.href == sheet.href) {
         this._selectEditor(editor, sheet.line, sheet.col);
-        this._styleSheetToSelect = null;
         break;
       }
     }
@@ -334,10 +349,10 @@ StyleEditorUI.prototype = {
     line = line || 1;
     col = col || 1;
 
-    this.selectedStyleSheetIndex = editor.styleSheet.styleSheetIndex;
+    this.selectedEditor = editor;
 
     editor.getSourceEditor().then(() => {
-      editor.sourceEditor.setCaretPosition(line - 1, col - 1);
+      editor.sourceEditor.setCaretPosition(line, col);
     });
 
     this._view.activeSummary = editor.summary;
