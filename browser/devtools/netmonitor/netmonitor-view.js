@@ -386,7 +386,7 @@ create({ constructor: RequestsMenuView, proto: MenuContainer.prototype }, {
   },
 
   updateCustomRequest: function() {
-    let data = {};
+    let data = { isNew: true };
     data.url = $("#custom-url-value").value;
     data.body = $("#custom-postdata-value").value;
     data.method = $("#custom-method-value").value;
@@ -1386,15 +1386,15 @@ NetworkDetailsView.prototype = {
   },
 
   populateCustom: function(aData) {
-    $("#custom-url-value").setAttribute("value", aData.url);
-    $("#custom-postdata-value").setAttribute("value", aData.body || "");
+    $("#custom-url-value").value = aData.url;
+    $("#custom-postdata-value").value =  aData.body || "";
     $("#custom-method-value").value = aData.method;
 
     let headersString = "";
     for (let {name, value} of aData.headers) {
       headersString += name + ": " + value + "\n";
     }
-    $("#custom-headers-value").setAttribute("value", headersString);
+    $("#custom-headers-value").value = headersString;
 
     $("#side-pane").selectedIndex = 0;
   },

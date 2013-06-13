@@ -40,9 +40,6 @@ XPCOMUtils.defineLazyModuleGetter(this, "ConsoleAPIStorage",
                                   "resource://gre/modules/ConsoleAPIStorage.jsm");
 
 
-      dump("HEATHER: web console" + "\n");
-
-
 /**
  * The WebConsoleActor implements capabilities needed for the Web Console
  * feature.
@@ -55,8 +52,6 @@ XPCOMUtils.defineLazyModuleGetter(this, "ConsoleAPIStorage",
  */
 function WebConsoleActor(aConnection, aParentActor)
 {
-      dump("HEATHER: bout to create"  + "\n");
-
   this.conn = aConnection;
 
   if (aParentActor instanceof BrowserTabActor &&
@@ -104,8 +99,6 @@ function WebConsoleActor(aConnection, aParentActor)
     Services.obs.addObserver(this._onObserverNotification,
                              "last-pb-context-exited", false);
   }
-        dump("HEATHER: created WebConsoleActor"  + "\n");
-
 }
 
 WebConsoleActor.prototype =
@@ -428,14 +421,10 @@ WebConsoleActor.prototype =
           startedListeners.push(listener);
           break;
         case "NetworkActivity":
-              dump("HEATHER: bout to init monitor"  + "\n");
-
           if (!this.networkMonitor) {
             this.networkMonitor =
               new NetworkMonitor(window, this);
             this.networkMonitor.init();
-            dump("HEATHER: inited monitor" + "\n");
-
           }
           startedListeners.push(listener);
           break;
@@ -1598,6 +1587,3 @@ NetworkEventActor.prototype.requestTypes =
 
 DebuggerServer.addTabActor(WebConsoleActor, "consoleActor");
 DebuggerServer.addGlobalActor(WebConsoleActor, "consoleActor");
-
-      dump("HEATHER: parsed all" + "\n");
-

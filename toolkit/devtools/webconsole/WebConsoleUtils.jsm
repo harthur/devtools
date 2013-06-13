@@ -46,8 +46,6 @@ this.EXPORTED_SYMBOLS = ["WebConsoleUtils", "JSPropertyProvider", "JSTermHelpers
                          "NetworkResponseListener", "NetworkMonitor",
                          "ConsoleProgressListener"];
 
-  dump("HEATHER: utils" + "\n");
-
 
 // Match the function name from the result of toString() or toSource().
 //
@@ -1580,7 +1578,6 @@ NetworkResponseListener.prototype = {
    */
   onStreamClose: function NRL_onStreamClose()
   {
-    dump("HEATHER: onStreamClose"  + "\n");
     if (!this.httpActivity) {
       return;
     }
@@ -1590,19 +1587,16 @@ NetworkResponseListener.prototype = {
     this._findOpenResponse();
 
     if (!this.httpActivity.discardResponseBody && this.receivedData.length) {
-      dump("HEATHER: not from cache " + "\n");
       this._onComplete(this.receivedData);
     }
     else if (!this.httpActivity.discardResponseBody &&
              this.httpActivity.responseStatus == 304) {
-      dump("HEATHER: from cache " + "\n");
       // Response is cached, so we load it from cache.
       let charset = this.request.contentCharset || this.httpActivity.charset;
       NetworkHelper.loadFromCache(this.httpActivity.url, charset,
                                   this._onComplete.bind(this));
     }
     else {
-      dump("HEATHER: not any--" +  + "\n");
       this._onComplete();
     }
   },
@@ -1621,8 +1615,6 @@ NetworkResponseListener.prototype = {
       mimeType: "",
       text: aData || "",
     };
-
-    dump("HEATHER: _onComplete " + (aData && aData.length) + "\n");
 
     response.size = response.text.length;
 
@@ -1772,14 +1764,6 @@ NetworkMonitor.prototype = {
 
     Services.obs.addObserver(this._httpResponseExaminer,
                              "http-on-examine-response", false);
-
-    Services.obs.addObserver(this._httpCachedResponseExaminer,
-                             "http-on-examine-cached-response", false);
-  },
-
-  _httpCachedResponseExaminer: function()
-  {
-    dump("HEATHER: Cached response " + "\n");
   },
 
   /**
@@ -1804,8 +1788,6 @@ NetworkMonitor.prototype = {
     }
 
     let channel = aSubject.QueryInterface(Ci.nsIHttpChannel);
-
-    dump("HEATHER: Response " + channel.URI.spec.slice(0, 40) + "\n");
 
     if (this.window) {
       // Try to get the source window of the request.
