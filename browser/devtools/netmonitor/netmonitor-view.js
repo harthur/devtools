@@ -1155,9 +1155,14 @@ create({ constructor: RequestsMenuView, proto: MenuContainer.prototype }, {
   /**
    * The resize listener for this container's window.
    */
-  _onResize: function(e) {
+  _onResize: function() {
     // Allow requests to settle down first.
     drain("resize-events", RESIZE_REFRESH_RATE, () => this._flushWaterfallViews(true));
+  },
+
+  onContextShowing: function(aEvent) {
+    let element = $("#request-menu-context-resend");
+    element.hidden = !this.selectedItem;
   },
 
   /**

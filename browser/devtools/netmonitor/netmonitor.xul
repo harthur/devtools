@@ -18,8 +18,9 @@
   <script type="text/javascript" src="netmonitor-view.js"/>
 
   <popupset id="networkPopupSet">
-    <menupopup id="network-request-popup">
-      <menuitem id="request-menu-clone"
+    <menupopup id="network-request-popup"
+               onpopupshowing="NetMonitorView.RequestsMenu.onContextShowing(event);">
+      <menuitem id="request-menu-context-resend"
         label="Resend"
         accesskey="R"
         oncommand="NetMonitorView.RequestsMenu.cloneRequest();"/>
