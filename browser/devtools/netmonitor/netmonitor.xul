@@ -205,7 +205,8 @@
 
     <deck id="side-pane"
           hidden="true">
-      <vbox id="custom-pane">
+      <vbox id="custom-pane"
+            class="tabpanel-content">
         <hbox align="center">
           <label value="New Request"
                  class="plain tabpanel-summary-label"/>
@@ -230,8 +231,19 @@
           </menulist>
           <textbox id="custom-url-value"
              flex="1"
-             oninput="NetMonitorView.RequestsMenu.updateCustomRequest();"/>
+             oninput="NetMonitorView.RequestsMenu.updateCustomRequest('url');"/>
         </hbox>
+        <vbox id="custom-query"
+              class="tabpanel-summary-container">
+          <label class="plain tabpanel-summary-label"
+                 value="Query String:"/>
+          <textbox id="custom-query-value"
+                   class="tabpanel-summary-input"
+                   multiline="true"
+                   rows="5"
+                   wrap="off"
+                   oninput="NetMonitorView.RequestsMenu.updateCustomRequest('query');"/>
+        </vbox>
         <vbox id="custom-headers"
               class="tabpanel-summary-container">
           <label class="plain tabpanel-summary-label"

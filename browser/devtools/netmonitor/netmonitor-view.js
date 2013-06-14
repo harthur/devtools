@@ -385,24 +385,46 @@ create({ constructor: RequestsMenuView, proto: MenuContainer.prototype }, {
     this.selectedItem = newItem;
   },
 
-  updateCustomRequest: function() {
+  updateCustomRequest: function(field) {
     let data = { isNew: true };
+
+    if (field == "url") {
+      let url = $("#custom-url-value").value;
+      this.updateCustomQuery(url);
+    }
+    if (field == "query") {
+      let query = $("#custom-query-value").value;
+      this.updateCustomUrl(queryText);
+    }
     data.url = $("#custom-url-value").value;
     data.body = $("#custom-postdata-value").value;
     data.method = $("#custom-method-value").value;
 
-    let headersString = $("#custom-headers-value").value;
-    let headers = [];
-    for (let line of headersString.split("\n")) {
-      let matches;
-      if (matches = /(.*?)\:(.*)/.exec(line)) {
-        let [, name, value] = matches;
-        headers.push({name: name, value: value});
-      }
-    }
-    data.headers = headers;
+    let headersText = $("#custom-headers-value").value;
+    data.headers = parseHeadersText(headersText);
 
     this.selectedItem.attachment = data;
+  },
+
+  updateCustomQuery: function(aUrl) {
+    let paramsArray = parseQueryString(nsIURL(aUrl).query);
+    if (!paramsArray) {
+      $("#custom-query").hidden = true;
+      return;
+    }
+    $("#custom-query").hidden = false;
+    $("#custom-query-value").value = writeHeaderText(paramsArray);
+  },
+
+  updateCustomUrl: function(aQueryText) {
+    let params = parseHeadersText(aQueryText);
+    let queryString = writeQueryString(params);
+
+    let url = $("#custom-url-value").value;
+    let oldQuery = nsIURL(url).query;
+    let path = url.replace(oldQuery, queryString);
+
+    $("#custom-url-value").value = path;
   },
 
   sendRequest: function() {
@@ -1394,12 +1416,8 @@ NetworkDetailsView.prototype = {
     $("#custom-url-value").value = aData.url;
     $("#custom-postdata-value").value =  aData.body || "";
     $("#custom-method-value").value = aData.method;
-
-    let headersString = "";
-    for (let {name, value} of aData.headers) {
-      headersString += name + ": " + value + "\n";
-    }
-    $("#custom-headers-value").value = headersString;
+    $("#custom-headers-value").value = writeHeaderText(aData.headers);
+   // this.updateCustomQuery(aData.url);
 
     $("#side-pane").selectedIndex = 0;
   },
@@ -1670,17 +1688,11 @@ NetworkDetailsView.prototype = {
    * @param string aParams
    *        A query string of params (e.g. "?foo=bar&baz=42").
    */
-  _addParams: function(aName, aParams) {
-    // Make sure there's at least one param available.
-    if (!aParams || !aParams.contains("=")) {
+  _addParams: function(aName, aQueryString) {
+    let paramsArray = parseQueryString(aQueryString);
+    if (!paramsArray) {
       return;
     }
-    // Turn the params string into an array containing { name: value } tuples.
-    let paramsArray = aParams.replace(/^[?&]/, "").split("&").map((e) =>
-      let (param = e.split("=")) {
-        name: NetworkHelper.convertToUnicode(unescape(param[0])),
-        value: NetworkHelper.convertToUnicode(unescape(param[1]))
-      });
 
     let paramsScope = this._params.addScope(aName);
     paramsScope.expanded = true;
@@ -1892,6 +1904,41 @@ function nsIURL(aUrl, aStore = nsIURL.store) {
   return uri;
 }
 nsIURL.store = new Map();
+
+function parseQueryString(aQueryString) {
+  // Make sure there's at least one param available.
+  if (!aQueryString || !aQueryString.contains("=")) {
+    return;
+  }
+  // Turn the params string into an array containing { name: value } tuples.
+  let paramsArray = aQueryString.replace(/^[?&]/, "").split("&").map((e) =>
+    let (param = e.split("=")) {
+      name: NetworkHelper.convertToUnicode(unescape(param[0])),
+      value: NetworkHelper.convertToUnicode(unescape(param[1]))
+    });
+  return paramsArray;
+}
+
+function parseHeadersText(aText) {
+  let pairs = [];
+  for (let line of aText.split("\n")) {
+    let matches;
+    if (matches = /(.*?)\:(.*)/.exec(line)) {
+      let [, name, value] = matches;
+      pairs.push({name: name, value: value});
+    }
+  }
+  return pairs;
+}
+
+function writeHeaderText(aHeaders) {
+  return [(name + ": " + value) for ({name, value} of aHeaders)].join("\n");
+}
+
+function writeQueryString(aParams) {
+  return [(name + "=" + value) for ({name, value} of aParams)].join("?");
+}
+
 
 /**
  * Helper for draining a rapid succession of events and invoking a callback
