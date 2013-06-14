@@ -20,10 +20,6 @@
   padding: 0.6em 0.5em;
 }
 
-#custom-pane textbox {
-  font-family: Menlo, Monaco, monospace;
-}
-
 #custom-pane menulist {
   width: 75px;
 }

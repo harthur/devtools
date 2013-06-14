@@ -1348,7 +1348,7 @@ CustomRequestView.prototype = {
     data.method = $("#custom-method-value").value;
 
     let headersText = $("#custom-headers-value").value;
-    data.headers = parseHeadersText(headersText);
+    data.headers = parseHeaderText(headersText);
 
     NetMonitorView.RequestsMenu.selectedItem.attachment = data;
   },
@@ -1360,11 +1360,11 @@ CustomRequestView.prototype = {
       return;
     }
     $("#custom-query").hidden = false;
-    $("#custom-query-value").value = writeHeaderText(paramsArray);
+    $("#custom-query-value").value = writeQueryText(paramsArray);
   },
 
   updateCustomUrl: function(aQueryText) {
-    let params = parseHeadersText(aQueryText);
+    let params = parseQueryText(aQueryText);
     let queryString = writeQueryString(params);
 
     let url = $("#custom-url-value").value;
@@ -1933,11 +1933,20 @@ function parseQueryString(aQueryString) {
   return paramsArray;
 }
 
-function parseHeadersText(aText) {
+function parseHeaderText(aText) {
+  return parseRequestText(aText, ":");
+}
+
+function parseQueryText(aText) {
+  return parseRequestText(aText, "=");
+}
+
+function parseRequestText(aText, aDivider) {
+  let regex = new RegExp("(.+?)\\" + aDivider + "\\s*(.+)");
   let pairs = [];
   for (let line of aText.split("\n")) {
     let matches;
-    if (matches = /(.*?)\:\s*(.*)/.exec(line)) {
+    if (matches = regex.exec(line)) {
       let [, name, value] = matches;
       pairs.push({name: name, value: value});
     }
