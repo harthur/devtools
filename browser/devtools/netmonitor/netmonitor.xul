@@ -240,7 +240,7 @@
           <textbox id="custom-query-value"
                    class="tabpanel-summary-input"
                    multiline="true"
-                   rows="5"
+                   rows="4"
                    wrap="off"
                    oninput="NetMonitorView.CustomRequest.onUpdate('query');"/>
         </vbox>

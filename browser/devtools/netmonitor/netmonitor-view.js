@@ -371,13 +371,18 @@ create({ constructor: RequestsMenuView, proto: MenuContainer.prototype }, {
 
     let selected = this.selectedItem.attachment;
 
+    let body;
+    if (selected.requestPostData) {
+      body = selected.requestPostData.postData.text;
+    }
+
     let newItem = this.push(label, {
       attachment: {
         isNew: true,
         method: selected.method,
         url: selected.url,
         headers: selected.requestHeaders.headers,
-        body: selected.requestPostData
+        body: body
       }
     });
 
