@@ -221,7 +221,7 @@
               class="tabpanel-summary-container"
               align="center">
           <menulist id="custom-method-value"
-                    oncommand="NetMonitorView.RequestsMenu.updateCustomRequest();">
+                    oncommand="NetMonitorView.CustomRequest.onUpdate();">
             <menupopup>
               <menuitem label="GET" value="GET"/>
               <menuitem label="POST" value="POST"/>
@@ -231,7 +231,7 @@
           </menulist>
           <textbox id="custom-url-value"
              flex="1"
-             oninput="NetMonitorView.RequestsMenu.updateCustomRequest('url');"/>
+             oninput="NetMonitorView.CustomRequest.onUpdate('url');"/>
         </hbox>
         <vbox id="custom-query"
               class="tabpanel-summary-container">
@@ -242,7 +242,7 @@
                    multiline="true"
                    rows="5"
                    wrap="off"
-                   oninput="NetMonitorView.RequestsMenu.updateCustomRequest('query');"/>
+                   oninput="NetMonitorView.CustomRequest.onUpdate('query');"/>
         </vbox>
         <vbox id="custom-headers"
               class="tabpanel-summary-container">
@@ -253,7 +253,7 @@
                    multiline="true"
                    rows="6"
                    wrap="off"
-                   oninput="NetMonitorView.RequestsMenu.updateCustomRequest();"/>
+                   oninput="NetMonitorView.CustomRequest.onUpdate();"/>
         </vbox>
         <vbox id="custom-postdata"
               class="tabpanel-summary-container">
@@ -263,7 +263,7 @@
                    class="tabpanel-summary-input"
                    multiline="true" rows="5"
                    wrap="off"
-                   oninput="NetMonitorView.RequestsMenu.updateCustomRequest();"/>
+                   oninput="NetMonitorView.CustomRequest.onUpdate();"/>
         </vbox>
       </vbox>
     <tabbox id="details-pane"

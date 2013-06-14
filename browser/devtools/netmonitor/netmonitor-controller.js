@@ -26,6 +26,8 @@ const NET_STRINGS_URI = "chrome://browser/locale/devtools/netmonitor.properties"
 const LISTENERS = [ "NetworkActivity" ];
 const NET_PREFS = { "NetworkMonitor.saveRequestAndResponseBodies": true };
 
+wantLogging = true;
+
 /**
  * Object defining the network monitor controller components.
  */
@@ -250,6 +252,7 @@ TargetEventsHandler.prototype = {
       case "will-navigate": {
         // Reset UI.
         NetMonitorView.RequestsMenu.reset();
+        NetMonitorView.Sidebar.reset();
         NetMonitorView.NetworkDetails.reset();
 
         // Reset global helpers cache.

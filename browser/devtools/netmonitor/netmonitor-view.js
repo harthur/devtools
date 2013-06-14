@@ -385,47 +385,6 @@ create({ constructor: RequestsMenuView, proto: MenuContainer.prototype }, {
     this.selectedItem = newItem;
   },
 
-  updateCustomRequest: function(field) {
-    let data = { isNew: true };
-
-    if (field == "url") {
-      let url = $("#custom-url-value").value;
-      this.updateCustomQuery(url);
-    }
-    if (field == "query") {
-      let query = $("#custom-query-value").value;
-      this.updateCustomUrl(queryText);
-    }
-    data.url = $("#custom-url-value").value;
-    data.body = $("#custom-postdata-value").value;
-    data.method = $("#custom-method-value").value;
-
-    let headersText = $("#custom-headers-value").value;
-    data.headers = parseHeadersText(headersText);
-
-    this.selectedItem.attachment = data;
-  },
-
-  updateCustomQuery: function(aUrl) {
-    let paramsArray = parseQueryString(nsIURL(aUrl).query);
-    if (!paramsArray) {
-      $("#custom-query").hidden = true;
-      return;
-    }
-    $("#custom-query").hidden = false;
-    $("#custom-query-value").value = writeHeaderText(paramsArray);
-  },
-
-  updateCustomUrl: function(aQueryText) {
-    let params = parseHeadersText(aQueryText);
-    let queryString = writeQueryString(params);
-
-    let url = $("#custom-url-value").value;
-    let oldQuery = nsIURL(url).query;
-    let path = url.replace(oldQuery, queryString);
-
-    $("#custom-url-value").value = path;
-  },
 
   sendRequest: function() {
     let selectedItem = this.selectedItem;
@@ -442,7 +401,7 @@ create({ constructor: RequestsMenuView, proto: MenuContainer.prototype }, {
     let selectedItem = this.selectedItem;
     this.remove(selectedItem);
 
-    NetMonitorView.NetworkDetails.toggle(false);
+    NetMonitorView.Sidebar.toggle(false);
   },
 
   /**
@@ -1167,10 +1126,10 @@ create({ constructor: RequestsMenuView, proto: MenuContainer.prototype }, {
    */
   _onSelect: function({ detail: item }) {
     if (item) {
-      NetMonitorView.NetworkDetails.populate(item.attachment);
-      NetMonitorView.NetworkDetails.toggle(true);
+      NetMonitorView.Sidebar.populate(item.attachment);
+      NetMonitorView.Sidebar.toggle(true);
     } else {
-      NetMonitorView.NetworkDetails.toggle(false);
+      NetMonitorView.Sidebar.toggle(false);
     }
   },
 
@@ -1323,6 +1282,99 @@ create({ constructor: RequestsMenuView, proto: MenuContainer.prototype }, {
   _resizeTimeout: null
 });
 
+function SidebarView() {
+  dumpn("SidebarView was instantiated");
+}
+
+SidebarView.prototype = {
+  /**
+   * Sets this view hidden or visible. It's visible by default.
+   *
+   * @param boolean aVisibleFlag
+   *        Specifies the intended visibility.
+   */
+  toggle: function(aVisibleFlag) {
+    NetMonitorView.toggleDetailsPane({ visible: aVisibleFlag });
+    NetMonitorView.RequestsMenu._flushWaterfallViews(true);
+  },
+
+  /**
+   * Populates this view with the specified data.
+   *
+   * @param object aData
+   *        The data source (this should be the attachment of a request item).
+   */
+  populate: function(aData) {
+    if (aData.isNew) {
+      NetMonitorView.CustomRequest.populate(aData);
+      $("#side-pane").selectedIndex = 0;
+    } else {
+      NetMonitorView.NetworkDetails.populate(aData);
+      $("#side-pane").selectedIndex = 1;
+    }
+  },
+
+  reset: function() {
+    this.toggle(false);
+  }
+}
+
+function CustomRequestView() {
+  dumpn("CustomRequestView was instantiated");
+}
+
+CustomRequestView.prototype = {
+  populate: function(aData) {
+    $("#custom-url-value").value = aData.url;
+    $("#custom-postdata-value").value =  aData.body || "";
+    $("#custom-method-value").value = aData.method;
+    $("#custom-headers-value").value = writeHeaderText(aData.headers);
+    this.updateCustomQuery(aData.url);
+  },
+
+  onUpdate: function(field) {
+    let data = { isNew: true };
+
+    if (field == "url") {
+      let url = $("#custom-url-value").value;
+      this.updateCustomQuery(url);
+    }
+    if (field == "query") {
+      let query = $("#custom-query-value").value;
+      this.updateCustomUrl(query);
+    }
+    data.url = $("#custom-url-value").value;
+    data.body = $("#custom-postdata-value").value;
+    data.method = $("#custom-method-value").value;
+
+    let headersText = $("#custom-headers-value").value;
+    data.headers = parseHeadersText(headersText);
+
+    NetMonitorView.RequestsMenu.selectedItem.attachment = data;
+  },
+
+  updateCustomQuery: function(aUrl) {
+    let paramsArray = parseQueryString(nsIURL(aUrl).query);
+    if (!paramsArray) {
+      $("#custom-query").hidden = true;
+      return;
+    }
+    $("#custom-query").hidden = false;
+    $("#custom-query-value").value = writeHeaderText(paramsArray);
+  },
+
+  updateCustomUrl: function(aQueryText) {
+    let params = parseHeadersText(aQueryText);
+    let queryString = writeQueryString(params);
+
+    let url = $("#custom-url-value").value;
+    let oldQuery = nsIURL(url).query;
+    let path = url.replace(oldQuery, queryString);
+
+    $("#custom-url-value").value = path;
+  }
+}
+
 /**
  * Functions handling the requests details view.
  */
@@ -1380,49 +1432,13 @@ NetworkDetailsView.prototype = {
   },
 
   /**
-   * Sets this view hidden or visible. It's visible by default.
-   *
-   * @param boolean aVisibleFlag
-   *        Specifies the intended visibility.
-   */
-  toggle: function(aVisibleFlag) {
-    NetMonitorView.toggleDetailsPane({ visible: aVisibleFlag });
-    NetMonitorView.RequestsMenu._flushWaterfallViews(true);
-  },
-
-  /**
    * Hides and resets this container (removes all the networking information).
    */
   reset: function() {
-    this.toggle(false);
     this._dataSrc = null;
   },
 
-  /**
-   * Populates this view with the specified data.
-   *
-   * @param object aData
-   *        The data source (this should be the attachment of a request item).
-   */
   populate: function(aData) {
-    if (aData.isNew) {
-      this.populateCustom(aData);
-    } else {
-      this.populateDetails(aData);
-    }
-  },
-
-  populateCustom: function(aData) {
-    $("#custom-url-value").value = aData.url;
-    $("#custom-postdata-value").value =  aData.body || "";
-    $("#custom-method-value").value = aData.method;
-    $("#custom-headers-value").value = writeHeaderText(aData.headers);
-   // this.updateCustomQuery(aData.url);
-
-    $("#side-pane").selectedIndex = 0;
-  },
-
-  populateDetails: function(aData) {
     $("#request-params-box").setAttribute("flex", "1");
     $("#request-params-box").hidden = false;
     $("#request-post-data-textarea-box").hidden = true;
@@ -1438,8 +1454,6 @@ NetworkDetailsView.prototype = {
 
     this._dataSrc = { src: aData, populated: [] };
     this._onTabSelect();
-
-    $("#side-pane").selectedIndex = 1;
   },
 
   /**
@@ -1923,7 +1937,7 @@ function parseHeadersText(aText) {
   let pairs = [];
   for (let line of aText.split("\n")) {
     let matches;
-    if (matches = /(.*?)\:(.*)/.exec(line)) {
+    if (matches = /(.*?)\:\s*(.*)/.exec(line)) {
       let [, name, value] = matches;
       pairs.push({name: name, value: value});
     }
@@ -1935,8 +1949,12 @@ function writeHeaderText(aHeaders) {
   return [(name + ": " + value) for ({name, value} of aHeaders)].join("\n");
 }
 
+function writeQueryText(aParams) {
+  return [(name + "=" + value) for ({name, value} of aParams)].join("\n");
+}
+
 function writeQueryString(aParams) {
-  return [(name + "=" + value) for ({name, value} of aParams)].join("?");
+  return [(name + "=" + value) for ({name, value} of aParams)].join("&");
 }
 
 
@@ -1956,3 +1974,5 @@ drain.store = new Map();
 NetMonitorView.Toolbar = new ToolbarView();
 NetMonitorView.RequestsMenu = new RequestsMenuView();
 NetMonitorView.NetworkDetails = new NetworkDetailsView();
+NetMonitorView.CustomRequest = new CustomRequestView();
+NetMonitorView.Sidebar = new SidebarView();
