@@ -1350,7 +1350,7 @@ CustomRequestView.prototype = {
     }
     data.url = $("#custom-url-value").value;
     data.body = $("#custom-postdata-value").value;
-    data.method = $("#custom-method-value").value;
+    data.method = $("#custom-method-value").value.trim();
 
     let headersText = $("#custom-headers-value").value;
     data.headers = parseHeaderText(headersText);

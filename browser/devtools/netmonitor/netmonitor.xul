@@ -207,9 +207,10 @@
           hidden="true">
       <vbox id="custom-pane"
             class="tabpanel-content">
-        <hbox align="center">
+        <hbox align="baseline">
           <label value="New Request"
-                 class="plain tabpanel-summary-label"/>
+                 class="plain tabpanel-summary-label
+                        custom-header"/>
           <hbox flex="1" pack="end">
             <button class="devtools-toolbarbutton" label="Send"
                     onclick="NetMonitorView.RequestsMenu.sendRequest();"/>
@@ -220,21 +221,17 @@
         <hbox id="custom-method-and-url"
               class="tabpanel-summary-container"
               align="center">
-          <menulist id="custom-method-value"
-                    oncommand="NetMonitorView.CustomRequest.onUpdate();">
-            <menupopup>
-              <menuitem label="GET" value="GET"/>
-              <menuitem label="POST" value="POST"/>
-              <menuitem label="PUT" value="PUT"/>
-              <menuitem label="HEAD" value="HEAD"/>
-            </menupopup>
-          </menulist>
+          <textbox id="custom-method-value"
+             oninput="NetMonitorView.CustomRequest.onUpdate();"
+             multiline="true"
+             cols="6"
+             rows="1"/>
           <textbox id="custom-url-value"
              flex="1"
              oninput="NetMonitorView.CustomRequest.onUpdate('url');"/>
         </hbox>
         <vbox id="custom-query"
-              class="tabpanel-summary-container">
+              class="tabpanel-summary-container custom-section">
           <label class="plain tabpanel-summary-label"
                  value="Query String:"/>
           <textbox id="custom-query-value"
@@ -245,7 +242,7 @@
                    oninput="NetMonitorView.CustomRequest.onUpdate('query');"/>
         </vbox>
         <vbox id="custom-headers"
-              class="tabpanel-summary-container">
+              class="tabpanel-summary-container custom-section">
           <label class="plain tabpanel-summary-label"
                  value="Request Headers:"/>
           <textbox id="custom-headers-value"
@@ -256,12 +253,13 @@
                    oninput="NetMonitorView.CustomRequest.onUpdate();"/>
         </vbox>
         <vbox id="custom-postdata"
-              class="tabpanel-summary-container">
+              class="tabpanel-summary-container custom-section">
           <label class="plain tabpanel-summary-label"
                  value="Request Body:"/>
           <textbox id="custom-postdata-value"
                    class="tabpanel-summary-input"
-                   multiline="true" rows="5"
+                   multiline="true"
+                   rows="6"
                    wrap="off"
                    oninput="NetMonitorView.CustomRequest.onUpdate();"/>
         </vbox>

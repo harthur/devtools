@@ -20,8 +20,12 @@
   padding: 0.6em 0.5em;
 }
 
-#custom-pane menulist {
-  width: 75px;
+.custom-header {
+  font-size: 1.1em;
+}
+
+.custom-section {
+  margin-top: 0.5em;
 }
 
 #headers-summary-resend {
