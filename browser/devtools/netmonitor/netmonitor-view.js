@@ -105,15 +105,15 @@ let NetMonitorView = {
     dumpn("Initializing the NetMonitorView panes");
 
     this._body = $("#body");
-    this._sidePane = $("#side-pane");
-    this._sidePaneToggleButton = $("#details-pane-toggle");
     this._detailsPane = $("#details-pane");
+    this._detailsPaneToggleButton = $("#details-pane-toggle");
+    this._eventPane = $("#event-details-pane");
 
     this._collapsePaneString = L10N.getStr("collapseDetailsPane");
     this._expandPaneString = L10N.getStr("expandDetailsPane");
 
-    this._sidePane.setAttribute("width", Prefs.networkDetailsWidth);
-    this._sidePane.setAttribute("height", Prefs.networkDetailsHeight);
+    this._detailsPane.setAttribute("width", Prefs.networkDetailsWidth);
+    this._detailsPane.setAttribute("height", Prefs.networkDetailsHeight);
     this.toggleDetailsPane({ visible: false });
   },
 
@@ -123,19 +123,19 @@ let NetMonitorView = {
   _destroyPanes: function() {
     dumpn("Destroying the NetMonitorView panes");
 
-    Prefs.networkDetailsWidth = this._sidePane.getAttribute("width");
-    Prefs.networkDetailsHeight = this._sidePane.getAttribute("height");
+    Prefs.networkDetailsWidth = this._detailsPane.getAttribute("width");
+    Prefs.networkDetailsHeight = this._detailsPane.getAttribute("height");
 
-    this._sidePane = null;
-    this._sidePaneToggleButton = null;
+    this._detailsPane = null;
+    this._detailsPaneToggleButton = null;
   },
 
   /**
    * Gets the visibility state of the network details pane.
    * @return boolean
    */
-  get sidePaneHidden()
-    this._sidePane.hasAttribute("pane-collapsed"),
+  get detailsPaneHidden()
+    this._detailsPane.hasAttribute("pane-collapsed"),
 
   /**
    * Sets the network details pane hidden or visible.
@@ -150,8 +150,8 @@ let NetMonitorView = {
    *        The index of the intended selected tab in the details pane.
    */
   toggleDetailsPane: function(aFlags, aTabIndex) {
-    let pane = this._sidePane;
-    let button = this._sidePaneToggleButton;
+    let pane = this._detailsPane;
+    let button = this._detailsPaneToggleButton;
 
     ViewHelpers.togglePane(aFlags, pane);
 
@@ -166,7 +166,7 @@ let NetMonitorView = {
     }
 
     if (aTabIndex !== undefined) {
-      $("#details-pane").selectedIndex = aTabIndex;
+      $("#event-details-pane").selectedIndex = aTabIndex;
     }
   },
 
@@ -196,8 +196,8 @@ let NetMonitorView = {
   },
 
   _body: null,
-  _sidePane: null,
-  _sidePaneToggleButton: null,
+  _detailsPane: null,
+  _detailsPaneToggleButton: null,
   _collapsePaneString: "",
   _expandPaneString: "",
   _editorPromises: new Map(),
@@ -221,8 +221,8 @@ ToolbarView.prototype = {
   initialize: function() {
     dumpn("Initializing the ToolbarView");
 
-    this._sidePaneToggleButton = $("#details-pane-toggle");
-    this._sidePaneToggleButton.addEventListener("mousedown", this._onTogglePanesPressed, false);
+    this._detailsPaneToggleButton = $("#details-pane-toggle");
+    this._detailsPaneToggleButton.addEventListener("mousedown", this._onTogglePanesPressed, false);
   },
 
   /**
@@ -231,7 +231,7 @@ ToolbarView.prototype = {
   destroy: function() {
     dumpn("Destroying the ToolbarView");
 
-    this._sidePaneToggleButton.removeEventListener("mousedown", this._onTogglePanesPressed, false);
+    this._detailsPaneToggleButton.removeEventListener("mousedown", this._onTogglePanesPressed, false);
   },
 
   /**
@@ -250,7 +250,7 @@ ToolbarView.prototype = {
     }
   },
 
-  _sidePaneToggleButton: null
+  _detailsPaneToggleButton: null
 };
 
 /**
@@ -1312,10 +1312,10 @@ SidebarView.prototype = {
   populate: function(aData) {
     if (aData.isNew) {
       NetMonitorView.CustomRequest.populate(aData);
-      $("#side-pane").selectedIndex = 0;
+      $("#details-pane").selectedIndex = 0;
     } else {
       NetMonitorView.NetworkDetails.populate(aData);
-      $("#side-pane").selectedIndex = 1;
+      $("#details-pane").selectedIndex = 1;
     }
   },
 
@@ -1396,7 +1396,7 @@ NetworkDetailsView.prototype = {
   initialize: function() {
     dumpn("Initializing the RequestsMenuView");
 
-    this.node = $("#details-pane");
+    this.node = $("#event-details-pane");
 
     this._headers = new VariablesView($("#all-headers"),
       Object.create(GENERIC_VARIABLES_VIEW_SETTINGS, {
@@ -1835,7 +1835,7 @@ NetworkDetailsView.prototype = {
     }
     let { blocked, dns, connect, send, wait, receive } = aResponse.timings;
 
-    let tabboxWidth = $("#side-pane").getAttribute("width");
+    let tabboxWidth = $("#details-pane").getAttribute("width");
     let availableWidth = tabboxWidth / 2; // Other nodes also take some space.
     let scale = Math.max(availableWidth / aResponse.totalTime, 0);
 

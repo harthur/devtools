@@ -203,7 +203,7 @@
 
     <splitter class="devtools-side-splitter"/>
 
-    <deck id="side-pane"
+    <deck id="details-pane"
           hidden="true">
       <vbox id="custom-pane"
             class="tabpanel-content">
@@ -264,7 +264,7 @@
                    oninput="NetMonitorView.CustomRequest.onUpdate();"/>
         </vbox>
       </vbox>
-    <tabbox id="details-pane"
+    <tabbox id="event-details-pane"
             class="devtools-sidebar-tabs">
       <tabs>
         <tab label="&netmonitorUI.tab.headers;"/>
