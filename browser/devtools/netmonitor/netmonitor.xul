@@ -21,7 +21,7 @@
     <menupopup id="network-request-popup"
                onpopupshowing="NetMonitorView.RequestsMenu.onContextShowing(event);">
       <menuitem id="request-menu-context-resend"
-        label="Resend"
+        label="&netmonitorUI.summary.resend;"
         accesskey="R"
         oncommand="NetMonitorView.RequestsMenu.cloneRequest();"/>
     </menupopup>
@@ -208,13 +208,15 @@
       <vbox id="custom-pane"
             class="tabpanel-content">
         <hbox align="baseline">
-          <label value="New Request"
+          <label value="&netmonitorUI.custom.newRequest;"
                  class="plain tabpanel-summary-label
                         custom-header"/>
           <hbox flex="1" pack="end">
-            <button class="devtools-toolbarbutton" label="Send"
+            <button class="devtools-toolbarbutton"
+                    label="&netmonitorUI.custom.send;"
                     onclick="NetMonitorView.RequestsMenu.sendRequest();"/>
-            <button class="devtools-toolbarbutton" label="Cancel"
+            <button class="devtools-toolbarbutton"
+                    label="&netmonitorUI.custom.cancel;"
                     onclick="NetMonitorView.RequestsMenu.closeCustomRequest();"/>
           </hbox>
         </hbox>
@@ -233,7 +235,7 @@
         <vbox id="custom-query"
               class="tabpanel-summary-container custom-section">
           <label class="plain tabpanel-summary-label"
-                 value="Query String:"/>
+                 value="&netmonitorUI.custom.query;"/>
           <textbox id="custom-query-value"
                    class="tabpanel-summary-input"
                    multiline="true"
@@ -244,7 +246,7 @@
         <vbox id="custom-headers"
               class="tabpanel-summary-container custom-section">
           <label class="plain tabpanel-summary-label"
-                 value="Request Headers:"/>
+                 value="&netmonitorUI.custom.headers;"/>
           <textbox id="custom-headers-value"
                    class="tabpanel-summary-input"
                    multiline="true"
@@ -255,7 +257,7 @@
         <vbox id="custom-postdata"
               class="tabpanel-summary-container custom-section">
           <label class="plain tabpanel-summary-label"
-                 value="Request Body:"/>
+                 value="&netmonitorUI.custom.postData;"/>
           <textbox id="custom-postdata-value"
                    class="tabpanel-summary-input"
                    multiline="true"
@@ -309,7 +311,7 @@
                      crop="end"
                      flex="1"/>
               <button id="headers-summary-resend"
-                     label="Resend"
+                     label="&netmonitorUI.summary.resend;"
                      class="devtools-toolbarbutton"
                      onclick="NetMonitorView.RequestsMenu.cloneRequest();"/>
             </hbox>

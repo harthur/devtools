@@ -41,7 +41,6 @@ function test() {
         // send the new request
         RequestsMenu.sendRequest();
       });
-
     });
 
     aDebuggee.performRequests();
