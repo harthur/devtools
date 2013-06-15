@@ -172,7 +172,7 @@
 <!-- LOCALIZATION NOTE (debuggerUI.custom.headers): This is the label displayed
   -  on the button in the headers tab that opens a form to resend the currently
      displayed request -->
-<!ENTITY netmonitorUI.summary.resend         "Resend">
+<!ENTITY netmonitorUI.summary.resend      "Resend">
 
 <!-- LOCALIZATION NOTE (debuggerUI.custom.newRequest): This is the label displayed
   -  as the title of the new custom request form -->
