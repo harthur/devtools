@@ -174,6 +174,10 @@
      displayed request -->
 <!ENTITY netmonitorUI.summary.resend      "Resend">
 
+<!-- LOCALIZATION NOTE (debuggerUI.custom.headers): This is the access key
+  -  for the Resend menu item displayed in the context menu for a request -->
+<!ENTITY netmonitorUI.summary.resend.accesskey  "R">
+
 <!-- LOCALIZATION NOTE (debuggerUI.custom.newRequest): This is the label displayed
   -  as the title of the new custom request form -->
 <!ENTITY netmonitorUI.custom.newRequest   "New Request">

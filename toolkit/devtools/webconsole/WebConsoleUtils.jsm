@@ -46,7 +46,6 @@ this.EXPORTED_SYMBOLS = ["WebConsoleUtils", "JSPropertyProvider", "JSTermHelpers
                          "NetworkResponseListener", "NetworkMonitor",
                          "ConsoleProgressListener"];
 
-
 // Match the function name from the result of toString() or toSource().
 //
 // Examples:

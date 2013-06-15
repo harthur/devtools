@@ -22,7 +22,7 @@
                onpopupshowing="NetMonitorView.RequestsMenu.onContextShowing(event);">
       <menuitem id="request-menu-context-resend"
         label="&netmonitorUI.summary.resend;"
-        accesskey="R"
+        accesskey="&netmonitorUI.summary.resend.accesskey;"
         oncommand="NetMonitorView.RequestsMenu.cloneRequest();"/>
     </menupopup>
   </popupset>

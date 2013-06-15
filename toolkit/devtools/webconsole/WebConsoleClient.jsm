@@ -284,14 +284,20 @@ WebConsoleClient.prototype = {
     this._client.request(packet, aOnResponse);
   },
 
-  sendHTTPRequest: function(aData, aOnResponse) {
+  /**
+   * Send a HTTP request with the given data.
+   *
+   * @param string aData
+   *        The details of the HTTP request.
+   * @param function aOnResponse
+   *        The function invoked when the response is received.
+   */
+  sendHTTPRequest: function WCC_sendHTTPRequest(aData, aOnResponse) {
     let packet = {
       to: this._actor,
-      type: "sendHTTPRequest"
+      type: "sendHTTPRequest",
+      request: aData
     };
-    for (let prop of ["method", "url", "headers", "body"]) {
-      packet[prop] = aData[prop];
-    }
     this._client.request(packet, aOnResponse);
   },
 

@@ -379,6 +379,11 @@ box.requests-menu-status[code^="5"] {
   padding-top: 2px;
 }
 
+#headers-summary-resend {
+  margin: 0 6px;
+  min-height: 20px;
+}
+
 /* Response tabpanel */
 
 #response-content-info-header {

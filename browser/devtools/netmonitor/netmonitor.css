@@ -19,11 +19,6 @@
   overflow: auto;
 }
 
-#headers-summary-resend {
-  margin: 0 6px;
-  min-height: 20px;
-}
-
 #timings-summary-blocked {
   display: none; /* This doesn't work yet. */
 }

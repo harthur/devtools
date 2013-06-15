@@ -107,7 +107,6 @@ let NetMonitorView = {
     this._body = $("#body");
     this._detailsPane = $("#details-pane");
     this._detailsPaneToggleButton = $("#details-pane-toggle");
-    this._eventPane = $("#event-details-pane");
 
     this._collapsePaneString = L10N.getStr("collapseDetailsPane");
     this._expandPaneString = L10N.getStr("expandDetailsPane");
@@ -362,8 +361,9 @@ create({ constructor: RequestsMenuView, proto: MenuContainer.prototype }, {
     }
   },
 
-  /*
-   * Add a custom request to the menu
+  /**
+   * Create a new custom request form populated with the data from
+   * the currently selected request.
    */
   cloneRequest: function() {
     let label = document.createElement("label");
@@ -390,6 +390,9 @@ create({ constructor: RequestsMenuView, proto: MenuContainer.prototype }, {
     this.selectedItem = newItem;
   },
 
+  /**
+   * Send a new HTTP request using the data in the custom request form.
+   */
   sendRequest: function() {
     let data = this.selectedItem.attachment;
 
@@ -400,6 +403,9 @@ create({ constructor: RequestsMenuView, proto: MenuContainer.prototype }, {
     this.closeCustomRequest();
   },
 
+  /**
+   * Cancel and remove the currently selected custom request.
+   */
   closeCustomRequest: function() {
     let selectedItem = this.selectedItem;
     this.remove(selectedItem);
@@ -1144,7 +1150,11 @@ create({ constructor: RequestsMenuView, proto: MenuContainer.prototype }, {
     drain("resize-events", RESIZE_REFRESH_RATE, () => this._flushWaterfallViews(true));
   },
 
-  onContextShowing: function(aEvent) {
+  /**
+   * Handle the request menu's context menu open event. Hide items if no
+   * request is selected.
+   */
+  onContextShowing: function() {
     let element = $("#request-menu-context-resend");
     element.hidden = !this.selectedItem;
   },
@@ -1285,6 +1295,9 @@ create({ constructor: RequestsMenuView, proto: MenuContainer.prototype }, {
   _resizeTimeout: null
 });
 
+/**
+ * Functions handling the sidebar details view.
+ */
 function SidebarView() {
   dumpn("SidebarView was instantiated");
 }
@@ -1317,16 +1330,28 @@ SidebarView.prototype = {
     }
   },
 
+  /**
+   * Hides this container.
+   */
   reset: function() {
     this.toggle(false);
   }
 }
 
+/**
+ * Functions handling the custom request view.
+ */
 function CustomRequestView() {
   dumpn("CustomRequestView was instantiated");
 }
 
 CustomRequestView.prototype = {
+  /**
+   * Populates this view with the specified data.
+   *
+   * @param object aData
+   *        The data source (this should be the attachment of a request item).
+   */
   populate: function(aData) {
     $("#custom-url-value").value = aData.url;
     $("#custom-postdata-value").value =  aData.body || "";
@@ -1335,14 +1360,21 @@ CustomRequestView.prototype = {
     this.updateCustomQuery(aData.url);
   },
 
-  onUpdate: function(field) {
+
+  /**
+   * Handle user input in the custom request form.
+   *
+   * @param object aField
+   *        the field that the user updated.
+   */
+  onUpdate: function(aField) {
     let data = { isNew: true };
 
-    if (field == "url") {
+    if (aField == "url") {
       let url = $("#custom-url-value").value;
       this.updateCustomQuery(url);
     }
-    if (field == "query") {
+    if (aField == "query") {
       let query = $("#custom-query-value").value;
       this.updateCustomUrl(query);
     }
@@ -1356,6 +1388,12 @@ CustomRequestView.prototype = {
     NetMonitorView.RequestsMenu.selectedItem.attachment = data;
   },
 
+  /**
+   * Update the query string field based on the url.
+   *
+   * @param object aUrl
+   *        url to extract query string from.
+   */
   updateCustomQuery: function(aUrl) {
     let paramsArray = parseQueryString(nsIURL(aUrl).query);
     if (!paramsArray) {
@@ -1366,6 +1404,12 @@ CustomRequestView.prototype = {
     $("#custom-query-value").value = writeQueryText(paramsArray);
   },
 
+  /**
+   * Update the url based on the query string field.
+   *
+   * @param object aQueryText
+   *        contents of the query string field.
+   */
   updateCustomUrl: function(aQueryText) {
     let params = parseQueryText(aQueryText);
     let queryString = writeQueryString(params);
@@ -1435,12 +1479,18 @@ NetworkDetailsView.prototype = {
   },
 
   /**
-   * Hides and resets this container (removes all the networking information).
+   * Resets this container (removes all the networking information).
    */
   reset: function() {
     this._dataSrc = null;
   },
 
+  /**
+   * Populates this view with the specified data.
+   *
+   * @param object aData
+   *        The data source (this should be the attachment of a request item).
+   */
   populate: function(aData) {
     $("#request-params-box").setAttribute("flex", "1");
     $("#request-params-box").hidden = false;

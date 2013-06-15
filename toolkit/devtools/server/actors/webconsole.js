@@ -1014,7 +1014,14 @@ WebConsoleActor.prototype =
     return actor;
   },
 
-  getNetworkEventActor: function(aChannel) {
+  /**
+   * Get the NetworkEventActor for a nsIChannel, if it exists,
+   * otherwise create a new one.
+   *
+   * @param object aChannel
+   *        The initial network request event information.
+   */
+  getNetworkEventActor: function WCA_getNetworkEventActor(aChannel) {
     let actor;
     if (actor = this._netEvents.get(aChannel)) {
       this._netEvents.delete(aChannel);
@@ -1026,16 +1033,24 @@ WebConsoleActor.prototype =
     return actor;
   },
 
-  onSendHTTPRequest: function WCA_onSendRequest(aRequest)
+  /**
+   * Send a new HTTP request from the target's window.
+   *
+   * @param object aMessage
+   *        Object with 'request' - the HTTP request details.
+   */
+  onSendHTTPRequest: function WCA_onSendHTTPRequest(aMessage)
   {
+    let details = aMessage.request;
+
     // send request from target's window
     let request = new this._window.XMLHttpRequest();
-    request.open(aRequest.method, aRequest.url, true);
+    request.open(details.method, details.url, true);
 
-    for (let {name, value} of aRequest.headers) {
+    for (let {name, value} of details.headers) {
       request.setRequestHeader(name, value);
     }
-    request.send(aRequest.body);
+    request.send(details.body);
 
     let actor = this.getNetworkEventActor(request.channel);
 
@@ -1247,6 +1262,13 @@ NetworkEventActor.prototype =
     return {};
   },
 
+  /**
+   * Set the properties of this actor based on it's corresponding
+   * network event.
+   *
+   * @param object aNetworkEvent
+   *        The network event associated with this actor.
+   */
   setEvent: function setEvent(aNetworkEvent)
   {
     this._startedDateTime = aNetworkEvent.startedDateTime;
@@ -1587,3 +1609,4 @@ NetworkEventActor.prototype.requestTypes =
 
 DebuggerServer.addTabActor(WebConsoleActor, "consoleActor");
 DebuggerServer.addGlobalActor(WebConsoleActor, "consoleActor");
+

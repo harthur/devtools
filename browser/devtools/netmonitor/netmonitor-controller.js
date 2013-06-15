@@ -26,8 +26,6 @@ const NET_STRINGS_URI = "chrome://browser/locale/devtools/netmonitor.properties"
 const LISTENERS = [ "NetworkActivity" ];
 const NET_PREFS = { "NetworkMonitor.saveRequestAndResponseBodies": true };
 
-wantLogging = true;
-
 /**
  * Object defining the network monitor controller components.
  */
