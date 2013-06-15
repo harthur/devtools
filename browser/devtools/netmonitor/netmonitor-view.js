@@ -390,10 +390,8 @@ create({ constructor: RequestsMenuView, proto: MenuContainer.prototype }, {
     this.selectedItem = newItem;
   },
 
-
   sendRequest: function() {
-    let selectedItem = this.selectedItem;
-    let data = selectedItem.attachment;
+    let data = this.selectedItem.attachment;
 
     NetMonitorController.webConsoleClient.sendHTTPRequest(data, (response) => {
       let id = response.eventActor.actor;
