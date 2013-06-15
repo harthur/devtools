@@ -1019,11 +1019,12 @@ WebConsoleActor.prototype =
    * otherwise create a new one.
    *
    * @param object aChannel
-   *        The initial network request event information.
+   *        The channel for the network event.
    */
   getNetworkEventActor: function WCA_getNetworkEventActor(aChannel) {
     let actor;
     if (actor = this._netEvents.get(aChannel)) {
+      // delete from map as we should only need to do this check once
       this._netEvents.delete(aChannel);
       return actor;
     }

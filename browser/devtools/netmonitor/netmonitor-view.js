@@ -378,7 +378,7 @@ create({ constructor: RequestsMenuView, proto: MenuContainer.prototype }, {
 
     let newItem = this.push(label, {
       attachment: {
-        isNew: true,
+        isCustom: true,
         method: selected.method,
         url: selected.url,
         headers: selected.requestHeaders.headers,
@@ -407,8 +407,7 @@ create({ constructor: RequestsMenuView, proto: MenuContainer.prototype }, {
    * Remove the currently selected custom request.
    */
   closeCustomRequest: function() {
-    let selectedItem = this.selectedItem;
-    this.remove(selectedItem);
+    this.remove(this.selectedItem);
 
     NetMonitorView.Sidebar.toggle(false);
   },
@@ -1320,7 +1319,7 @@ SidebarView.prototype = {
    *        The data source (this should be the attachment of a request item).
    */
   populate: function(aData) {
-    if (aData.isNew) {
+    if (aData.isCustom) {
       NetMonitorView.CustomRequest.populate(aData);
       $("#details-pane").selectedIndex = 0;
     } else {
@@ -1356,9 +1355,9 @@ CustomRequestView.prototype = {
     $("#custom-postdata-value").value =  aData.body || "";
     $("#custom-method-value").value = aData.method;
     $("#custom-headers-value").value = writeHeaderText(aData.headers);
+
     this.updateCustomQuery(aData.url);
   },
-
 
   /**
    * Handle user input in the custom request form.
@@ -1367,7 +1366,7 @@ CustomRequestView.prototype = {
    *        the field that the user updated.
    */
   onUpdate: function(aField) {
-    let data = { isNew: true };
+    let data = { isCustom: true };
 
     if (aField == "url") {
       let url = $("#custom-url-value").value;
@@ -1971,6 +1970,14 @@ function nsIURL(aUrl, aStore = nsIURL.store) {
 }
 nsIURL.store = new Map();
 
+/**
+ * Parse a url's query string into its components
+ *
+ * @param  string aQueryString
+ *         The query part of a url
+ * @return array
+ *         Array of query params {name, value}
+ */
 function parseQueryString(aQueryString) {
   // Make sure there's at least one param available.
   if (!aQueryString || !aQueryString.contains("=")) {
@@ -1985,14 +1992,39 @@ function parseQueryString(aQueryString) {
   return paramsArray;
 }
 
+/**
+ * Parse text representation of HTTP headers.
+ *
+ * @param  string aText
+ *         Text of headers
+ * @return array
+ *         Array of headers info {name, value}
+ */
 function parseHeaderText(aText) {
   return parseRequestText(aText, ":");
 }
 
+/**
+ * Parse readable text list of a query string.
+ *
+ * @param  string aText
+ *         Text of query string represetation
+ * @return array
+ *         Array of query params {name, value}
+ */
 function parseQueryText(aText) {
   return parseRequestText(aText, "=");
 }
 
+/**
+ * Parse a text representation of a name:value list with
+ * the given name:value divider character.
+ *
+ * @param  string aText
+ *         Text of list
+ * @return array
+ *         Array of headers info {name, value}
+ */
 function parseRequestText(aText, aDivider) {
   let regex = new RegExp("(.+?)\\" + aDivider + "\\s*(.+)");
   let pairs = [];
@@ -2006,18 +2038,41 @@ function parseRequestText(aText, aDivider) {
   return pairs;
 }
 
+/**
+ * Write out a list of headers into a chunk of text
+ *
+ * @param array aHeaders
+ *        Array of headers info {name, value}
+ * @return string aText
+ *         List of headers in text format
+ */
 function writeHeaderText(aHeaders) {
   return [(name + ": " + value) for ({name, value} of aHeaders)].join("\n");
 }
 
+/**
+ * Write out a list of query params into a chunk of text
+ *
+ * @param array aParams
+ *        Array of query params {name, value}
+ * @return string
+ *         List of query params in text format
+ */
 function writeQueryText(aParams) {
   return [(name + "=" + value) for ({name, value} of aParams)].join("\n");
 }
 
+/**
+ * Write out a list of query params into a query string
+ *
+ * @param array aParams
+ *        Array of query  params {name, value}
+ * @return string
+ *         Query string that can be appended to a url.
+ */
 function writeQueryString(aParams) {
   return [(name + "=" + value) for ({name, value} of aParams)].join("&");
 }
-
 
 /**
  * Helper for draining a rapid succession of events and invoking a callback
