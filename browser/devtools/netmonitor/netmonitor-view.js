@@ -404,7 +404,7 @@ create({ constructor: RequestsMenuView, proto: MenuContainer.prototype }, {
   },
 
   /**
-   * Cancel and remove the currently selected custom request.
+   * Remove the currently selected custom request.
    */
   closeCustomRequest: function() {
     let selectedItem = this.selectedItem;
@@ -1145,14 +1145,13 @@ create({ constructor: RequestsMenuView, proto: MenuContainer.prototype }, {
   /**
    * The resize listener for this container's window.
    */
-  _onResize: function() {
+  _onResize: function(e) {
     // Allow requests to settle down first.
     drain("resize-events", RESIZE_REFRESH_RATE, () => this._flushWaterfallViews(true));
   },
 
   /**
-   * Handle the request menu's context menu open event. Hide items if no
-   * request is selected.
+   * Handle the context menu opening. Hide items if no request is selected.
    */
   onContextShowing: function() {
     let element = $("#request-menu-context-resend");

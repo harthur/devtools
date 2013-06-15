@@ -1179,8 +1179,8 @@ WebConsoleActor.prototype.requestTypes =
  * Creates an actor for a network event.
  *
  * @constructor
- * @param object aNetworkEvent
- *        The network event you want to use the actor for.
+ * @param object aChannel
+ *        The nsIChannel associated with this event.
  * @param object aWebConsoleActor
  *        The parent WebConsoleActor instance for this object.
  */
