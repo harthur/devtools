@@ -29,9 +29,9 @@ gcli.addCommand({
 
   exec: function(args, context) {
     let target = context.environment.target;
-    let chromeDocument = context.environment.chromeDocument;
+    let chromeWindow = context.environment.chromeWindow;
 
-    let magnifier = MagnifierManager.instanceForTarget(target, chromeDocument);
+    let magnifier = MagnifierManager.instanceForWindow(chromeWindow);
     magnifier.toggle();
   }
 });
