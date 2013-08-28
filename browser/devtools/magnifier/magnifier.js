@@ -30,7 +30,30 @@ function Magnifier(chromeWindow) {
   this.chromeWindow = chromeWindow;
   this.chromeDocument = chromeWindow.document;
 
+  // TODO: actually use preferences that make sense here
+  this.docked = true;
+  this.position = {
+    width: 100,
+    height: 100
+  };
+  this.state = true;
+  this.zoomLevel = 2;
+
+  let gWidth = Math.floor(this.position.width / this.zoomLevel) + 1;
+  let gHeight = Math.floor(this.position.height / this.zoomLevel) + 1;
+  let gZoom = this.zoomLevel;
+
   this.popupSet = this.chromeDocument.querySelector("#mainPopupSet");
+  this.zoomWindow = {
+    x: 0,
+    y: 0,
+    cx: null,
+    cy: null,
+    width: gWidth,
+    height: gHeight,
+    zoom: gZoom,
+  };
+
 }
 
 Magnifier.prototype = {
@@ -81,28 +104,34 @@ Magnifier.prototype = {
     panel.appendChild(iframe);
 
 
+    this.chromeDocument.addEventListener("mousemove", (e) => {
+      // console.log(e);
+      // console.log(e.pageX, e.pageY);
+      this.moveRegion(e.pageX, e.pageY);
+    });
 
     return panel;
+  },
+
+  moveRegion: function(x, y) {
+    this.zoomWindow.x = x;
+    this.zoomWindow.y = y;
+    this.drawWindow();
   },
 
   drawWindow: function() {
     this.canvas = this.iframe.contentDocument.getElementById("canvas");
 
-    console.log(this.canvas);
     this.ctx = this.canvas.getContext("2d");
 
-    let width = this.chromeWindow.innerWidth;
-    let height = this.chromeWindow.innerHeight;
-    let x = 0;
-    let y = 0;
+    let width = this.zoomWindow.width;
+    let height = this.zoomWindow.height;
+
+    let x = this.zoomWindow.x;
+    let y = this.zoomWindow.y;
 
     this.canvas.width = width;
     this.canvas.height = height;
-
-    console.log("Drawing window", this.chromeWindow, this.ctx, height, width);
-    debugger;
-
-
 
     this.ctx.drawWindow(this.chromeWindow, x, y, width, height, "white");
   }
