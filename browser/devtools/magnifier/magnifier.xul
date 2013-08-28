@@ -9,30 +9,21 @@
 <?xml-stylesheet href="chrome://browser/skin/devtools/widgets.css"?>
 <?xml-stylesheet href="chrome://browser/skin/devtools/profiler.css"?>
 <?xml-stylesheet href="chrome://browser/content/devtools/widgets.css"?>
+<?xml-stylesheet href="chrome://browser/content/devtools/magnifier.css" type="text/css"?>
 
 <window xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
-
-<panel
-xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
-id="devtools-magnifier-panel"
-noautofocus="true"
-noautohide="true"
-level="floating"
-orient="horizontal"
-style="border-radius: 4px !important; border:1px solid #111;-moz-appearance:none; background: rgb(53,67,82);">
-  <vbox
-  style="background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFgAAABYBAMAAACDuy0HAAAAG1BMVEX+/v4BAQH///8KCgoDAwN/f3/19fWAgID8/PzhDwT2AAAACXRSTlMFBQUFBQUFBQWHDtP9AAALwklEQVR4Xg3KOWOyWhAA0Bn2ci57eXEvQY1JCZp8sQTjVoJLTAkaE0swbj/7ve4UB37FLW4q86Lwwlh86J/ASAkpWaj+Krbb31HzH0Kjc2tIl7SADaWbpZBPE5dds6jJNyNdjAyKWqdroIixWRQIY6E/kOY7hIciL/ZfrAO3XP/06AuUJ3mSd/z95OB9vIal0DPlaZWHP7RE6DIXjmKqKkuGr+xNZylOnj1GSlUKvnxZDBOIzTfMe0fJgJ7c/GIIOdUuKxYyBFUOzvY6AC5AXx8R+o5O4S0j0wqBND3ErIYm/XHFbQjtH1MXD5dUbp19OFdjkDlys+HSwrBgHRvL9wVN/pi8ViOIwcv/D1GRW6UuDvJLLQA5lCI17iUdsKYpOuYfMATGnpn/Zs3W6gov51G+/Vs9Ay//we5kh8uwvEPum6o5HkDMDb3ZWunwtq+UzENU8NphDdbvNtKM3knx5gi6UMSQl+eGs+27mraDtxeWdH+T62Us/GylEtr7Ct8jlbeXKvAf5onx8D2uVt1J/GblV+XQyKUInOUG44fqjcszK266yHWAAYG9ekhvy4l4Maa44jYVyV2RFEuS54e2HcswtmNdqR/+V4P0O9e4XnpWgxVSQkNXpYMCxJ4Vel0lmi56jnYIIJAQMndF+zTEiyuj92r3ijJT1O0alPQnLWJvJLR7Xx7Xg9fm9QOqFu8o29m3QQqFwZN4bki/RoprNtMKKtEET9iMsJyKpkiguAorn2yzkv0wG3M1EEVDJP5VN7muLjYCglzdGQ7boYGgRmorzhRDq83gglgylC+hBLEyy6ZQWNwCmmqt6PvExAqGEA9V2XIT4/fS+I2cx1n5td85kOCjHfPWTg72FJ/+vKOyggt+rytFbEDJWL+mPwpgw6HtFLIHmq4o2m1nZ9saKwiKEOTVZtWlnqHODPu949VfKD+zzpfynd/ZZU5IWZ0dgnqRHC4uOBpBsT8N7YbFJzADiW2eo/T979OKFxY8zk/+HR/NNEkzgSBsmA35Sayz1m/ubxgmYQOmffyRh9gdx42mUVX512oqWkfxAzyuSCxx1cywx3jIXuXJEEbssymo0xMy7SskJW9C5IPYroPwQunt7f5FEPPXJLWRbGHcL4Q3sx3TLAN6W672r/I5CKkL6zSwwk0AI8+iBCSv1Y7QQP5RSoLE227uy8vn22Y6dhLBgEsRh18cTGjIv3y+60Kmt3YAZQX8qf3bJDUc/5pdjti+KwAZ9GzzQzd23d1JBAnSvWkWB8YfsIGlspHitNiMPYPFfR+OecRuPyxgfoP9/HkR3cR27IohiaDXCk/3VNP6lIxP9TBnsMeAAUZloq6P8KURLBsNFuiA3LsN/d9qpCeKKIBgSzsN5k+rdh3uh0VbvMuOIomJD1fBOiCqIsvklS5bOQhMaahJC+Rc+6lz+Uvxmq05Py+LoGIQlLKvlcaHsFG9Ui66H/qdHz67sPRGho+ruC92QgN5JEMmLsZREEiJu78FJbyzT8FsdK90XoEcezn2R5iLUzZhczJmf1yNY3gJNJUQvbpTznTAbnV5J8iL4q2OWuhJEndWVTyEr8M5VGTWtvOmUo1DsnOsqXE5ZzKE8K4/8cl8+c1XArp1RUKz+iKP96j2FcUmA+v0HnEr0iUdSrRK5duAj1FQamvpiaXR2JddD6g8n4SyFx/fjT4LkC+ghJckj1e1wP+DrHrpIiMaPH5F1rcaRvwZWfEn6fx+/C7PdXABGLNKjr1USZ5XyHjsafXMEoXtguAfjykMioMMHISXVAc9yQY5o5Qg8MM0nhWCA2HoiEgBc1EH+warLjxH3Ln68M/ciFqI1bG0mBOxiNreOuShEf/9pIzhm1Bh2cbYVxn2IYQ7eljYpab/5EdPF2PSmcy+62j6e2HBPNbe+8JVMuRQBrWdL9uBh4bYbQaQJ07FyfcpCuvSuxUyYjP6avvw9gTcAj0uTVohSwOHDDaHTs8nyachMBcWoVDWp3/lWgqeCLMneAUhSuhD2RJpufLOSi7emxOVhYsOGomV2JCEKjWu7kuqwueyFEmDgVhR0l4oHn8W87UZuxb8id54SxHWiSnPKnMyAhzdhi2wN/AoH3OYwLajuybB8h/QeJJiX1gIt+dfij+gr0CJRXQ2Y04Q6q8xHzfWm9FIgchiW0+X86tIotIGzRG1gENaKokQkLn+FXZ2x3KUcp7d/NUsmOmFCG/i03YB8pi0eiNS4LUIfA06AKvfQmP/VAXS1AP2kzJ+9LAaTafvFyO7bz8U9OCpld2q1eHGts+ZFrt04AmIlubOPP7Xayfi/r0tiX2aaPT9Dz4+TVPBoXsjHDzWfrmawOsZfmBT/k2+c6sz/hvD5wjrjT7XgRlnEzPuZermi1jqfUrE3q7VdFfJu5oT9Ad+VUh1fIwIFhBy8TmMuhIeX2XpmogmvS1C3ZuwiyR87ZSrj0Jv1DpEAYkbcL3RpjZXmZpPV4mXH8z8Nh8CS+R+PpcTnkhyr5UJaSiz0wjK22Ewl+zS+pTug0PQ0CSnJQ5LfdR77vVZufgjkQ/ydf4V5zpEaNq+JZmrQK6WdZBacmMHL9RmLnPUs0/MYwYFzoyrXYQMTHGAUJOfumR5r79MZO28DIEXQVT5wGw99TY1T0GOCC/BzWv8READwICd0LjUNKnE6ORVa0lOnqhoO0v33lwWcwF0ynTgTpFxy+0OKdphNDWJlH8ubKoG6WJXtKxAwbsilpBJB+GBwimvTsCrv1R7LSX9ExkAw44ZEcxU3L50OHnKAyKZNe1fih+hVqItRGCDf7shuvme+lTWteX5oYuc58NrCaqjYIrIV0PFyQeh2ZzZEqNS60LuhnP5wweMkkaU93pDA/RWPNeGpPCBgiUeDvV0L1NfdRP/Hn5i7rUK7kftlIWeIUIYbtzzFl9nlIeaNfoX+x/qyWzIABLTZDbeq/hDZpxg2gkh+ICfSU8OUpJ8yWY17uQ5EGa+GGWFmnrBd9vX3KOteYkJaMpPwJ4TjzDjbhkOMKmWKClzVJ2g81YGFl/c0xPIKncgJGdUKvZoUUJu0gYaIAh6E0xNeQ15qpJXzNITgf4W+w/oUaKOM54EMUi1j5yvOCsEe8JYpwVGj53lNiPMY9Rltgd4icp82fvN69zkSBUI40nJSRTeHz7h1IX42Cr0klWjxjO05MSX1IaTeDmTRGEeKvAvtaaBaLQnjftGJz+4cjFyy6/iCjLGF2/gW+jQhEUxbEBPyQzXi+Bb4kc9wK4jIwNLWbwQAOtYKRLaipDH+X4TPPOG8DCNY4IC9yBk1qcibjhUgRnDcf35pl9d5otbvQjOIXlEu5dVtm5LRaK5KWcD/PX6LaGd25CuNHG/vgeIB1kcpCme+J8idlcjfBALAJSggznsGHGOAJgdGduMnZg+bAaeGASGV9bh/X2wPsVTmBLxmTTQsBGFkEOkZJTsGAm+HrtMDbWwvTXOutX1u7BxIq9Xib6DkFMbUitNdrYsULkahsAhBEh9FjdzL9BNARxTSr7T3u1rE+IWUmCIpwTZHZCu5l9THCuCcOhZqfekuQxjQ7EoyGUJAwCv/q1JOuJeCc/3lknb76zAquO/DAQhK/62cP8X2s3+IBLIhvL8RHopoHpIArJysYTTmMMeubPXh8W760AvMVH67jqgg06+/ne5MZ631z6yROhloh3dPQirZoEpr80wgt/cEbhbAQTmRLtGh8lxCwDBBb5OeJ4aEq25XBNMT2rzWedW2zIzj+CCDKlnlyJBzT81qBWp69h7vlb3TmEV+DNm2rqj1iT7BQuwVVsuPkwq1e5P8tgNjVbIlMzwXeM11kZqjx3KKFOJzc3CAyFVhi8fxVZ5FvhdAM5mM6kS6OgKu16MFglq3/b/QVIwdw7HUCyeW04JPjC5dO+GC9OfqfB4VX+wwuift+ths2Ss3i6nkOE+JFyD+wKFL+WMX6nwwDva0S1/O8Mlnida69Ph96fuFvCoRMvXnCfsLPPmC/hA5RnMNE4fDK0pVOQ4BHLaErzv/wD99ABmjNZk0AAAAABJRU5ErkJggg==');">
+  <vbox id="magnifier-container" flex="1">
     <toolbar
     class="devtools-toolbar"
     style="border-bottom: 1px solid rgb(20,30,39) !important;"
     flex="1">
       <box
       class="devtools-searchinput"
-      style="margin-left: 4px ! important; width: 32px; background-image: url(&quot;&quot;) ! important; box-shadow: 0px 0px 0px black ! important; background-color: rgb(222, 237, 253);"
-      />
+      style="margin-left: 4px ! important; width: 32px; ! important; box-shadow: 0px 0px 0px black ! important; background-color: rgb(222, 237, 253);"
+      ></box>
       <textbox
       class="devtools-searchinput"
-      />
+      ></textbox>
       <menulist
       class="devtools-menulist"
       sizetopopup="pref"
@@ -40,17 +31,17 @@ style="border-radius: 4px !important; border:1px solid #111;-moz-appearance:none
         <menupopup>
           <menuitem
           label="RGB"
-          style="text-align: center"
+          style="text-align: center">
           selected="true"
-          />
+          ></menuitem>
           <menuitem
           label="HSL"
-          style="text-align: center"
-          />
+          style="text-align: center">
+          </menuitem>
           <menuitem
           label="Hex"
-          style="text-align: center"
-          />
+          style="text-align: center">
+          </menuitem>
         </menupopup>
         </menulist>
         <menulist
@@ -61,20 +52,16 @@ style="border-radius: 4px !important; border:1px solid #111;-moz-appearance:none
             <menuitem
             label="Content Zoom"
             style="text-align: center"
-            selected="true"
-            />
+            selected="true"></menuitem>
             <menuitem
             label="Browser Zoom"
-            style="text-align: center"
-            />
+            style="text-align: center"></menuitem>
             <menuitem
             label="Mouse Zoom"
-            style="text-align: center"
-            />
+            style="text-align: center"></menuitem>
             <menuitem
             label="Panel Zoom"
-            style="text-align: center"
-            />
+            style="text-align: center"></menuitem>
           </menupopup>
           </menulist>
           <spacer
@@ -83,29 +70,29 @@ style="border-radius: 4px !important; border:1px solid #111;-moz-appearance:none
           <toolbarbutton
           class="developer-toolbar-button"
           type="checkbox"
-          style="min-height: 24px ! important; max-height: 24px ! important; min-width: 24px ! important; max-width: 24px ! important; list-style-image: url(&quot;data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAQCAYAAAB3AH1ZAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAnhJREFUeNqklc9rE0EUx2c2TZOgQU1tUhtiY1tK2luRXEQUBKEH8eCpVw+iF0+CZ/Ho1Uul/gEeiicPgnjQgwoNeClJiEZj2tU0P9rFRBO6uzO+mZ2JW5jdZjXwzXuZzJvZ93lvZnH4xDT634+5rv9z7JjPf8dASeE3Qb8Crj0Oigu/CzpQTdJ8Fjij1yoPmZgfNDOsl0+tTKE2E/O95vk9QMKySZeJ+YHZturxxm8bMTE/SAkk+lmQLcaY3xqxFA76eGLStkU4+PC9ryoFVjThPGC/zxzInm82FtLYQ6F0duERmM9+TQi4U5eWZhq8cQaUjyWjmNu3xW9TNJ3bVRGQWTO7CBsb7kmu38ugqKDgpiEbbhwRktG7h/tNN4VDyIwo+4GkIQnMf69V7g4zsklPxTYc0o5Lfzq78FjSsB68TuXPJRvyv90+UdYmFfvbcptfm5yGJBCBTfePPO+H50SGXn0rspO4cGRf7rjBQAxK55weoA7+JdBpUKZeLcdUC5ydy/XBbIPaoCJ2yoDs89cSKBydRRidpJPZiYnLN56p4jtvnq/iVq0DGxrIHHwhd57scQKUoj0wBdYTGKNFsBc9kvgAc0uMOmiAsWi8woufYMq8p67czJimqb4bup0ifrexLeOVp8BFYxlIUJE52+qjO2uvU6Ct3eY0aDI7F8uvcBL9zZeruFmryqx97wFJA7ILsRMhhkswXnBn7XkDChr0+j1iWZZc9BN+v1GRWfs+gIY5nh516iwvojaM90a5AO2nOo/Hr9aN4UUUixsw3gv6MvoB6EvSD/wuqBYMWt/Kc98cGPTqrWBvQ1djolHQe5VCxnvN+yPAAOEsDxWasUUvAAAAAElFTkSuQmCC&quot;); -moz-image-region: rect(0px, 32px, 16px, 16px);"
+          style="min-height: 24px ! important; max-height: 24px ! important; min-width: 24px ! important; max-width: 24px ! important; list-style-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAQCAYAAAB3AH1ZAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAnhJREFUeNqklc9rE0EUx2c2TZOgQU1tUhtiY1tK2luRXEQUBKEH8eCpVw+iF0+CZ/Ho1Uul/gEeiicPgnjQgwoNeClJiEZj2tU0P9rFRBO6uzO+mZ2JW5jdZjXwzXuZzJvZ93lvZnH4xDT634+5rv9z7JjPf8dASeE3Qb8Crj0Oigu/CzpQTdJ8Fjij1yoPmZgfNDOsl0+tTKE2E/O95vk9QMKySZeJ+YHZturxxm8bMTE/SAkk+lmQLcaY3xqxFA76eGLStkU4+PC9ryoFVjThPGC/zxzInm82FtLYQ6F0duERmM9+TQi4U5eWZhq8cQaUjyWjmNu3xW9TNJ3bVRGQWTO7CBsb7kmu38ugqKDgpiEbbhwRktG7h/tNN4VDyIwo+4GkIQnMf69V7g4zsklPxTYc0o5Lfzq78FjSsB68TuXPJRvyv90+UdYmFfvbcptfm5yGJBCBTfePPO+H50SGXn0rspO4cGRf7rjBQAxK55weoA7+JdBpUKZeLcdUC5ydy/XBbIPaoCJ2yoDs89cSKBydRRidpJPZiYnLN56p4jtvnq/iVq0DGxrIHHwhd57scQKUoj0wBdYTGKNFsBc9kvgAc0uMOmiAsWi8woufYMq8p67czJimqb4bup0ifrexLeOVp8BFYxlIUJE52+qjO2uvU6Ct3eY0aDI7F8uvcBL9zZeruFmryqx97wFJA7ILsRMhhkswXnBn7XkDChr0+j1iWZZc9BN+v1GRWfs+gIY5nh516iwvojaM90a5AO2nOo/Hr9aN4UUUixsw3gv6MvoB6EvSD/wuqBYMWt/Kc98cGPTqrWBvQ1djolHQe5VCxnvN+yPAAOEsDxWasUUvAAAAAElFTkSuQmCC'); -moz-image-region: rect(0px, 32px, 16px, 16px);"
           checked="true"
-          />
+          ></toolbarbutton>
           <toolbarbutton
           type="checkbox"
           class="developer-toolbar-button"
-          style="min-height: 24px ! important; max-height: 24px ! important; min-width: 24px ! important; max-width: 24px ! important; list-style-image: url(&quot;data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAQCAYAAAB3AH1ZAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAY1JREFUeNpi/P//PwMMMK5mIAv8D4XQbALSJOtlZOWXYqAU/J79lCx9rKnSDCxQNjcQi0FpYsBXIH4FpcGeB2JeKE0M+AXEn0E0zAGSTx/cqifF9dIKao1A6g44GJ/eEHQ31nhBiv6dZ29IAKmXMAew//n77zOJIcgOZz26wv5CU5U03UA98DTwHxL8WkAsQqT2N0B8jRESDQx/jX2EGFg5lBgYGQSIS7UMHxh+/7jHfHbLO1gI/AQa9hpEE+mAT/+R1P7Xsv0BdMArBkZG4kLx///vQAf8YDi7BZIIgZaLAtNAOolpYBKQ+gjmKJvwmimJPyRF/6l7L0Fp4BtyGnhHSRp4LMRHVhpggUQJw2s5ZY0DJKaB14ywwuTi7i8vrh02JSUNMP7+8QXugEGRBp49vB1ESghKyasuR04DCjyMJKWBB1/+o6aB33/+vqEkDTySUiFN97M7GGngOiVp4D+ZaQBcEP37D3YIB1KaIAT+APEPJkYwTZF+sAaoQV/IrQ3/znlKln4mYG0IEGAAjIaoHzMdX2kAAAAASUVORK5CYII=&quot;); -moz-image-region: rect(0px, 16px, 16px, 0px);">
+          style="min-height: 24px ! important; max-height: 24px ! important; min-width: 24px ! important; max-width: 24px ! important; list-style-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAQCAYAAAB3AH1ZAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAY1JREFUeNpi/P//PwMMMK5mIAv8D4XQbALSJOtlZOWXYqAU/J79lCx9rKnSDCxQNjcQi0FpYsBXIH4FpcGeB2JeKE0M+AXEn0E0zAGSTx/cqifF9dIKao1A6g44GJ/eEHQ31nhBiv6dZ29IAKmXMAew//n77zOJIcgOZz26wv5CU5U03UA98DTwHxL8WkAsQqT2N0B8jRESDQx/jX2EGFg5lBgYGQSIS7UMHxh+/7jHfHbLO1gI/AQa9hpEE+mAT/+R1P7Xsv0BdMArBkZG4kLx///vQAf8YDi7BZIIgZaLAtNAOolpYBKQ+gjmKJvwmimJPyRF/6l7L0Fp4BtyGnhHSRp4LMRHVhpggUQJw2s5ZY0DJKaB14ywwuTi7i8vrh02JSUNMP7+8QXugEGRBp49vB1ESghKyasuR04DCjyMJKWBB1/+o6aB33/+vqEkDTySUiFN97M7GGngOiVp4D+ZaQBcEP37D3YIB1KaIAT+APEPJkYwTZF+sAaoQV/IrQ3/znlKln4mYG0IEGAAjIaoHzMdX2kAAAAASUVORK5CYII='); -moz-image-region: rect(0px, 16px, 16px, 0px);">
             <menupopup>
               <menuitem
               label="Show Gridlines"
               type="checkbox"
               checked="false"
-              />
+              ></menuitem>
               <menuitem
               label="Show smooth edges"
               type="checkbox"
               checked="null"
-              />
+              ></menuitem>
             </menupopup>
             </toolbarbutton>
             <toolbarbutton
             class="devtools-closebutton"
-            />
+            ></toolbarbutton>
             </toolbar>
             <hbox>
               <vbox>
@@ -113,14 +100,14 @@ style="border-radius: 4px !important; border:1px solid #111;-moz-appearance:none
                 style="display:block; position: relative; margin: 10px 10px 5px">
                   <canvas
                   xmlns="http://www.w3.org/1999/xhtml"
-                  style="image-rendering: -moz-crisp-edges; background-color: black; width: 476px; height: 308px;"
+                  style="image-rendering: -moz-crisp-edges;"
                   width="119"
                   height="77"></canvas>
                     <box
-                    style="position: absolute; top: 0px; left: 0px; width: 476px; height: 308px; background-size: 4px 4px; background-image: -moz-linear-gradient(left center , transparent 1px, transparent 1px), -moz-linear-gradient(center top , transparent 1px, transparent 1px);"
-                    />
+                    style="position: absolute; top: 0px; left: 0px; background-size: 4px 4px; background-image: -moz-linear-gradient(left center , transparent 1px, transparent 1px), -moz-linear-gradient(center top , transparent 1px, transparent 1px);"
+                    ></box>
                     <box
-                    style="display: block; position: absolute; border-width: 2px; border-style: solid; -moz-box-sizing: content-box; margin-left: -1px; margin-top: -1px; pointer-events: none; width: 3px; height: 3px; left: 236px; top: 152px;"
+                    style="display: block; position: absolute; border-width: 2px; border-style: solid; -moz-box-sizing: content-box; margin-left: -1px; margin-top: -1px; pointer-events: none; "
                     /></box>
                     <spacer
                     flex="1"
@@ -132,24 +119,24 @@ style="border-radius: 4px !important; border:1px solid #111;-moz-appearance:none
                         <label
                         value="2x"
                         style="padding: 0px 2px;color:#eef"
-                        />
+                        ></label>
                         <box
                         flex="1"
                         style="min-height: 14px; background-repeat: no-repeat; border-bottom: 1px solid rgb(238, 238, 255); margin: 1px; max-height: 14px; background-image: -moz-linear-gradient(right center , rgb(238, 238, 255) 1px, transparent 1px); background-size: 33.3333% 100%;"
-                        />
+                        ></box>
                         <label
                         value="8x"
                         style="padding: 0px 2px;color:#eef"
-                        />
+                        ></label>
             </hbox>
             <box
             draggable="true"
             style="min-height:3px;max-height:3px;margin-right: 2px;min-width:3px;max-width:3px;cursor: se-resize;-moz-appearance:resizer;"
-            />
+            >
+          </box>
             </hbox>
             </vbox>
             </hbox>
             </vbox>
-            </panel>
 
 </window>
