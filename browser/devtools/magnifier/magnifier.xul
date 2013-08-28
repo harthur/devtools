@@ -98,11 +98,9 @@
               <vbox>
                 <box
                 style="display:block; position: relative; margin: 10px 10px 5px">
-                  <canvas
+                  <canvas id="canvas"
                   xmlns="http://www.w3.org/1999/xhtml"
-                  style="image-rendering: -moz-crisp-edges;"
-                  width="119"
-                  height="77"></canvas>
+                  style="image-rendering: -moz-crisp-edges;"></canvas>
                     <box
                     style="position: absolute; top: 0px; left: 0px; background-size: 4px 4px; background-image: -moz-linear-gradient(left center , transparent 1px, transparent 1px), -moz-linear-gradient(center top , transparent 1px, transparent 1px);"
                     ></box>

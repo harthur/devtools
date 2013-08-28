@@ -27,6 +27,7 @@ exports.MagnifierManager = MagnifierManager;
 
 
 function Magnifier(chromeWindow) {
+  this.chromeWindow = chromeWindow;
   this.chromeDocument = chromeWindow.document;
 
   this.popupSet = this.chromeDocument.querySelector("#mainPopupSet");
@@ -69,11 +70,40 @@ Magnifier.prototype = {
     panel.setAttribute("close", true);
     panel.setAttribute("style", PANEL_STYLE);
 
-    let iframe = this.chromeDocument.createElementNS(XULNS, "iframe");
+
+
+
+    let iframe = this.iframe = this.chromeDocument.createElementNS(XULNS, "iframe");
+    iframe.addEventListener("load", this.drawWindow.bind(this), true);
     iframe.setAttribute("flex", "1");
     iframe.setAttribute("src", MAGNIFIER_URL);
+
     panel.appendChild(iframe);
 
+
+
     return panel;
+  },
+
+  drawWindow: function() {
+    this.canvas = this.iframe.contentDocument.getElementById("canvas");
+
+    console.log(this.canvas);
+    this.ctx = this.canvas.getContext("2d");
+
+    let width = this.chromeWindow.innerWidth;
+    let height = this.chromeWindow.innerHeight;
+    let x = 0;
+    let y = 0;
+
+    this.canvas.width = width;
+    this.canvas.height = height;
+
+    console.log("Drawing window", this.chromeWindow, this.ctx, height, width);
+    debugger;
+
+
+
+    this.ctx.drawWindow(this.chromeWindow, x, y, width, height, "white");
   }
 }
