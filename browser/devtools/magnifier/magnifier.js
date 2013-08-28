@@ -6,6 +6,9 @@ loader.lazyGetter(this, "gDevTools",
 const PANEL_STYLE = "-moz-appearance: none !important;background:rgba(0,100,150,0.1);" +
                     "border:3px solid #36a;border-radius:5px;height:240px;width:240px";
 
+const XULNS = "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
+const MAGNIFIER_URL = "chrome://browser/content/devtools/magnifier.xul";
+
 let MagnifierManager = {
   _instances: new WeakMap(),
 
@@ -66,6 +69,11 @@ Magnifier.prototype = {
     panel.setAttribute("level", "floating");
     panel.setAttribute("titlebar", "Pixel Inspector");
     panel.setAttribute("style", PANEL_STYLE);
+
+    let iframe = this.chromeDocument.createElementNS(XULNS, "iframe");
+    iframe.setAttribute("flex", "1");
+    iframe.setAttribute("src", MAGNIFIER_URL);
+    panel.appendChild(iframe);
 
     return panel;
   }

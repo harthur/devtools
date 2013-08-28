@@ -66,3 +66,5 @@ browser.jar:
     content/browser/devtools/connect.css                               (framework/connect/connect.css)
     content/browser/devtools/connect.js                                (framework/connect/connect.js)
     content/browser/devtools/app-manager/template.js                   (app-manager/content/template.js)
+    content/browser/devtools/magnifier.xul                             (magnifier/magnifier.xul)
+    content/browser/devtools/magnifier.css                             (magnifier/magnifier.css)
