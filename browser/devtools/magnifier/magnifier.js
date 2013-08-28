@@ -1,3 +1,5 @@
+const {Cu} = require("chrome");
+
 loader.lazyGetter(this, "gDevTools",
   () => Cu.import("resource:///modules/devtools/gDevTools.jsm", {}).gDevTools);
 
