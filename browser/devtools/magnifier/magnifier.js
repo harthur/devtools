@@ -9,12 +9,12 @@ const PANEL_STYLE = "-moz-appearance: none !important;background:rgba(0,100,150,
 let MagnifierManager = {
   _instances: new WeakMap(),
 
-  instanceForTarget: function(target, chromeDocument) {
-    if (this._instances.has(target)) {
-      return this._instances.get(target);
+  instanceForWindow: function(chromeWindow) {
+    if (this._instances.has(chromeWindow)) {
+      return this._instances.get(chromeWindow);
     } else {
-      let magnifier = new Magnifier(target, chromeDocument);
-      this._instances.set(target, magnifier);
+      let magnifier = new Magnifier(chromeWindow);
+      this._instances.set(chromeWindow, magnifier);
       return magnifier;
     }
   }
@@ -23,11 +23,10 @@ let MagnifierManager = {
 exports.MagnifierManager = MagnifierManager;
 
 
-function Magnifier(target, chromeDocument) {
-  this.target = target;
-  this.chromeDocument = chromeDocument;
+function Magnifier(chromeWindow) {
+  this.chromeDocument = chromeWindow.document;
 
-  this.popupSet = chromeDocument.querySelector("#mainPopupSet");
+  this.popupSet = this.chromeDocument.querySelector("#mainPopupSet");
 }
 
 Magnifier.prototype = {
@@ -44,8 +43,7 @@ Magnifier.prototype = {
     this._panel = this.buildPanel();
     this.popupSet.appendChild(this._panel);
 
-    let anchor = gDevTools.getToolbox(this.target);
-    this._panel.openPopup(anchor, "before_start");
+    this._panel.openPopup();
   },
 
   close: function() {
