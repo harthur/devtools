@@ -53,7 +53,6 @@ function Magnifier(chromeWindow) {
 
   }
 
-  console.log(zoom);
   this.popupSet = this.chromeDocument.querySelector("#mainPopupSet");
   this.zoomWindow = {
     x: 0,
@@ -176,11 +175,8 @@ Magnifier.prototype = {
     this.canvas.style.width = csswidth;
     this.canvas.style.height = cssheight;
 
-    let drawX = Math.min(this.chromeWindow.innerWidth - (width / 2),  Math.max(0, x - (width / 2)));
-    let drawY = Math.min(this.chromeWindow.innerHeight - (height / 2),  Math.max(0, y - (height / 2)));
-
-    drawY = y - (height / 2);
-    drawX = x - (width / 2);
+    let drawY = y - height;
+    let drawX = x - (width / 2);
 
     this.ctx.drawWindow(this.chromeWindow, drawX, drawY, width, height, "white");
 
