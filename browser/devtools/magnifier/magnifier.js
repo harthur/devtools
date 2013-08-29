@@ -149,7 +149,7 @@ Magnifier.prototype = {
         return;
       }
 
-      this.dragging = !this.dragging;
+      this.toggleDragging();
 
       e.preventDefault();
       e.stopPropagation();
@@ -167,10 +167,12 @@ Magnifier.prototype = {
     this.colorLabel = this.iframeDocument.querySelector("#color-text-preview");
     this.colorPreview = this.iframeDocument.querySelector("#color-preview");
     this.colorFormatOptions = this.iframeDocument.querySelector("#colorformat-list");
+    this.toggleMagnifier = this.iframeDocument.querySelector("#toggle-magnifier");
 
     this.zoomLevel.value = this.zoomWindow.zoom;
     this.drawWindow();
 
+    this.toggleMagnifier.addEventListener("command", this.toggleDragging.bind(this), false);
     this.colorFormatOptions.addEventListener("command", () => {
       this.zoomWindow.format = this.colorFormatOptions.value;
 
@@ -194,6 +196,11 @@ Magnifier.prototype = {
     this.drawWindow();
 
     this.moveOutline(this.zoomWindow.x, this.zoomWindow.y);
+  },
+
+  toggleDragging: function() {
+      this.dragging = !this.dragging;
+      this.toggleMagnifier.checked = this.dragging;
   },
 
   moveRegion: function(x, y) {

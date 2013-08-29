@@ -43,6 +43,10 @@
 	min-width: 100px;
 }
 
+#toggle-magnifier[checked] {
+	background:rgb(255, 200, 200);
+}
+
 #grid {
 	position:absolute;
 	top:0;
