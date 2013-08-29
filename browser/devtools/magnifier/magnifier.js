@@ -147,6 +147,23 @@ Magnifier.prototype = {
     this.drawWindow();
   },
 
+  drawOutline: function(x, y) {
+    let stack = this.browser.parentNode;
+    this.win = this.browser.contentWindow;
+
+    this.outlineStack = this.chromeDocument.createElement("stack");
+    this.outlineStack.className = "devtools-magnifier-stack";
+
+    this.outline = this.chromeDocument.createElement("box");
+    this.outline.className = "devtools-magnifier-outline";
+
+    let outlineContainer = this.chromeDoc.createElement("box");
+    outlineContainer.appendChild(this.outline);
+    outlineContainer.className = "devtools-magnifier-outline-container";
+
+    this.outlineStack.appendChild(outlineContainer);
+  },
+
   drawWindow: function() {
     let { width, height, x, y, zoom } = this.zoomWindow;
 
