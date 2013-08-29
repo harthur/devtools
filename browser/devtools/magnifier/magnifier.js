@@ -12,6 +12,11 @@ const MAGNIFIER_URL = "chrome://browser/content/devtools/magnifier.xul";
 let MagnifierManager = {
   _instances: new WeakMap(),
 
+  toggle: function(chromeWindow) {
+    var magnifier = this.instanceForWindow(chromeWindow);
+    magnifier.toggle();
+  },
+
   instanceForWindow: function(chromeWindow) {
     if (this._instances.has(chromeWindow)) {
       return this._instances.get(chromeWindow);
