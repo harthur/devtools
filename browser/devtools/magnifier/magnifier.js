@@ -6,8 +6,11 @@ let { CssColor } = require("devtools/magnifier/CSSColor");
 loader.lazyGetter(this, "gDevTools",
   () => Cu.import("resource:///modules/devtools/gDevTools.jsm", {}).gDevTools);
 
-const PANEL_STYLE = "background:rgba(0,100,150,0.1);" +
-                    "height:275px;width:300px";
+const PANEL_STYLE = "background: rgba(0,100,150,0.1);" +
+                    "height: 275px;width:300px";
+
+const OUTLINE_STYLE = "border: solid 1px white; outline: solid 1px black;" +
+                      "position: fixed; display: block; transition: all linear 0.1s;"
 
 const XULNS = "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
 const MAGNIFIER_URL = "chrome://browser/content/devtools/magnifier.xul";
@@ -98,7 +101,6 @@ Magnifier.prototype = {
     this.popupSet.appendChild(this._panel);
 
     this._panel.openPopup();
-    this.drawOutline();
   },
 
   destroy: function() {
@@ -137,7 +139,9 @@ Magnifier.prototype = {
 
     this.chromeDocument.addEventListener("mousemove", (e) => {
       if (this.dragging && this._panel) {
-        this.moveRegion( e.screenX -  this.chromeWindow.screenX, e.screenY -  this.chromeWindow.screenY);
+        let x =  e.screenX -  this.chromeWindow.screenX;
+        let y =  e.screenY -  this.chromeWindow.screenY - 20;
+        this.moveRegion(x, y);
       }
     });
     this.chromeDocument.addEventListener("mousedown", (e) => {
@@ -177,27 +181,36 @@ Magnifier.prototype = {
       this.drawWindow();
     }, false);
 
-    this.zoomLevel.addEventListener("change", () => {
-      this.zoomWindow.zoom = this.zoomLevel.value;
+    this.zoomLevel.addEventListener("change", this.onZoomChange.bind(this));
+  },
 
-      Services.prefs.setIntPref(ZOOM_PREF, this.zoomWindow.zoom);
+  onZoomChange: function() {
+    this.zoomWindow.zoom = this.zoomLevel.value;
 
-      this.drawWindow();
-    });
+    Services.prefs.setIntPref(ZOOM_PREF, this.zoomWindow.zoom);
+
+    this.hideOutline();
+
+    this.drawWindow();
+
+    this.moveOutline(this.zoomWindow.x, this.zoomWindow.y);
   },
 
   moveRegion: function(x, y) {
     this.zoomWindow.x = x;
     this.zoomWindow.y = y;
+
+    // don't draw outline in zoom
+    this.hideOutline();
+
     this.drawWindow();
 
     this.moveOutline(x, y);
   },
 
   createOutline: function() {
-    var boxStyle = "border:solid 1px black;position:fixed;display:block";
     this.outlineBox = this.chromeDocument.createElement("box");
-    this.outlineBox.setAttribute("style", boxStyle);
+    this.outlineBox.setAttribute("style", OUTLINE_STYLE);
 
     this.chromeDocument.documentElement.appendChild(this.outlineBox);
   },
@@ -209,10 +222,23 @@ Magnifier.prototype = {
     }
   },
 
+  hideOutline: function() {
+    if (this.outlineBox) {
+      this.outlineBox.style.display = "none";
+    }
+  },
+
+  showOutline: function() {
+    if (this.outlineBox) {
+      this.outlineBox.style.display = "block";
+    }
+  },
+
   moveOutline: function(x, y) {
     if (!this.outlineBox) {
       this.createOutline();
     }
+    this.showOutline();
 
     let width = this.zoomWindow.width / this.zoomWindow.zoom;
     let height = this.zoomWindow.height / this.zoomWindow.zoom;
@@ -220,27 +246,11 @@ Magnifier.prototype = {
     x = x - width / 2;
     y = y - height / 2;
 
-    this.outlineBox.style.left = x + "px";
-    this.outlineBox.style.top = (y - 10) + "px";
+    this.outlineBox.style.left = (x - 1)+ "px";
+    this.outlineBox.style.top = (y - 1) + "px";
 
-    this.outlineBox.style.width = width + "px";
-    this.outlineBox.style.height = height + "px";
-
- /*
-    let stack = this.browser.parentNode;
-    this.win = this.browser.contentWindow;
-
-    this.outline = this.chromeDocument.createElement("box");
-    this.outline.className = "devtools-magnifier-outline";
-
-    // TODO: copied from highlighter - do we need this
-    this.outlineContainer = this.chromeDoc.createElement("box");
-    this.outlineContainer.appendChild(this.outline);
-    this.outlineContainer.className = "devtools-magnifier-outline-container";
-
-    stack.insertBefore(this.outlineContainer, stack.childNodes[1]);
-
-    this.outlineStack.appendChild(outlineContainer); */
+    this.outlineBox.style.width = (width + 2) + "px";
+    this.outlineBox.style.height = (height + 2) + "px";
   },
 
   drawWindow: function() {
