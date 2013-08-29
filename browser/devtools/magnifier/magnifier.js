@@ -83,6 +83,7 @@ Magnifier.prototype = {
   },
 
   buildPanel: function() {
+
     let panel = this.chromeDocument.createElement("panel");
     panel.id = "devtools-magnifier-indication-panel";
     panel.setAttribute("noautofocus", true);
@@ -93,11 +94,8 @@ Magnifier.prototype = {
     panel.setAttribute("close", true);
     panel.setAttribute("style", PANEL_STYLE);
 
-
-
-
     let iframe = this.iframe = this.chromeDocument.createElementNS(XULNS, "iframe");
-    iframe.addEventListener("load", this.drawWindow.bind(this), true);
+    iframe.addEventListener("load", this.frameLoaded.bind(this), true);
     iframe.setAttribute("flex", "1");
     iframe.setAttribute("src", MAGNIFIER_URL);
 
@@ -105,12 +103,29 @@ Magnifier.prototype = {
 
 
     this.chromeDocument.addEventListener("mousemove", (e) => {
-      // console.log(e);
-      // console.log(e.pageX, e.pageY);
+      // console.log("Screen", e.screenX, e.screenY);
+      // console.log("Page", e.pageX, e.pageY);
+      // console.log("Client", e.clientX, e.clientY);
       this.moveRegion(e.pageX, e.pageY);
     });
 
     return panel;
+  },
+
+  frameLoaded: function() {
+    this.iframeDocument =  this.iframe.contentDocument;
+
+    this.canvas = this.iframeDocument.getElementById("canvas");
+    this.ctx = this.canvas.getContext("2d");
+    this.zoomLevel = this.iframeDocument.querySelector("#zoom-level");
+
+    this.zoomWindow.zoom = this.zoomLevel.value;
+    this.zoomLevel.addEventListener("change", () => {
+      this.zoomWindow.zoom = this.zoomLevel.value;
+      this.drawWindow();
+    });
+
+    this.drawWindow();
   },
 
   moveRegion: function(x, y) {
@@ -137,19 +152,24 @@ Magnifier.prototype = {
   }
 
   drawWindow: function() {
-    this.canvas = this.iframe.contentDocument.getElementById("canvas");
 
-    this.ctx = this.canvas.getContext("2d");
+    let { width, height, x, y, zoom } = this.zoomWindow;
 
-    let width = this.zoomWindow.width;
-    let height = this.zoomWindow.height;
-
-    let x = this.zoomWindow.x;
-    let y = this.zoomWindow.y;
+    let csswidth = (width * zoom) + "px";
+    let cssheight = (height * zoom) + "px";
 
     this.canvas.width = width;
     this.canvas.height = height;
 
-    this.ctx.drawWindow(this.chromeWindow, x, y, width, height, "white");
+    this.canvas.style.width = csswidth;
+    this.canvas.style.height = cssheight;
+
+    let drawX = Math.min(this.chromeWindow.innerWidth - (width / 2),  Math.max(0, x - (width / 2)));
+    let drawY = Math.min(this.chromeWindow.innerHeight - (height / 2),  Math.max(0, y - (height / 2)));
+
+    // drawX = x + width;
+    // drawY = y + height;
+
+    this.ctx.drawWindow(this.chromeWindow, drawX, drawY, width, height, "white");
   }
 }
