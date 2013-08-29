@@ -21,11 +21,11 @@
       </box>
       <box id="color-text-preview">
       </box>
-      <menulist class="devtools-menulist" sizetopopup="pref" label="RGB">
+      <menulist class="devtools-menulist" id="colorformat-list"  sizetopopup="pref" label="RGB">
         <menupopup>
-          <menuitem label="RGB" style="text-align: center"></menuitem>
-          <menuitem label="HSL" style="text-align: center"></menuitem>
-          <menuitem label="Hex" style="text-align: center"></menuitem>
+          <menuitem label="RGB" value="rgb" style="text-align: center"></menuitem>
+          <menuitem label="HSL" value="hsl" style="text-align: center"></menuitem>
+          <menuitem label="Hex" value="hex" style="text-align: center"></menuitem>
         </menupopup>
       </menulist>
 
