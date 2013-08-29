@@ -1,4 +1,7 @@
-const {Cu} = require("chrome");
+const {Cc, Ci, Cu} = require("chrome");
+
+Cu.import("resource://gre/modules/Services.jsm");
+let { CssColor } = require("devtools/magnifier/CSSColor");
 
 loader.lazyGetter(this, "gDevTools",
   () => Cu.import("resource:///modules/devtools/gDevTools.jsm", {}).gDevTools);
@@ -8,6 +11,7 @@ const PANEL_STYLE = "background:rgba(0,100,150,0.1);" +
 
 const XULNS = "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
 const MAGNIFIER_URL = "chrome://browser/content/devtools/magnifier.xul";
+const ZOOM_PREF    = "devtools.magnifier.zoom";
 
 let MagnifierManager = {
   _instances: new WeakMap(),
@@ -25,33 +29,40 @@ let MagnifierManager = {
 
 exports.MagnifierManager = MagnifierManager;
 
-
 function Magnifier(chromeWindow) {
   this.chromeWindow = chromeWindow;
   this.chromeDocument = chromeWindow.document;
 
   // TODO: actually use preferences that make sense here
-  this.docked = true;
-  this.position = {
-    width: 100,
-    height: 100
-  };
-  this.state = true;
-  this.zoomLevel = 2;
+  //this.docked = true;
+  // this.position = {
+  //   width: 100,
+  //   height: 100
+  // };
+  //this.state = true;
+  //this.zoomLevel = 2;
+  //let gWidth = Math.floor(this.position.width / this.zoomLevel) + 1;
+  //let gHeight = Math.floor(this.position.height / this.zoomLevel) + 1;
+  //let gZoom = this.zoomLevel;
 
-  let gWidth = Math.floor(this.position.width / this.zoomLevel) + 1;
-  let gHeight = Math.floor(this.position.height / this.zoomLevel) + 1;
-  let gZoom = this.zoomLevel;
+  let zoom = 1;
+  try {
+    zoom = Services.prefs.getIntPref(ZOOM_PREF);
+  }
+  catch (e) {
 
+  }
+
+  console.log(zoom);
   this.popupSet = this.chromeDocument.querySelector("#mainPopupSet");
   this.zoomWindow = {
     x: 0,
     y: 0,
     cx: null,
     cy: null,
-    width: gWidth,
-    height: gHeight,
-    zoom: gZoom,
+    width: 50,
+    height: 50,
+    zoom: zoom,
   };
 
 }
@@ -83,7 +94,6 @@ Magnifier.prototype = {
   },
 
   buildPanel: function() {
-
     let panel = this.chromeDocument.createElement("panel");
     panel.id = "devtools-magnifier-indication-panel";
     panel.setAttribute("noautofocus", true);
@@ -101,12 +111,8 @@ Magnifier.prototype = {
 
     panel.appendChild(iframe);
 
-
     this.chromeDocument.addEventListener("mousemove", (e) => {
-      // console.log("Screen", e.screenX, e.screenY);
-      // console.log("Page", e.pageX, e.pageY);
-      // console.log("Client", e.clientX, e.clientY);
-      this.moveRegion(e.pageX, e.pageY);
+      this.moveRegion( e.screenX -  this.chromeWindow.screenX, e.screenY -  this.chromeWindow.screenY);
     });
 
     return panel;
@@ -118,14 +124,21 @@ Magnifier.prototype = {
     this.canvas = this.iframeDocument.getElementById("canvas");
     this.ctx = this.canvas.getContext("2d");
     this.zoomLevel = this.iframeDocument.querySelector("#zoom-level");
+    this.colorLabel = this.iframeDocument.querySelector("#color-text-preview");
+    this.colorPreview = this.iframeDocument.querySelector("#color-preview");
 
-    this.zoomWindow.zoom = this.zoomLevel.value;
+    this.zoomLevel.value = this.zoomWindow.zoom;
+    this.drawWindow();
+
+
     this.zoomLevel.addEventListener("change", () => {
       this.zoomWindow.zoom = this.zoomLevel.value;
+
+      Services.prefs.setIntPref(ZOOM_PREF, this.zoomWindow.zoom);
+
       this.drawWindow();
     });
 
-    this.drawWindow();
   },
 
   moveRegion: function(x, y) {
@@ -135,7 +148,6 @@ Magnifier.prototype = {
   },
 
   drawWindow: function() {
-
     let { width, height, x, y, zoom } = this.zoomWindow;
 
     let csswidth = (width * zoom) + "px";
@@ -150,9 +162,15 @@ Magnifier.prototype = {
     let drawX = Math.min(this.chromeWindow.innerWidth - (width / 2),  Math.max(0, x - (width / 2)));
     let drawY = Math.min(this.chromeWindow.innerHeight - (height / 2),  Math.max(0, y - (height / 2)));
 
-    // drawX = x + width;
-    // drawY = y + height;
+    drawY = y - (height / 2);
+    drawX = x - (width / 2);
 
     this.ctx.drawWindow(this.chromeWindow, drawX, drawY, width, height, "white");
+
+    let rgb = this.ctx.getImageData(Math.floor(width/2), Math.floor(height/2), 1, 1).data;
+
+    let color = new CssColor("rgb(" + rgb[0] + "," + rgb[1] + "," + rgb[2] + ")");
+    this.colorLabel.textContent = color.hex;
+    this.colorPreview.style.backgroundColor = color.hex;
   }
 }

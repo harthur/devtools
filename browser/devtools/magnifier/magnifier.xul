@@ -17,56 +17,20 @@
     class="devtools-toolbar"
     style="border-bottom: 1px solid rgb(20,30,39) !important;"
     flex="1">
-      <box
-      class="devtools-searchinput"
-      style="margin-left: 4px ! important; width: 32px; ! important; box-shadow: 0px 0px 0px black ! important; background-color: rgb(222, 237, 253);"
-      ></box>
-      <textbox
-      class="devtools-searchinput"
-      ></textbox>
-      <menulist
-      class="devtools-menulist"
-      sizetopopup="pref"
-      label="RGB">
+      <box id="color-preview">
+      </box>
+      <box id="color-text-preview">
+      </box>
+      <menulist class="devtools-menulist" sizetopopup="pref" label="RGB">
         <menupopup>
-          <menuitem
-          label="RGB"
-          style="text-align: center">
-          selected="true"
-          ></menuitem>
-          <menuitem
-          label="HSL"
-          style="text-align: center">
-          </menuitem>
-          <menuitem
-          label="Hex"
-          style="text-align: center">
-          </menuitem>
+          <menuitem label="RGB" style="text-align: center"></menuitem>
+          <menuitem label="HSL" style="text-align: center"></menuitem>
+          <menuitem label="Hex" style="text-align: center"></menuitem>
         </menupopup>
-        </menulist>
-        <menulist
-        class="devtools-menulist"
-        sizetopopup="pref"
-        label="Content Zoom">
-          <menupopup>
-            <menuitem
-            label="Content Zoom"
-            style="text-align: center"
-            selected="true"></menuitem>
-            <menuitem
-            label="Browser Zoom"
-            style="text-align: center"></menuitem>
-            <menuitem
-            label="Mouse Zoom"
-            style="text-align: center"></menuitem>
-            <menuitem
-            label="Panel Zoom"
-            style="text-align: center"></menuitem>
-          </menupopup>
-          </menulist>
-          <spacer
-          flex="1"
-          />
+      </menulist>
+
+      <spacer flex="1" />
+
           <toolbarbutton
           class="developer-toolbar-button"
           type="checkbox"
