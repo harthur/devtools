@@ -53,6 +53,7 @@ function Magnifier(chromeWindow) {
 
   }
 
+  this.dragging = true;
   this.popupSet = this.chromeDocument.querySelector("#mainPopupSet");
   this.zoomWindow = {
     x: 0,
@@ -111,7 +112,18 @@ Magnifier.prototype = {
     panel.appendChild(iframe);
 
     this.chromeDocument.addEventListener("mousemove", (e) => {
-      this.moveRegion( e.screenX -  this.chromeWindow.screenX, e.screenY -  this.chromeWindow.screenY);
+      if (this.dragging && this._panel) {
+        this.moveRegion( e.screenX -  this.chromeWindow.screenX, e.screenY -  this.chromeWindow.screenY);
+      }
+    });
+    this.chromeDocument.addEventListener("click", (e) => {
+      if (e.target.ownerDocument === this.iframeDocument) {
+        return;
+      }
+
+      if (this._panel) {
+        this.dragging = !this.dragging;
+      }
     });
 
     return panel;
@@ -125,10 +137,14 @@ Magnifier.prototype = {
     this.zoomLevel = this.iframeDocument.querySelector("#zoom-level");
     this.colorLabel = this.iframeDocument.querySelector("#color-text-preview");
     this.colorPreview = this.iframeDocument.querySelector("#color-preview");
+    this.colorFormatOptions = this.iframeDocument.querySelector("#colorformat-list");
 
     this.zoomLevel.value = this.zoomWindow.zoom;
     this.drawWindow();
 
+    this.colorFormatOptions.addEventListener("command", () => {
+      this.drawWindow();
+    }, false);
 
     this.zoomLevel.addEventListener("change", () => {
       this.zoomWindow.zoom = this.zoomLevel.value;
@@ -137,7 +153,6 @@ Magnifier.prototype = {
 
       this.drawWindow();
     });
-
   },
 
   moveRegion: function(x, y) {
@@ -183,8 +198,15 @@ Magnifier.prototype = {
     let rgb = this.ctx.getImageData(Math.floor(width/2), Math.floor(height/2), 1, 1).data;
 
     let color = new CssColor("rgb(" + rgb[0] + "," + rgb[1] + "," + rgb[2] + ")");
-    this.colorLabel.textContent = color.hex;
     this.colorPreview.style.backgroundColor = color.hex;
+
+    let value = this.colorFormatOptions.value;
+
+    this.colorLabel.textContent = {
+      "hex": color.hex,
+      "hsl": color.hsl,
+      "rgb": color.rgb
+    }[value];
 
     this.selectPreviewText();
   },
