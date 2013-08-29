@@ -95,6 +95,7 @@ Magnifier.prototype = {
     this.popupSet.appendChild(this._panel);
 
     this._panel.openPopup();
+    this.drawOutline();
   },
 
   destroy: function() {
@@ -104,6 +105,7 @@ Magnifier.prototype = {
 
       this._panel = null;
     }
+    this.destroyOutline();
   },
 
   buildPanel: function() {
@@ -174,9 +176,43 @@ Magnifier.prototype = {
     this.zoomWindow.x = x;
     this.zoomWindow.y = y;
     this.drawWindow();
+
+    this.moveOutline(x, y);
   },
 
-  drawOutline: function(x, y) {
+  createOutline: function() {
+    var boxStyle = "border:solid 1px black;position:fixed;display:block";
+    this.outlineBox = this.chromeDocument.createElement("box");
+    this.outlineBox.setAttribute("style", boxStyle);
+
+    this.chromeDocument.documentElement.appendChild(this.outlineBox);
+  },
+
+  destroyOutline: function() {
+    if (this.outlineBox) {
+      this.chromeDocument.documentElement.removeChild(this.outlineBox);
+      this.outlineBox = null;
+    }
+  },
+
+  moveOutline: function(x, y) {
+    if (!this.outlineBox) {
+      this.createOutline();
+    }
+
+    let width = this.zoomWindow.width / this.zoomWindow.zoom;
+    let height = this.zoomWindow.height / this.zoomWindow.zoom;
+
+    x = x - width / 2;
+    y = y - height / 2;
+
+    this.outlineBox.style.left = x + "px";
+    this.outlineBox.style.top = (y - 10) + "px";
+
+    this.outlineBox.style.width = width + "px";
+    this.outlineBox.style.height = height + "px";
+
+ /*
     let stack = this.browser.parentNode;
     this.win = this.browser.contentWindow;
 
@@ -190,7 +226,7 @@ Magnifier.prototype = {
 
     stack.insertBefore(this.outlineContainer, stack.childNodes[1]);
 
-    this.outlineStack.appendChild(outlineContainer);
+    this.outlineStack.appendChild(outlineContainer); */
   },
 
   drawWindow: function() {
