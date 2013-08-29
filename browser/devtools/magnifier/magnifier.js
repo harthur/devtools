@@ -17,18 +17,26 @@ let MagnifierManager = {
   _instances: new WeakMap(),
 
   toggle: function(chromeWindow) {
-    var magnifier = this.instanceForWindow(chromeWindow);
-    magnifier.toggle();
+    let magnifier = this.getInstance(chromeWindow);
+    if (magnifier) {
+      this._instances.delete(chromeWindow);
+
+      magnifier.destroy();
+    }
+    else {
+      magnifier = this.createInstance(chromeWindow);
+      magnifier.open();
+    }
   },
 
-  instanceForWindow: function(chromeWindow) {
-    if (this._instances.has(chromeWindow)) {
-      return this._instances.get(chromeWindow);
-    } else {
-      let magnifier = new Magnifier(chromeWindow);
-      this._instances.set(chromeWindow, magnifier);
-      return magnifier;
-    }
+  getInstance: function(chromeWindow) {
+    return this._instances.get(chromeWindow);
+  },
+
+  createInstance: function(chromeWindow) {
+    let magnifier = new Magnifier(chromeWindow);
+    this._instances.set(chromeWindow, magnifier);
+    return magnifier;
   }
 }
 
