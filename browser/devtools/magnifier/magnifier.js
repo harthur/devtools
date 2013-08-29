@@ -185,5 +185,17 @@ Magnifier.prototype = {
     let color = new CssColor("rgb(" + rgb[0] + "," + rgb[1] + "," + rgb[2] + ")");
     this.colorLabel.textContent = color.hex;
     this.colorPreview.style.backgroundColor = color.hex;
+
+    this.selectPreviewText();
+  },
+
+  selectPreviewText: function() {
+    //TODO: this doesn't work for some reason right now.
+    var range = this.chromeDocument.createRange();
+    range.setStartBefore(this.colorLabel.firstChild);
+    range.setEndAfter(this.colorLabel.lastChild);
+    var sel = this.chromeWindow.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
   }
 }
