@@ -149,7 +149,7 @@ Magnifier.prototype = {
     outlineContainer.className = "devtools-magnifier-outline-container";
 
     this.outlineStack.appendChild(outlineContainer);
-  }
+  },
 
   drawWindow: function() {
 
