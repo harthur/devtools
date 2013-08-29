@@ -19,8 +19,8 @@
     flex="1">
       <box id="color-preview">
       </box>
-      <box id="color-text-preview">
-      </box>
+      <hbox align="center" flex="1" id="color-text-preview">
+      </hbox>
       <menulist class="devtools-menulist" id="colorformat-list"  sizetopopup="pref" label="RGB">
         <menupopup>
           <menuitem label="RGB" value="rgb" style="text-align: center"></menuitem>
@@ -29,35 +29,11 @@
         </menupopup>
       </menulist>
 
-      <spacer flex="1" />
 
-          <toolbarbutton
-          class="developer-toolbar-button"
-          type="checkbox"
-          style="min-height: 24px ! important; max-height: 24px ! important; min-width: 24px ! important; max-width: 24px ! important; list-style-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAQCAYAAAB3AH1ZAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAnhJREFUeNqklc9rE0EUx2c2TZOgQU1tUhtiY1tK2luRXEQUBKEH8eCpVw+iF0+CZ/Ho1Uul/gEeiicPgnjQgwoNeClJiEZj2tU0P9rFRBO6uzO+mZ2JW5jdZjXwzXuZzJvZ93lvZnH4xDT634+5rv9z7JjPf8dASeE3Qb8Crj0Oigu/CzpQTdJ8Fjij1yoPmZgfNDOsl0+tTKE2E/O95vk9QMKySZeJ+YHZturxxm8bMTE/SAkk+lmQLcaY3xqxFA76eGLStkU4+PC9ryoFVjThPGC/zxzInm82FtLYQ6F0duERmM9+TQi4U5eWZhq8cQaUjyWjmNu3xW9TNJ3bVRGQWTO7CBsb7kmu38ugqKDgpiEbbhwRktG7h/tNN4VDyIwo+4GkIQnMf69V7g4zsklPxTYc0o5Lfzq78FjSsB68TuXPJRvyv90+UdYmFfvbcptfm5yGJBCBTfePPO+H50SGXn0rspO4cGRf7rjBQAxK55weoA7+JdBpUKZeLcdUC5ydy/XBbIPaoCJ2yoDs89cSKBydRRidpJPZiYnLN56p4jtvnq/iVq0DGxrIHHwhd57scQKUoj0wBdYTGKNFsBc9kvgAc0uMOmiAsWi8woufYMq8p67czJimqb4bup0ifrexLeOVp8BFYxlIUJE52+qjO2uvU6Ct3eY0aDI7F8uvcBL9zZeruFmryqx97wFJA7ILsRMhhkswXnBn7XkDChr0+j1iWZZc9BN+v1GRWfs+gIY5nh516iwvojaM90a5AO2nOo/Hr9aN4UUUixsw3gv6MvoB6EvSD/wuqBYMWt/Kc98cGPTqrWBvQ1djolHQe5VCxnvN+yPAAOEsDxWasUUvAAAAAElFTkSuQmCC'); -moz-image-region: rect(0px, 32px, 16px, 16px);"
-          checked="true"
-          ></toolbarbutton>
-          <toolbarbutton
-          type="checkbox"
-          class="developer-toolbar-button"
-          style="min-height: 24px ! important; max-height: 24px ! important; min-width: 24px ! important; max-width: 24px ! important; list-style-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAQCAYAAAB3AH1ZAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAY1JREFUeNpi/P//PwMMMK5mIAv8D4XQbALSJOtlZOWXYqAU/J79lCx9rKnSDCxQNjcQi0FpYsBXIH4FpcGeB2JeKE0M+AXEn0E0zAGSTx/cqifF9dIKao1A6g44GJ/eEHQ31nhBiv6dZ29IAKmXMAew//n77zOJIcgOZz26wv5CU5U03UA98DTwHxL8WkAsQqT2N0B8jRESDQx/jX2EGFg5lBgYGQSIS7UMHxh+/7jHfHbLO1gI/AQa9hpEE+mAT/+R1P7Xsv0BdMArBkZG4kLx///vQAf8YDi7BZIIgZaLAtNAOolpYBKQ+gjmKJvwmimJPyRF/6l7L0Fp4BtyGnhHSRp4LMRHVhpggUQJw2s5ZY0DJKaB14ywwuTi7i8vrh02JSUNMP7+8QXugEGRBp49vB1ESghKyasuR04DCjyMJKWBB1/+o6aB33/+vqEkDTySUiFN97M7GGngOiVp4D+ZaQBcEP37D3YIB1KaIAT+APEPJkYwTZF+sAaoQV/IrQ3/znlKln4mYG0IEGAAjIaoHzMdX2kAAAAASUVORK5CYII='); -moz-image-region: rect(0px, 16px, 16px, 0px);">
-            <menupopup>
-              <menuitem
-              label="Show Gridlines"
-              type="checkbox"
-              checked="false"
-              ></menuitem>
-              <menuitem
-              label="Show smooth edges"
-              type="checkbox"
-              checked="null"
-              ></menuitem>
-            </menupopup>
-            </toolbarbutton>
-            <toolbarbutton
-            class="devtools-closebutton"
-            ></toolbarbutton>
-            </toolbar>
+      <toolbarbutton class="developer-toolbar-button" type="checkbox" style="" checked="true">Inspect</toolbarbutton>
+
+    </toolbar>
+
             <hbox flex="1">
               <vbox  flex="1">
                 <spacer flex="1" />
@@ -66,6 +42,7 @@
                     <spacer flex="1" />
                     <box id="canvas-container">
                       <canvas id="canvas" xmlns="http://www.w3.org/1999/xhtml"></canvas>
+                      <box id="crosshair"></box>
 
                       <!--<box
                       style="position: absolute; top: 0px; left: 0px; height: 100%; width: 100%; background-size: 4px 4px; background-image: -moz-linear-gradient(left center , transparent 1px, transparent 1px), -moz-linear-gradient(center top , transparent 1px, transparent 1px);"
@@ -81,7 +58,7 @@
               </vbox>
             </hbox>
             <box>
-              <label for="zoom-level">Zoom</label><scale id="zoom-level" min="1" max="10" flex="1"/>
+              <label for="zoom-level">Zoom</label><scale id="zoom-level" min="2" max="20" flex="1"/>
             </box>
             </vbox>
 
