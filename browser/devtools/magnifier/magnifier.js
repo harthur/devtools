@@ -7,11 +7,12 @@ loader.lazyGetter(this, "gDevTools",
   () => Cu.import("resource:///modules/devtools/gDevTools.jsm", {}).gDevTools);
 
 const PANEL_STYLE = "background:rgba(0,100,150,0.1);" +
-                    "height:275px;width:240px";
+                    "height:275px;width:300px";
 
 const XULNS = "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
 const MAGNIFIER_URL = "chrome://browser/content/devtools/magnifier.xul";
 const ZOOM_PREF    = "devtools.magnifier.zoom";
+const FORMAT_PREF    = "devtools.magnifier.format";
 
 let MagnifierManager = {
   _instances: new WeakMap(),
@@ -51,11 +52,12 @@ function Magnifier(chromeWindow) {
   //let gZoom = this.zoomLevel;
 
   let zoom = 1;
+  let format = "rgb";
   try {
     zoom = Services.prefs.getIntPref(ZOOM_PREF);
+    format = Services.prefs.getCharPref(FORMAT_PREF);
   }
-  catch (e) {
-
+  catch (e)  {
   }
 
   this.dragging = true;
@@ -68,6 +70,7 @@ function Magnifier(chromeWindow) {
     width: 200,
     height: 200,
     zoom: zoom,
+    format: format
   };
 
 }
@@ -109,7 +112,11 @@ Magnifier.prototype = {
     panel.setAttribute("close", true);
     panel.setAttribute("style", PANEL_STYLE);
 
-    panel.addEventListener("popuphidden", this.destroy.bind(this));
+    panel.addEventListener("popuphidden", (e) => {
+      if (e.target === panel) {
+        this.destroy();
+      }
+    });
 
     let iframe = this.iframe = this.chromeDocument.createElementNS(XULNS, "iframe");
     iframe.addEventListener("load", this.frameLoaded.bind(this), true);
@@ -151,6 +158,12 @@ Magnifier.prototype = {
     this.drawWindow();
 
     this.colorFormatOptions.addEventListener("command", () => {
+      this.zoomWindow.format = this.colorFormatOptions.value;
+
+      console.log("HERE", this.zoomWindow.format, Services.prefs,  this.zoomWindow.format);
+
+      Services.prefs.setCharPref(FORMAT_PREF, this.zoomWindow.format);
+
       this.drawWindow();
     }, false);
 
@@ -205,6 +218,10 @@ Magnifier.prototype = {
 
     let rgb = this.ctx.getImageData(Math.floor(width/2), Math.floor(height/2), 1, 1).data;
 
+    // console.log("HERE", this.chromeWindow.getComputedStyle, this.chromeDocument.querySelector("window"));
+    // console.log(this.chromeWindow.getComputedStyle(this.chromeDocument.querySelector("window")));
+
+    //.getPropertyValue("margin-left"));
     if (zoom > 1) {
       let zoomedWidth = width / zoom;
       let zoomedHeight = height / zoom;
@@ -220,17 +237,14 @@ Magnifier.prototype = {
       this.ctx.drawImage(this.canvas, sx, sy, sw, sh, dx, dy, dw, dh);
     }
 
-
     let color = new CssColor("rgb(" + rgb[0] + "," + rgb[1] + "," + rgb[2] + ")");
     this.colorPreview.style.backgroundColor = color.hex;
-
-    let value = this.colorFormatOptions.value;
 
     this.colorLabel.textContent = {
       "hex": color.hex,
       "hsl": color.hsl,
       "rgb": color.rgb
-    }[value];
+    }[this.zoomWindow.format];
 
     this.selectPreviewText();
   },

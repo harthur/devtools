@@ -165,7 +165,7 @@ CssColor.prototype = {
         h += 360;
       }
     }
-    return "hsl(" + (Math.round(h * 1000))/1000 + ", " + Math.round(s * 100) + "%, " + Math.round(l * 100) + "%)";
+    return "hsl(" + (Math.round(h)) + ", " + Math.round(s * 100) + "%, " + Math.round(l * 100) + "%)";
   },
 
   get hsla()
