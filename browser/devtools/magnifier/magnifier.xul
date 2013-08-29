@@ -19,8 +19,8 @@
     flex="1">
       <box id="color-preview">
       </box>
-      <box flex="1" id="color-text-preview">
-      </box>
+      <hbox align="center" flex="1" id="color-text-preview">
+      </hbox>
       <menulist class="devtools-menulist" id="colorformat-list"  sizetopopup="pref" label="RGB">
         <menupopup>
           <menuitem label="RGB" value="rgb" style="text-align: center"></menuitem>
