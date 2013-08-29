@@ -5,3 +5,26 @@
 #zoom-level {
 	vertical-align: middle;
 }
+
+#canvas {
+	image-rendering: -moz-crisp-edges;
+}
+#canvas-container {
+	display:block;
+	position: relative;
+	margin: 10px 10px 5px;
+	border: solid 1px;
+}
+/*
+#grid {
+	display: block;
+	position: absolute;
+	border-width: 2px;
+	border-style: solid;
+	-moz-box-sizing: content-box;
+	margin-left: -1px;
+	margin-top: -1px;
+	pointer-events: none;
+	top:0;left:0;right:0;bottom:0;
+}
+*/

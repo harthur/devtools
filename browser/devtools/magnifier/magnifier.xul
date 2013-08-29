@@ -96,49 +96,27 @@
             </toolbar>
             <hbox flex="1">
               <vbox  flex="1">
-                <box
-                style="display:block; position: relative; margin: 10px 10px 5px">
-                  <canvas id="canvas"
-                  xmlns="http://www.w3.org/1999/xhtml"
-                  style="image-rendering: -moz-crisp-edges;"></canvas>
-                    <box
-                    style="position: absolute; top: 0px; left: 0px; background-size: 4px 4px; background-image: -moz-linear-gradient(left center , transparent 1px, transparent 1px), -moz-linear-gradient(center top , transparent 1px, transparent 1px);"
-                    ></box>
-                    <box
-                    style="display: block; position: absolute; border-width: 2px; border-style: solid; -moz-box-sizing: content-box; margin-left: -1px; margin-top: -1px; pointer-events: none; "
-                    /></box>
-                    <spacer
-                    flex="1"
-                    />
-                    <hbox
-                    style="max-height: 3px;">
-                      <hbox
-                      flex="1">
-                        <label
-                        value="2x"
-                        style="padding: 0px 2px;color:#eef"
-                        ></label>
-                        <box
-                        flex="1"
-                        style="min-height: 14px; background-repeat: no-repeat; border-bottom: 1px solid rgb(238, 238, 255); margin: 1px; max-height: 14px; background-image: -moz-linear-gradient(right center , rgb(238, 238, 255) 1px, transparent 1px); background-size: 33.3333% 100%;"
-                        ></box>
-                        <label
-                        value="8x"
-                        style="padding: 0px 2px;color:#eef"
-                        ></label>
-            </hbox>
-            <box
-            draggable="true"
-            style="min-height:3px;max-height:3px;margin-right: 2px;min-width:3px;max-width:3px;cursor: se-resize;-moz-appearance:resizer;"
-            >
-          </box>
-            </hbox>
-            </vbox>
+                <spacer flex="1" />
+                <box>
+                  <hbox flex="1">
+                    <spacer flex="1" />
+                    <box id="canvas-container">
+                      <canvas id="canvas" xmlns="http://www.w3.org/1999/xhtml"></canvas>
+
+                      <!--<box
+                      style="position: absolute; top: 0px; left: 0px; height: 100%; width: 100%; background-size: 4px 4px; background-image: -moz-linear-gradient(left center , transparent 1px, transparent 1px), -moz-linear-gradient(center top , transparent 1px, transparent 1px);"
+                      ></box>-->
+
+                      <box id="grid" />
+                    </box>
+                    <spacer flex="1" />
+                  </hbox>
+                </box>
+                  <!-- -->
+                <spacer flex="1" />
+              </vbox>
             </hbox>
             <box>
-              <!--
-              <input type="range" id="zoom-level" min="1" max="10"
-                  xmlns="http://www.w3.org/1999/xhtml" />-->
               <label for="zoom-level">Zoom</label><scale id="zoom-level" min="1" max="10" flex="1"/>
             </box>
             </vbox>
