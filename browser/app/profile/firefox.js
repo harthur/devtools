@@ -1083,6 +1083,9 @@ pref("devtools.layoutview.open", false);
 // Enable the Responsive UI tool
 pref("devtools.responsiveUI.enabled", true);
 
+// Enable the Pixel Inspector tool
+pref("devtools.magnifier.enabled", true);
+
 // Enable the Debugger
 pref("devtools.debugger.enabled", true);
 pref("devtools.debugger.chrome-enabled", true);

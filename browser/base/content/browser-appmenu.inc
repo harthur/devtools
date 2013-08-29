@@ -153,6 +153,8 @@
                     observes="devtoolsMenuBroadcaster_BrowserConsole"/>
           <menuitem id="appmenu_responsiveUI"
                     observes="devtoolsMenuBroadcaster_ResponsiveUI"/>
+          <menuitem id="appmenu_magnifier"
+                    observes="devtoolsMenuBroadcaster_Magnifier"/>
           <menuitem id="appmenu_scratchpad"
                     observes="devtoolsMenuBroadcaster_Scratchpad"/>
           <menuitem id="appmenu_pageSource"

@@ -528,6 +528,9 @@
                   <menuitem id="menu_responsiveUI"
                             observes="devtoolsMenuBroadcaster_ResponsiveUI"
                             accesskey="&responsiveDesignTool.accesskey;"/>
+                  <menuitem id="menu_magnifier"
+                            observes="devtoolsMenuBroadcaster_Magnifier"
+                            accesskey="&magnifier.accesskey;"/>
                   <menuitem id="menu_scratchpad"
                             observes="devtoolsMenuBroadcaster_Scratchpad"
                             accesskey="&scratchpad.accesskey;"/>
