@@ -7,7 +7,7 @@ loader.lazyGetter(this, "gDevTools",
   () => Cu.import("resource:///modules/devtools/gDevTools.jsm", {}).gDevTools);
 
 const PANEL_STYLE = "background:rgba(0,100,150,0.1);" +
-                    "height:240px;width:240px";
+                    "height:275px;width:240px";
 
 const XULNS = "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
 const MAGNIFIER_URL = "chrome://browser/content/devtools/magnifier.xul";
@@ -60,8 +60,8 @@ function Magnifier(chromeWindow) {
     y: 0,
     cx: null,
     cy: null,
-    width: 50,
-    height: 50,
+    width: 200,
+    height: 200,
     zoom: zoom,
   };
 
@@ -182,16 +182,16 @@ Magnifier.prototype = {
   drawWindow: function() {
     let { width, height, x, y, zoom } = this.zoomWindow;
 
-    let csswidth = (width * zoom) + "px";
-    let cssheight = (height * zoom) + "px";
 
     this.canvas.width = width;
     this.canvas.height = height;
 
+    // let csswidth = (width * zoom) + "px";
+    // let cssheight = (height * zoom) + "px";
     //this.canvas.style.width = csswidth;
     //this.canvas.style.height = cssheight;
 
-    let drawY = y - height;
+    let drawY = y - (height / 2);
     let drawX = x - (width / 2);
 
     this.ctx.drawWindow(this.chromeWindow, drawX, drawY, width, height, "white");
@@ -199,8 +199,18 @@ Magnifier.prototype = {
     let rgb = this.ctx.getImageData(Math.floor(width/2), Math.floor(height/2), 1, 1).data;
 
     if (zoom > 1) {
-      //let sx =
-      //this.ctx.drawImage(this.canvas, 0, 0, width * zoom, height * zoom);
+      let zoomedWidth = width / zoom;
+      let zoomedHeight = height / zoom;
+      let sx = (width - zoomedWidth) / 2;
+      let sy = (height - zoomedHeight) / 2;
+      let sw = zoomedWidth;
+      let sh = zoomedHeight;
+      let dx = 0;
+      let dy = 0;
+      let dw = width;
+      let dh = height;
+      //console.log(sx, sy, sw, sh, dx, dy, dw, dh);
+      this.ctx.drawImage(this.canvas, sx, sy, sw, sh, dx, dy, dw, dh);
     }
 
 
