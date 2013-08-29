@@ -172,15 +172,15 @@ Magnifier.prototype = {
     let stack = this.browser.parentNode;
     this.win = this.browser.contentWindow;
 
-    this.outlineStack = this.chromeDocument.createElement("stack");
-    this.outlineStack.className = "devtools-magnifier-stack";
-
     this.outline = this.chromeDocument.createElement("box");
     this.outline.className = "devtools-magnifier-outline";
 
-    let outlineContainer = this.chromeDoc.createElement("box");
-    outlineContainer.appendChild(this.outline);
-    outlineContainer.className = "devtools-magnifier-outline-container";
+    // TODO: copied from highlighter - do we need this
+    this.outlineContainer = this.chromeDoc.createElement("box");
+    this.outlineContainer.appendChild(this.outline);
+    this.outlineContainer.className = "devtools-magnifier-outline-container";
+
+    stack.insertBefore(this.outlineContainer, stack.childNodes[1]);
 
     this.outlineStack.appendChild(outlineContainer);
   },
