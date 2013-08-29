@@ -116,14 +116,15 @@ Magnifier.prototype = {
         this.moveRegion( e.screenX -  this.chromeWindow.screenX, e.screenY -  this.chromeWindow.screenY);
       }
     });
-    this.chromeDocument.addEventListener("click", (e) => {
-      if (e.target.ownerDocument === this.iframeDocument) {
+    this.chromeDocument.addEventListener("mousedown", (e) => {
+      if (e.target.ownerDocument === this.iframeDocument || !this._panel) {
         return;
       }
 
-      if (this._panel) {
-        this.dragging = !this.dragging;
-      }
+      this.dragging = !this.dragging;
+
+      e.preventDefault();
+      e.stopPropagation();
     });
 
     return panel;
@@ -187,8 +188,8 @@ Magnifier.prototype = {
     this.canvas.width = width;
     this.canvas.height = height;
 
-    this.canvas.style.width = csswidth;
-    this.canvas.style.height = cssheight;
+    //this.canvas.style.width = csswidth;
+    //this.canvas.style.height = cssheight;
 
     let drawY = y - height;
     let drawX = x - (width / 2);
@@ -196,6 +197,12 @@ Magnifier.prototype = {
     this.ctx.drawWindow(this.chromeWindow, drawX, drawY, width, height, "white");
 
     let rgb = this.ctx.getImageData(Math.floor(width/2), Math.floor(height/2), 1, 1).data;
+
+    if (zoom > 1) {
+      //let sx =
+      //this.ctx.drawImage(this.canvas, 0, 0, width * zoom, height * zoom);
+    }
+
 
     let color = new CssColor("rgb(" + rgb[0] + "," + rgb[1] + "," + rgb[2] + ")");
     this.colorPreview.style.backgroundColor = color.hex;
