@@ -74,7 +74,7 @@ function Magnifier(chromeWindow) {
 Magnifier.prototype = {
   toggle: function() {
     if (this._panel) {
-      this.close();
+      this.destroy();
     }
     else {
       this.open();
@@ -88,7 +88,7 @@ Magnifier.prototype = {
     this._panel.openPopup();
   },
 
-  close: function() {
+  destroy: function() {
     if (this._panel) {
       this._panel.hidePopup();
       this.popupSet.removeChild(this._panel);
@@ -107,6 +107,8 @@ Magnifier.prototype = {
     panel.setAttribute("titlebar", "normal");
     panel.setAttribute("close", true);
     panel.setAttribute("style", PANEL_STYLE);
+
+    panel.addEventListener("popuphidden", this.destroy.bind(this));
 
     let iframe = this.iframe = this.chromeDocument.createElementNS(XULNS, "iframe");
     iframe.addEventListener("load", this.frameLoaded.bind(this), true);
