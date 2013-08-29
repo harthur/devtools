@@ -1,3 +1,7 @@
 #magnifier-container {
 	background: #eee;
 }
+
+#zoom-level {
+	vertical-align: middle;
+}

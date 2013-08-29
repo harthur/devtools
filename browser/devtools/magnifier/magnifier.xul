@@ -94,8 +94,8 @@
             class="devtools-closebutton"
             ></toolbarbutton>
             </toolbar>
-            <hbox>
-              <vbox>
+            <hbox flex="1">
+              <vbox  flex="1">
                 <box
                 style="display:block; position: relative; margin: 10px 10px 5px">
                   <canvas id="canvas"
@@ -135,6 +135,12 @@
             </hbox>
             </vbox>
             </hbox>
+            <box>
+              <!--
+              <input type="range" id="zoom-level" min="1" max="10"
+                  xmlns="http://www.w3.org/1999/xhtml" />-->
+              <label for="zoom-level">Zoom</label><scale id="zoom-level" min="1" max="10" flex="1"/>
+            </box>
             </vbox>
 
 </window>
