@@ -18,18 +18,26 @@ let MagnifierManager = {
   _instances: new WeakMap(),
 
   toggle: function(chromeWindow) {
-    var magnifier = this.instanceForWindow(chromeWindow);
-    magnifier.toggle();
+    let magnifier = this.getInstance(chromeWindow);
+    if (magnifier) {
+      this._instances.delete(chromeWindow);
+
+      magnifier.destroy();
+    }
+    else {
+      magnifier = this.createInstance(chromeWindow);
+      magnifier.open();
+    }
   },
 
-  instanceForWindow: function(chromeWindow) {
-    if (this._instances.has(chromeWindow)) {
-      return this._instances.get(chromeWindow);
-    } else {
-      let magnifier = new Magnifier(chromeWindow);
-      this._instances.set(chromeWindow, magnifier);
-      return magnifier;
-    }
+  getInstance: function(chromeWindow) {
+    return this._instances.get(chromeWindow);
+  },
+
+  createInstance: function(chromeWindow) {
+    let magnifier = new Magnifier(chromeWindow);
+    this._instances.set(chromeWindow, magnifier);
+    return magnifier;
   }
 }
 
@@ -186,15 +194,15 @@ Magnifier.prototype = {
     let stack = this.browser.parentNode;
     this.win = this.browser.contentWindow;
 
-    this.outlineStack = this.chromeDocument.createElement("stack");
-    this.outlineStack.className = "devtools-magnifier-stack";
-
     this.outline = this.chromeDocument.createElement("box");
     this.outline.className = "devtools-magnifier-outline";
 
-    let outlineContainer = this.chromeDoc.createElement("box");
-    outlineContainer.appendChild(this.outline);
-    outlineContainer.className = "devtools-magnifier-outline-container";
+    // TODO: copied from highlighter - do we need this
+    this.outlineContainer = this.chromeDoc.createElement("box");
+    this.outlineContainer.appendChild(this.outline);
+    this.outlineContainer.className = "devtools-magnifier-outline-container";
+
+    stack.insertBefore(this.outlineContainer, stack.childNodes[1]);
 
     this.outlineStack.appendChild(outlineContainer);
   },
