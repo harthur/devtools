@@ -308,12 +308,12 @@ Magnifier.prototype = {
     // Draw crosshair
     this.ctx.strokeStyle = "rgba(0, 0, 0, .5)";
     this.ctx.lineWidth = 1;
-    this.ctx.strokeRect(Math.round(width / 2) - 1.5, Math.round(height / 2) - 1.5, 2, 2);
+    this.ctx.strokeRect(Math.round(width / 2) - .5, Math.round(height / 2) - .5, 2, 2);
     this.moveOutline(x, y);
 
     // Draw grid
     this.ctx.strokeStyle = "rgba(0, 0, 0, .05)";
-    for (let i = 0; i < width; i+=2) {
+    for (let i = 1; i < width; i+=2) {
 
       this.ctx.beginPath();
       this.ctx.moveTo(i + .5, 0);
