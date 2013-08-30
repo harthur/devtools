@@ -165,6 +165,12 @@ Magnifier.prototype = {
     this.colorFormatOptions.value = this.zoomWindow.format;
     this.drawWindow();
 
+
+    // TODO: This doesn't fire until after a dropdown is selected
+    // this.iframe.contentWindow.addEventListener("keydown", (e) => {
+    //   this.nudge("left", 10);
+    // }, true);
+
     this.toggleMagnifier.addEventListener("command", this.toggleDragging.bind(this), false);
     this.colorFormatOptions.addEventListener("command", () => {
       this.zoomWindow.format = this.colorFormatOptions.value;
@@ -197,6 +203,26 @@ Magnifier.prototype = {
     }
 
     this.toggleMagnifier.checked = this.dragging;
+  },
+
+  nudge: function(direction, amount) {
+    amount = amount || 1;
+    let {x, y} = this.zoomWindow;
+    if (direction === "left") {
+      x = x - amount;
+    }
+    if (direction === "right") {
+      x = x + amount;
+    }
+    if (direction === "up") {
+      y = y + amount;
+    }
+    if (direction === "down") {
+      y = y - amount;
+    }
+
+    this.moveRegion(x, y);
+
   },
 
   moveRegion: function(x, y) {
@@ -262,10 +288,11 @@ Magnifier.prototype = {
 
     this.hideOutline();
 
+    this.ctx.mozImageSmoothingEnabled = false;
     this.ctx.drawWindow(this.chromeWindow, drawX, drawY, width, height, "white");
     this.ctx.strokeStyle = "rgba(0, 0, 0, .8)";
     this.ctx.lineWidth = .5;
-    this.ctx.strokeRect((width / 2) - .5, (height / 2) - .5, 2, 2);
+    this.ctx.strokeRect(Math.round(width / 2) - .5, Math.round(height / 2) - .5, 2, 2);
     this.moveOutline(x, y);
 
     let rgb = this.ctx.getImageData(Math.floor(width/2), Math.floor(height/2), 1, 1).data;
@@ -273,20 +300,20 @@ Magnifier.prototype = {
     // console.log(this.chromeWindow.getComputedStyle(this.chromeDocument.querySelector("window")));
 
     if (zoom > 1) {
-      let zoomedWidth = width / zoom;
-      let zoomedHeight = height / zoom;
-      let sx = (width - zoomedWidth) / 2;
-      let sy = (height - zoomedHeight) / 2;
-      let sw = zoomedWidth;
-      let sh = zoomedHeight;
-      let dx = 0;
-      let dy = 0;
-      let dw = width;
-      let dh = height;
-      //console.log(sx, sy, sw, sh, dx, dy, dw, dh);
+      // let zoomedWidth = width / zoom;
+      // let zoomedHeight = height / zoom;
+      // let sx = (width - zoomedWidth) / 2;
+      // let sy = (height - zoomedHeight) / 2;
+      // let sw = zoomedWidth;
+      // let sh = zoomedHeight;
+      // let dx = 0;
+      // let dy = 0;
+      // let dw = width;
+      // let dh = height;
 
       // this.ctx.drawImage(this.canvas, sx, sy, sw, sh, dx, dy, dw, dh);
       // this.grid.style.transform = "scale(" + zoom + ")";
+
       this.canvasContainer.style.transform = "scale(" + zoom + ")";
     }
 
