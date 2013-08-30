@@ -160,6 +160,7 @@ Magnifier.prototype = {
     this.zoomWindow.height = parseInt(computedOverflowStyle.getPropertyValue("height"), 10);
 
     this.zoomLevel.value = this.zoomWindow.zoom;
+    this.colorFormatOptions.value = this.zoomWindow.format;
     this.drawWindow();
 
     this.toggleMagnifier.addEventListener("command", this.toggleDragging.bind(this), false);
@@ -260,7 +261,7 @@ Magnifier.prototype = {
     this.hideOutline();
 
     this.ctx.drawWindow(this.chromeWindow, drawX, drawY, width, height, "white");
-    this.ctx.strokeStyle = "rgba(255, 0, 0, .8)";
+    this.ctx.strokeStyle = "rgba(0, 0, 0, .8)";
     this.ctx.lineWidth = 1;
     this.ctx.strokeRect((width / 2) - .5, (height / 2) - .5, 2, 2);
     this.moveOutline(x, y);
@@ -285,7 +286,7 @@ Magnifier.prototype = {
       this.ctx.drawImage(this.canvas, sx, sy, sw, sh, dx, dy, dw, dh);
       this.iframeDocument.querySelector("#grid").style.transform = "scale(" + zoom + ")";
 
-      //this.iframeDocument.querySelector("#canvas-container").style.transform = "scale(" + zoom + ")";
+      // this.iframeDocument.querySelector("#canvas-container").style.transform = "scale(" + zoom + ")";
     }
 
     let color = new CssColor("rgb(" + rgb[0] + "," + rgb[1] + "," + rgb[2] + ")");
