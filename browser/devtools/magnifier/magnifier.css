@@ -9,30 +9,22 @@
 #canvas {
 	image-rendering: -moz-crisp-edges;
 }
+#canvas-overflow {
+	overflow: hidden;
+	width: 200px;
+	height: 200px;
+	margin: 10px 10px 5px;
+	border: solid 1px #333;
+}
 #canvas-container {
 	display:block;
 	position: relative;
-	margin: 10px 10px 5px;
-	border: solid 1px;
-}
-#crosshair {
-	position:absolute;
-	top:50%;
-	left: 50%;
-	width: 4px;
-	height: 4px;
-	margin-left: -2px;
-	margin-top: -2px;
-
-	outline: solid 1px black;
-	border: solid 1px #fff;
 }
 
 #color-preview {
 	width: 32px;
 	box-shadow: 0px 0px 0px black;
 	border: solid 1px #fff;
-	background-color: rgb(222, 237, 253);
 	margin-left: 2px;
 	margin-right: 5px;
 }
@@ -41,6 +33,14 @@
 	-moz-user-select:text;
 	vertical-align: middle;
 	min-width: 100px;
+}
+
+#canvas-container {
+	transform-origin: 50% 50%;
+}
+
+#crosshair, #grid {
+	transform-origin: 50% 50%;
 }
 
 #toggle-magnifier[checked] {
@@ -54,25 +54,8 @@
 	right:0;
 	bottom:0;
 	display:block;
-	background-size: 2px 2px;
-	background-position: 0 0, 1px 1px;
-
-	/*background-image: linear-gradient(90deg, black 25%, transparent 25%, transparent 75%, black 75%, black),
-                  linear-gradient(0deg , black 25%, transparent 25%, transparent 75%, black 75%, black);
-*/
-	bdackground-image: linear-gradient(90deg, black 1px, transparent 1px), linear-gradient(0deg, black 1px, transparent 1px);
-}
-
-/*
-#grid {
-	display: block;
-	position: absolute;
-	border-width: 2px;
-	border-style: solid;
-	-moz-box-sizing: content-box;
-	margin-left: -1px;
-	margin-top: -1px;
 	pointer-events: none;
-	top:0;left:0;right:0;bottom:0;
+	background-position: 3.5px 3.5px, 1px 1px;
+	background-size: 1px 3px, 3px 1px;
+	background-image: linear-gradient(0deg, transparent 1px, rgba(0,0,0,.2) 2px, transparent 3px, rgba(0,0,0,.2) 4px), linear-gradient(90deg, transparent 1px, rgba(0,0,0,.2) 2px, transparent 3px, rgba(0,0,0,.2) 4px);
 }
-*/

@@ -47,22 +47,7 @@ let MagnifierManager = {
 exports.MagnifierManager = MagnifierManager;
 
 function Magnifier(chromeWindow) {
-  this.chromeWindow = chromeWindow;
-  this.chromeDocument = chromeWindow.document;
-
-  // TODO: actually use preferences that make sense here
-  //this.docked = true;
-  // this.position = {
-  //   width: 100,
-  //   height: 100
-  // };
-  //this.state = true;
-  //this.zoomLevel = 2;
-  //let gWidth = Math.floor(this.position.width / this.zoomLevel) + 1;
-  //let gHeight = Math.floor(this.position.height / this.zoomLevel) + 1;
-  //let gZoom = this.zoomLevel;
-
-  let zoom = 1;
+  let zoom = 2;
   let format = "rgb";
   try {
     zoom = Services.prefs.getIntPref(ZOOM_PREF);
@@ -71,6 +56,8 @@ function Magnifier(chromeWindow) {
   catch (e)  {
   }
 
+  this.chromeWindow = chromeWindow;
+  this.chromeDocument = chromeWindow.document;
   this.dragging = true;
   this.popupSet = this.chromeDocument.querySelector("#mainPopupSet");
   this.zoomWindow = {
@@ -78,12 +65,11 @@ function Magnifier(chromeWindow) {
     y: 0,
     cx: null,
     cy: null,
-    width: 200,
-    height: 200,
+    width: 1,
+    height: 1,
     zoom: zoom,
     format: format
   };
-
 }
 
 Magnifier.prototype = {
@@ -149,7 +135,7 @@ Magnifier.prototype = {
         return;
       }
 
-      this.toggleDragging();
+      this.toggleDragging(false);
 
       e.preventDefault();
       e.stopPropagation();
@@ -160,14 +146,18 @@ Magnifier.prototype = {
 
   frameLoaded: function() {
     this.iframeDocument =  this.iframe.contentDocument;
-
-    this.canvas = this.iframeDocument.getElementById("canvas");
+    this.canvas = this.iframeDocument.querySelector("#canvas");
     this.ctx = this.canvas.getContext("2d");
     this.zoomLevel = this.iframeDocument.querySelector("#zoom-level");
     this.colorLabel = this.iframeDocument.querySelector("#color-text-preview");
     this.colorPreview = this.iframeDocument.querySelector("#color-preview");
     this.colorFormatOptions = this.iframeDocument.querySelector("#colorformat-list");
     this.toggleMagnifier = this.iframeDocument.querySelector("#toggle-magnifier");
+    this.canvasOverflow = this.iframeDocument.querySelector("#canvas-overflow");
+    let computedOverflowStyle =  this.iframeDocument.defaultView.getComputedStyle(this.canvasOverflow);
+
+    this.zoomWindow.width = parseInt(computedOverflowStyle.getPropertyValue("width"), 10);
+    this.zoomWindow.height = parseInt(computedOverflowStyle.getPropertyValue("height"), 10);
 
     this.zoomLevel.value = this.zoomWindow.zoom;
     this.drawWindow();
@@ -175,8 +165,6 @@ Magnifier.prototype = {
     this.toggleMagnifier.addEventListener("command", this.toggleDragging.bind(this), false);
     this.colorFormatOptions.addEventListener("command", () => {
       this.zoomWindow.format = this.colorFormatOptions.value;
-
-      console.log("HERE", this.zoomWindow.format, Services.prefs,  this.zoomWindow.format);
 
       Services.prefs.setCharPref(FORMAT_PREF, this.zoomWindow.format);
 
@@ -191,28 +179,28 @@ Magnifier.prototype = {
 
     Services.prefs.setIntPref(ZOOM_PREF, this.zoomWindow.zoom);
 
-    this.hideOutline();
-
     this.drawWindow();
-
-    this.moveOutline(this.zoomWindow.x, this.zoomWindow.y);
   },
 
-  toggleDragging: function() {
+  toggleDragging: function(mode) {
+    if (mode === false) {
+      this.dragging = false;
+    }
+    else if (mode === true) {
+      this.dragging = true;
+    }
+    else {
       this.dragging = !this.dragging;
-      this.toggleMagnifier.checked = this.dragging;
+    }
+
+    this.toggleMagnifier.checked = this.dragging;
   },
 
   moveRegion: function(x, y) {
     this.zoomWindow.x = x;
     this.zoomWindow.y = y;
 
-    // don't draw outline in zoom
-    this.hideOutline();
-
     this.drawWindow();
-
-    this.moveOutline(x, y);
   },
 
   createOutline: function() {
@@ -263,26 +251,24 @@ Magnifier.prototype = {
   drawWindow: function() {
     let { width, height, x, y, zoom } = this.zoomWindow;
 
-
     this.canvas.width = width;
     this.canvas.height = height;
-
-    // let csswidth = (width * zoom) + "px";
-    // let cssheight = (height * zoom) + "px";
-    //this.canvas.style.width = csswidth;
-    //this.canvas.style.height = cssheight;
 
     let drawY = y - (height / 2);
     let drawX = x - (width / 2);
 
+    this.hideOutline();
+
     this.ctx.drawWindow(this.chromeWindow, drawX, drawY, width, height, "white");
+    this.ctx.strokeStyle = "rgba(255, 0, 0, .8)";
+    this.ctx.lineWidth = 1;
+    this.ctx.strokeRect((width / 2) - .5, (height / 2) - .5, 2, 2);
+    this.moveOutline(x, y);
 
     let rgb = this.ctx.getImageData(Math.floor(width/2), Math.floor(height/2), 1, 1).data;
 
-    // console.log("HERE", this.chromeWindow.getComputedStyle, this.chromeDocument.querySelector("window"));
     // console.log(this.chromeWindow.getComputedStyle(this.chromeDocument.querySelector("window")));
 
-    //.getPropertyValue("margin-left"));
     if (zoom > 1) {
       let zoomedWidth = width / zoom;
       let zoomedHeight = height / zoom;
@@ -295,7 +281,11 @@ Magnifier.prototype = {
       let dw = width;
       let dh = height;
       //console.log(sx, sy, sw, sh, dx, dy, dw, dh);
+
       this.ctx.drawImage(this.canvas, sx, sy, sw, sh, dx, dy, dw, dh);
+      this.iframeDocument.querySelector("#grid").style.transform = "scale(" + zoom + ")";
+
+      //this.iframeDocument.querySelector("#canvas-container").style.transform = "scale(" + zoom + ")";
     }
 
     let color = new CssColor("rgb(" + rgb[0] + "," + rgb[1] + "," + rgb[2] + ")");

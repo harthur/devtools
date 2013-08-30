@@ -40,15 +40,16 @@
                 <box>
                   <hbox flex="1">
                     <spacer flex="1" />
+                    <box id="canvas-overflow">
                     <box id="canvas-container">
                       <canvas id="canvas" xmlns="http://www.w3.org/1999/xhtml"></canvas>
-                      <box id="crosshair"></box>
 
                       <!--<box
                       style="position: absolute; top: 0px; left: 0px; height: 100%; width: 100%; background-size: 4px 4px; background-image: -moz-linear-gradient(left center , transparent 1px, transparent 1px), -moz-linear-gradient(center top , transparent 1px, transparent 1px);"
                       ></box>-->
 
                       <box id="grid" />
+                    </box>
                     </box>
                     <spacer flex="1" />
                   </hbox>
