@@ -6,8 +6,13 @@ let { CssColor } = require("devtools/magnifier/CSSColor");
 loader.lazyGetter(this, "gDevTools",
   () => Cu.import("resource:///modules/devtools/gDevTools.jsm", {}).gDevTools);
 
+loader.lazyGetter(this, "clipboardHelper", function() {
+  return Cc["@mozilla.org/widget/clipboardhelper;1"].
+    getService(Ci.nsIClipboardHelper);
+});
+
 const PANEL_STYLE = "background: rgba(0,100,150,0.1);" +
-                    "height: 275px;width:300px";
+                    "height: 275px;width:350px";
 
 const OUTLINE_STYLE = "border: solid 1px white; outline: solid 1px black;" +
                       "position: fixed; display: block; transition: all linear 0.1s;"
@@ -131,7 +136,7 @@ Magnifier.prototype = {
       }
     });
     this.chromeDocument.addEventListener("mousedown", (e) => {
-      if (e.target.ownerDocument === this.iframeDocument || !this._panel) {
+      if (e.target.ownerDocument === this.iframeDocument || !this._panel || !this.dragging) {
         return;
       }
 
@@ -181,6 +186,10 @@ Magnifier.prototype = {
     }, false);
 
     this.zoomLevel.addEventListener("change", this.onZoomChange.bind(this));
+
+    this.iframeDocument.querySelector("#copy-clipboard").addEventListener("command", () => {
+      clipboardHelper.copyString(this.colorLabel.textContent);
+    }, false);
   },
 
   onZoomChange: function() {
@@ -300,21 +309,21 @@ Magnifier.prototype = {
     // console.log(this.chromeWindow.getComputedStyle(this.chromeDocument.querySelector("window")));
 
     if (zoom > 1) {
-      // let zoomedWidth = width / zoom;
-      // let zoomedHeight = height / zoom;
-      // let sx = (width - zoomedWidth) / 2;
-      // let sy = (height - zoomedHeight) / 2;
-      // let sw = zoomedWidth;
-      // let sh = zoomedHeight;
-      // let dx = 0;
-      // let dy = 0;
-      // let dw = width;
-      // let dh = height;
+      let zoomedWidth = width / zoom;
+      let zoomedHeight = height / zoom;
+      let sx = (width - zoomedWidth) / 2;
+      let sy = (height - zoomedHeight) / 2;
+      let sw = zoomedWidth;
+      let sh = zoomedHeight;
+      let dx = 0;
+      let dy = 0;
+      let dw = width;
+      let dh = height;
 
-      // this.ctx.drawImage(this.canvas, sx, sy, sw, sh, dx, dy, dw, dh);
-      // this.grid.style.transform = "scale(" + zoom + ")";
+      this.ctx.drawImage(this.canvas, sx, sy, sw, sh, dx, dy, dw, dh);
+      this.grid.style.transform = "scale(" + zoom + ")";
 
-      this.canvasContainer.style.transform = "scale(" + zoom + ")";
+      //this.canvasContainer.style.transform = "scale(" + zoom + ")";
     }
 
     let color = new CssColor("rgb(" + rgb[0] + "," + rgb[1] + "," + rgb[2] + ")");
@@ -326,7 +335,7 @@ Magnifier.prototype = {
       "rgb": color.rgb
     }[this.zoomWindow.format];
 
-    this.selectPreviewText();
+    //this.selectPreviewText();
   },
 
   selectPreviewText: function() {
