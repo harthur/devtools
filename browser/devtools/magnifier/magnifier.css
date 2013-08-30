@@ -39,10 +39,6 @@
 	transform-origin: 50% 50%;
 }
 
-#crosshair, #grid {
-	transform-origin: 50% 50%;
-}
-
 #toggle-magnifier[checked] {
 	background:rgb(255, 200, 200);
 }

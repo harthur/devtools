@@ -131,6 +131,10 @@ Magnifier.prototype = {
     this.chromeDocument.addEventListener("mousemove", (e) => {
       if (this.dragging && this._panel) {
         let x =  e.screenX -  this.chromeWindow.screenX;
+
+        // FIXME: Why do we need 20px offset here?
+        // console.log(this.chromeWindow.getComputedStyle(this.chromeDocument.querySelector("window")));
+
         let y =  e.screenY -  this.chromeWindow.screenY - 20;
         this.moveRegion(x, y);
       }
@@ -152,7 +156,6 @@ Magnifier.prototype = {
   frameLoaded: function() {
     this.iframeDocument =  this.iframe.contentDocument;
     this.canvas = this.iframeDocument.querySelector("#canvas");
-    this.grid = this.iframeDocument.querySelector("#grid");
     this.ctx = this.canvas.getContext("2d");
     this.canvasContainer = this.iframeDocument.querySelector("#canvas-container")
     this.zoomLevel = this.iframeDocument.querySelector("#zoom-level");
@@ -298,15 +301,31 @@ Magnifier.prototype = {
     this.hideOutline();
 
     this.ctx.mozImageSmoothingEnabled = false;
-    this.ctx.drawWindow(this.chromeWindow, drawX, drawY, width, height, "white");
-    this.ctx.strokeStyle = "rgba(0, 0, 0, .8)";
-    this.ctx.lineWidth = .5;
-    this.ctx.strokeRect(Math.round(width / 2) - .5, Math.round(height / 2) - .5, 2, 2);
-    this.moveOutline(x, y);
 
+    this.ctx.drawWindow(this.chromeWindow, drawX, drawY, width, height, "white");
     let rgb = this.ctx.getImageData(Math.floor(width/2), Math.floor(height/2), 1, 1).data;
 
-    // console.log(this.chromeWindow.getComputedStyle(this.chromeDocument.querySelector("window")));
+    // Draw crosshair
+    this.ctx.strokeStyle = "rgba(0, 0, 0, .5)";
+    this.ctx.lineWidth = 1;
+    this.ctx.strokeRect(Math.round(width / 2) - 1.5, Math.round(height / 2) - 1.5, 2, 2);
+    this.moveOutline(x, y);
+
+    // Draw grid
+    this.ctx.strokeStyle = "rgba(0, 0, 0, .05)";
+    for (let i = 0; i < width; i+=2) {
+
+      this.ctx.beginPath();
+      this.ctx.moveTo(i + .5, 0);
+      this.ctx.lineTo(i + .5, height);
+      this.ctx.stroke();
+
+      this.ctx.beginPath();
+      this.ctx.moveTo(0, i + .5);
+      this.ctx.lineTo(width, i + .5);
+      this.ctx.stroke();
+
+    }
 
     if (zoom > 1) {
       let zoomedWidth = width / zoom;
@@ -321,7 +340,6 @@ Magnifier.prototype = {
       let dh = height;
 
       this.ctx.drawImage(this.canvas, sx, sy, sw, sh, dx, dy, dw, dh);
-      this.grid.style.transform = "scale(" + zoom + ")";
 
       //this.canvasContainer.style.transform = "scale(" + zoom + ")";
     }
