@@ -147,6 +147,7 @@ Magnifier.prototype = {
   frameLoaded: function() {
     this.iframeDocument =  this.iframe.contentDocument;
     this.canvas = this.iframeDocument.querySelector("#canvas");
+    this.grid = this.iframeDocument.querySelector("#grid");
     this.ctx = this.canvas.getContext("2d");
     this.zoomLevel = this.iframeDocument.querySelector("#zoom-level");
     this.colorLabel = this.iframeDocument.querySelector("#color-text-preview");
@@ -261,8 +262,8 @@ Magnifier.prototype = {
     this.hideOutline();
 
     this.ctx.drawWindow(this.chromeWindow, drawX, drawY, width, height, "white");
-    this.ctx.strokeStyle = "rgba(0, 0, 0, .8)";
-    this.ctx.lineWidth = 1;
+    this.ctx.strokeStyle = "rgba(0, 0, 0, .5)";
+    this.ctx.lineWidth = .5;
     this.ctx.strokeRect((width / 2) - .5, (height / 2) - .5, 2, 2);
     this.moveOutline(x, y);
 
@@ -284,9 +285,8 @@ Magnifier.prototype = {
       //console.log(sx, sy, sw, sh, dx, dy, dw, dh);
 
       this.ctx.drawImage(this.canvas, sx, sy, sw, sh, dx, dy, dw, dh);
-      this.iframeDocument.querySelector("#grid").style.transform = "scale(" + zoom + ")";
-
-      // this.iframeDocument.querySelector("#canvas-container").style.transform = "scale(" + zoom + ")";
+      this.grid.style.transform = "scale(" + zoom + ")";
+      //this.iframeDocument.querySelector("#canvas-container").style.transform = "scale(" + zoom + ")";
     }
 
     let color = new CssColor("rgb(" + rgb[0] + "," + rgb[1] + "," + rgb[2] + ")");
