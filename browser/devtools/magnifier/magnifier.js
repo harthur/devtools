@@ -263,51 +263,6 @@ Magnifier.prototype = {
     this.drawWindow();
   },
 
-  createOutline: function() {
-    this.outlineBox = this.chromeDocument.createElement("box");
-    this.outlineBox.setAttribute("style", OUTLINE_STYLE);
-
-    this.chromeDocument.documentElement.appendChild(this.outlineBox);
-  },
-
-  destroyOutline: function() {
-    if (this.outlineBox) {
-      this.chromeDocument.documentElement.removeChild(this.outlineBox);
-      this.outlineBox = null;
-    }
-  },
-
-  hideOutline: function() {
-    if (this.outlineBox) {
-      this.outlineBox.style.display = "none";
-    }
-  },
-
-  showOutline: function() {
-    if (this.outlineBox) {
-      this.outlineBox.style.display = "block";
-    }
-  },
-
-  moveOutline: function(x, y) {
-    if (!this.outlineBox) {
-      this.createOutline();
-    }
-    this.showOutline();
-
-    let width = this.zoomWindow.width / this.zoomWindow.zoom;
-    let height = this.zoomWindow.height / this.zoomWindow.zoom;
-
-    x = x - width / 2;
-    y = y - height / 2;
-
-    this.outlineBox.style.left = (x - 1)+ "px";
-    this.outlineBox.style.top = (y - 1) + "px";
-
-    this.outlineBox.style.width = (width + 2) + "px";
-    this.outlineBox.style.height = (height + 2) + "px";
-  },
-
   drawWindow: function() {
     let { width, height, x, y, zoom } = this.zoomWindow;
 
@@ -373,6 +328,51 @@ Magnifier.prototype = {
     }[this.zoomWindow.format];
 
     //this.selectPreviewText();
+  },
+
+  createOutline: function() {
+    this.outlineBox = this.chromeDocument.createElement("box");
+    this.outlineBox.setAttribute("style", OUTLINE_STYLE);
+
+    this.chromeDocument.documentElement.appendChild(this.outlineBox);
+  },
+
+  destroyOutline: function() {
+    if (this.outlineBox) {
+      this.chromeDocument.documentElement.removeChild(this.outlineBox);
+      this.outlineBox = null;
+    }
+  },
+
+  hideOutline: function() {
+    if (this.outlineBox) {
+      this.outlineBox.style.display = "none";
+    }
+  },
+
+  showOutline: function() {
+    if (this.outlineBox) {
+      this.outlineBox.style.display = "block";
+    }
+  },
+
+  moveOutline: function(x, y) {
+    if (!this.outlineBox) {
+      this.createOutline();
+    }
+    this.showOutline();
+
+    let width = this.zoomWindow.width / this.zoomWindow.zoom;
+    let height = this.zoomWindow.height / this.zoomWindow.zoom;
+
+    x = x - width / 2;
+    y = y - height / 2;
+
+    this.outlineBox.style.left = (x - 1)+ "px";
+    this.outlineBox.style.top = (y - 1) + "px";
+
+    this.outlineBox.style.width = (width + 2) + "px";
+    this.outlineBox.style.height = (height + 2) + "px";
   },
 
   selectPreviewText: function() {
