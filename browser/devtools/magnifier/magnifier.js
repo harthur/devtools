@@ -59,7 +59,11 @@ function Magnifier(chromeWindow) {
     format = Services.prefs.getCharPref(FORMAT_PREF);
   }
   catch (e)  {
+    // TODO: why would this happen?
   }
+
+  this.onMouseMove = this.onMouseMove.bind(this);
+  this.onMouseDown = this.onMouseDown.bind(this);
 
   this.chromeWindow = chromeWindow;
   this.chromeDocument = chromeWindow.document;
@@ -89,6 +93,8 @@ Magnifier.prototype = {
 
   open: function() {
     this._panel = this.buildPanel();
+
+    this.addListeners();
     this.popupSet.appendChild(this._panel);
 
     this._panel.openPopup();
@@ -101,6 +107,7 @@ Magnifier.prototype = {
 
       this._panel = null;
     }
+    this.removeListeners();
     this.destroyOutline();
   },
 
@@ -127,28 +134,6 @@ Magnifier.prototype = {
     iframe.setAttribute("src", MAGNIFIER_URL);
 
     panel.appendChild(iframe);
-
-    this.chromeDocument.addEventListener("mousemove", (e) => {
-      if (this.dragging && this._panel) {
-        let x =  e.screenX -  this.chromeWindow.screenX;
-
-        // FIXME: Why do we need 20px offset here?
-        // console.log(this.chromeWindow.getComputedStyle(this.chromeDocument.querySelector("window")));
-
-        let y =  e.screenY -  this.chromeWindow.screenY - 20;
-        this.moveRegion(x, y);
-      }
-    });
-    this.chromeDocument.addEventListener("mousedown", (e) => {
-      if (e.target.ownerDocument === this.iframeDocument || !this._panel || !this.dragging) {
-        return;
-      }
-
-      this.toggleDragging(false);
-
-      e.preventDefault();
-      e.stopPropagation();
-    });
 
     return panel;
   },
@@ -193,6 +178,40 @@ Magnifier.prototype = {
     this.iframeDocument.querySelector("#copy-clipboard").addEventListener("command", () => {
       clipboardHelper.copyString(this.colorLabel.textContent);
     }, false);
+  },
+
+  addListeners: function() {
+    this.chromeDocument.addEventListener("mousemove", this.onMouseMove);
+    this.chromeDocument.addEventListener("mousedown", this.onMouseDown);
+  },
+
+  removeListeners: function() {
+    this.chromeDocument.removeEventListener("mousemove", this.onMouseMove);
+    this.chromeDocument.removeEventListener("mousedown", this.onMouseDown);
+  },
+
+  onMouseMove: function(event) {
+    if (this.dragging && this._panel) {
+      let x = event.screenX - this.chromeWindow.screenX;
+
+      // FIXME: Why do we need 20px offset here?
+      // console.log(this.chromeWindow.getComputedStyle(this.chromeDocument.querySelector("window")));
+
+      let y = event.screenY - this.chromeWindow.screenY - 20;
+      this.moveRegion(x, y);
+    }
+  },
+
+  onMouseDown: function(event) {
+    if (event.target.ownerDocument === this.iframeDocument
+        || !this._panel || !this.dragging) {
+      return;
+    }
+
+    this.toggleDragging(false);
+
+    event.preventDefault();
+    event.stopPropagation();
   },
 
   onZoomChange: function() {
