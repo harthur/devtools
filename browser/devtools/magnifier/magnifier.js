@@ -315,7 +315,7 @@ Magnifier.prototype = {
   },
 
   drawGrid: function() {
-    let { width, height, x, y, zoom } = this.zoomWindow;
+    let { width, height, zoom } = this.zoomWindow;
 
     this.ctx.strokeStyle = "rgba(0, 0, 0, .05)";
     for (let i = 1; i < width; i += zoom) {
