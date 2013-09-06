@@ -70,14 +70,12 @@ function Magnifier(chromeWindow) {
   this.dragging = true;
   this.popupSet = this.chromeDocument.querySelector("#mainPopupSet");
   this.zoomWindow = {
-    x: 0,
-    y: 0,
-    cx: null,
-    cy: null,
-    width: 1,
-    height: 1,
-    zoom: zoom,
-    format: format
+    x: 0,          // the left coordinate of the center of the inspected region
+    y: 0,          // the top coordinate of the center of the inspected region
+    width: 1,      // width of canvas to draw zoomed area onto
+    height: 1,     // height of canvas
+    zoom: zoom,    // zoom level - integer, minimum is 1
+    format: format // rgb, hex, or hsl
   };
 }
 
@@ -279,27 +277,7 @@ Magnifier.prototype = {
     this.ctx.drawWindow(this.chromeWindow, drawX, drawY, width, height, "white");
     let rgb = this.ctx.getImageData(Math.floor(width/2), Math.floor(height/2), 1, 1).data;
 
-    // Draw crosshair
-    this.ctx.strokeStyle = "rgba(0, 0, 0, .5)";
-    this.ctx.lineWidth = 1;
-    this.ctx.strokeRect(Math.round(width / 2) - .5, Math.round(height / 2) - .5, 2, 2);
     this.moveOutline(x, y);
-
-    // Draw grid
-    this.ctx.strokeStyle = "rgba(0, 0, 0, .05)";
-    for (let i = 1; i < width; i+=2) {
-
-      this.ctx.beginPath();
-      this.ctx.moveTo(i + .5, 0);
-      this.ctx.lineTo(i + .5, height);
-      this.ctx.stroke();
-
-      this.ctx.beginPath();
-      this.ctx.moveTo(0, i + .5);
-      this.ctx.lineTo(width, i + .5);
-      this.ctx.stroke();
-
-    }
 
     if (zoom > 1) {
       let zoomedWidth = width / zoom;
@@ -314,9 +292,12 @@ Magnifier.prototype = {
       let dh = height;
 
       this.ctx.drawImage(this.canvas, sx, sy, sw, sh, dx, dy, dw, dh);
-
-      //this.canvasContainer.style.transform = "scale(" + zoom + ")";
     }
+
+    this.drawGrid();
+    this.drawCrosshair();
+
+    //this.canvasContainer.style.transform = "scale(" + zoom + ")";
 
     let color = new CssColor("rgb(" + rgb[0] + "," + rgb[1] + "," + rgb[2] + ")");
     this.colorPreview.style.backgroundColor = color.hex;
@@ -328,6 +309,31 @@ Magnifier.prototype = {
     }[this.zoomWindow.format];
 
     //this.selectPreviewText();
+  },
+
+  drawGrid: function() {
+    let { width, height, x, y, zoom } = this.zoomWindow;
+
+    this.ctx.strokeStyle = "rgba(0, 0, 0, .05)";
+    for (let i = 1; i < width; i+=2) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(i + .5, 0);
+      this.ctx.lineTo(i + .5, height);
+      this.ctx.stroke();
+
+      this.ctx.beginPath();
+      this.ctx.moveTo(0, i + .5);
+      this.ctx.lineTo(width, i + .5);
+      this.ctx.stroke();
+    }
+  },
+
+  drawCrosshair: function() {
+    let { width, height, x, y, zoom } = this.zoomWindow;
+
+    this.ctx.strokeStyle = "rgba(0, 0, 0, .5)";
+    this.ctx.lineWidth = 1;
+    this.ctx.strokeRect(Math.round(width / 2) - .5, Math.round(height / 2) - .5, 2, 2);
   },
 
   createOutline: function() {
