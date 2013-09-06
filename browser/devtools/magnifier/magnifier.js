@@ -61,6 +61,7 @@ function Magnifier(chromeWindow) {
   catch (e)  {
     // TODO: why would this happen?
   }
+  this.format = format;
 
   this.onMouseMove = this.onMouseMove.bind(this);
   this.onMouseDown = this.onMouseDown.bind(this);
@@ -74,8 +75,7 @@ function Magnifier(chromeWindow) {
     y: 0,          // the top coordinate of the center of the inspected region
     width: 1,      // width of canvas to draw zoomed area onto
     height: 1,     // height of canvas
-    zoom: zoom,    // zoom level - integer, minimum is 1
-    format: format // rgb, hex, or hsl
+    zoom: zoom     // zoom level - integer, minimum is 2
   };
 }
 
@@ -153,7 +153,7 @@ Magnifier.prototype = {
     this.zoomWindow.height = parseInt(computedOverflowStyle.getPropertyValue("height"), 10);
 
     this.zoomLevel.value = this.zoomWindow.zoom;
-    this.colorFormatOptions.value = this.zoomWindow.format;
+    this.colorFormatOptions.value = this.format;
     this.drawWindow();
 
 
@@ -164,9 +164,9 @@ Magnifier.prototype = {
 
     this.toggleMagnifier.addEventListener("command", this.toggleDragging.bind(this), false);
     this.colorFormatOptions.addEventListener("command", () => {
-      this.zoomWindow.format = this.colorFormatOptions.value;
+      this.format = this.colorFormatOptions.value;
 
-      Services.prefs.setCharPref(FORMAT_PREF, this.zoomWindow.format);
+      Services.prefs.setCharPref(FORMAT_PREF, this.format);
 
       this.drawWindow();
     }, false);
@@ -214,6 +214,9 @@ Magnifier.prototype = {
 
   onZoomChange: function() {
     this.zoomWindow.zoom = this.zoomLevel.value;
+
+    let label = this.iframeDocument.querySelector("#zoom-level-value");
+    label.value = this.zoomLevel.value + "x";
 
     Services.prefs.setIntPref(ZOOM_PREF, this.zoomWindow.zoom);
 
@@ -306,7 +309,7 @@ Magnifier.prototype = {
       "hex": color.hex,
       "hsl": color.hsl,
       "rgb": color.rgb
-    }[this.zoomWindow.format];
+    }[this.format];
 
     //this.selectPreviewText();
   },
@@ -315,7 +318,7 @@ Magnifier.prototype = {
     let { width, height, x, y, zoom } = this.zoomWindow;
 
     this.ctx.strokeStyle = "rgba(0, 0, 0, .05)";
-    for (let i = 1; i < width; i+=2) {
+    for (let i = 1; i < width; i += zoom) {
       this.ctx.beginPath();
       this.ctx.moveTo(i + .5, 0);
       this.ctx.lineTo(i + .5, height);
@@ -329,11 +332,14 @@ Magnifier.prototype = {
   },
 
   drawCrosshair: function() {
-    let { width, height, x, y, zoom } = this.zoomWindow;
+    let { width, height, zoom } = this.zoomWindow;
 
     this.ctx.strokeStyle = "rgba(0, 0, 0, .5)";
     this.ctx.lineWidth = 1;
-    this.ctx.strokeRect(Math.round(width / 2) - .5, Math.round(height / 2) - .5, 2, 2);
+
+    let x = Math.round(width / 2) - 1 / zoom;
+    let y = Math.round(height / 2) - 1 / zoom;
+    this.ctx.strokeRect(x, y, zoom, zoom);
   },
 
   createOutline: function() {
