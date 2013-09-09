@@ -1763,7 +1763,104 @@ NetworkMonitor.prototype = {
 
     Services.obs.addObserver(this._httpResponseExaminer,
                              "http-on-examine-response", false);
+/*
+    Services.obs.addObserver(this._httpResponseExaminer,
+                             "http-on-examine-cached-response", false);
+*/
+    Services.obs.addObserver(this._onModifyRequest,
+                             "http-on-modify-request", false);
   },
+
+  /**
+   * Observe notifications for the http-on-modify-request topic, coming from
+   * the nsIObserverService.
+   *
+   * @private
+   * @param nsIHttpChannel aChannel
+   * @param number aTimestamp
+   * @param string aExtraStringData
+   * @return void
+   */
+  _onModifyRequest: function NM__onModifyRequest(aChannel)
+  {
+    let win = NetworkHelper.getWindowForRequest(aChannel);
+
+    // Try to get the source window of the request.
+    if (this.window && (!win || win.top !== this.window)) {
+      return;
+    }
+
+    dump("HEATHER: onModifyRequest " + aChannel.URI.spec + "\n");
+
+    return;
+    let httpActivity = this.createActivityObject(aChannel);
+
+    // see NM__onRequestBodySent()
+    httpActivity.charset = win ? win.document.characterSet : null;
+    httpActivity.private = win ? PrivateBrowsingUtils.isWindowPrivate(win) : false;
+
+    httpActivity.timings.REQUEST_HEADER = {
+      first: aTimestamp,
+      last: aTimestamp
+    };
+
+    let httpVersionMaj = {};
+    let httpVersionMin = {};
+    let event = {};
+    event.startedDateTime = new Date(Math.round(aTimestamp / 1000)).toISOString();
+    event.headersSize = aExtraStringData.length;
+    event.method = aChannel.requestMethod;
+    event.url = aChannel.URI.spec;
+    event.private = httpActivity.private;
+
+    // Determine if this is an XHR request.
+    try {
+      let callbacks = aChannel.notificationCallbacks;
+      let xhrRequest = callbacks ? callbacks.getInterface(Ci.nsIXMLHttpRequest) : null;
+      httpActivity.isXHR = event.isXHR = !!xhrRequest;
+    } catch (e) {
+      httpActivity.isXHR = event.isXHR = false;
+    }
+
+    // Determine the HTTP version.
+    aChannel.QueryInterface(Ci.nsIHttpChannelInternal);
+    aChannel.getRequestVersion(httpVersionMaj, httpVersionMin);
+
+    event.httpVersion = "HTTP/" + httpVersionMaj.value + "." +
+                                  httpVersionMin.value;
+
+    event.discardRequestBody = !this.saveRequestAndResponseBodies;
+    event.discardResponseBody = !this.saveRequestAndResponseBodies;
+
+    let headers = [];
+    let cookies = [];
+    let cookieHeader = null;
+
+    // Copy the request header data.
+    aChannel.visitRequestHeaders({
+      visitHeader: function NM__visitHeader(aName, aValue)
+      {
+        if (aName == "Cookie") {
+          cookieHeader = aValue;
+        }
+        headers.push({ name: aName, value: aValue });
+      }
+    });
+
+    if (cookieHeader) {
+      cookies = NetworkHelper.parseCookieHeader(cookieHeader);
+    }
+
+    httpActivity.owner = this.owner.onNetworkEvent(event);
+
+    this._setupResponseListener(httpActivity);
+
+    this.openRequests[httpActivity.id] = httpActivity;
+
+    httpActivity.owner.addRequestHeaders(headers);
+    httpActivity.owner.addRequestCookies(cookies);
+  },
+
 
   /**
    * Observe notifications for the http-on-examine-response topic, coming from
@@ -1938,6 +2035,8 @@ NetworkMonitor.prototype = {
     if (this.window && (!win || win.top !== this.window)) {
       return;
     }
+
+    dump("HEATHER: onRequestHeaders " + aChannel.URI.spec + "\n");
 
     let httpActivity = this.createActivityObject(aChannel);
 
