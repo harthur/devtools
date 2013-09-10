@@ -113,7 +113,8 @@ Magnifier.prototype = {
    */
   get centerColor() {
     let x = y = (this.centerCell * this.cellSize) + (this.cellSize / 2);
-    return this.ctx.getImageData(x, y, 1, 1).data;
+    let rgb = this.ctx.getImageData(x, y, 1, 1).data;
+    return new CssColor("rgb(" + rgb[0] + "," + rgb[1] + "," + rgb[2] + ")");
   },
 
   toggle: function() {
@@ -201,10 +202,9 @@ Magnifier.prototype = {
     this.toggleMagnifier.addEventListener("command", this.toggleDragging.bind(this), false);
     this.colorFormatOptions.addEventListener("command", () => {
       this.format = this.colorFormatOptions.value;
-
       Services.prefs.setCharPref(FORMAT_PREF, this.format);
 
-      this.drawWindow();
+      this.populateColorLabel();
     }, false);
 
     this.zoomLevel.addEventListener("change", this.onZoomChange.bind(this));
@@ -335,17 +335,20 @@ Magnifier.prototype = {
     this.drawGrid();
     this.drawCrosshair();
 
-    let rgb = this.centerColor;
-    let color = new CssColor("rgb(" + rgb[0] + "," + rgb[1] + "," + rgb[2] + ")");
-    this.colorPreview.style.backgroundColor = color.hex;
+    this.colorPreview.style.backgroundColor = this.centerColor.hex;
+    this.populateColorLabel();
+
+    //this.selectPreviewText();
+  },
+
+  populateColorLabel: function() {
+    let color = this.centerColor;
 
     this.colorLabel.textContent = {
       "hex": color.hex,
       "hsl": color.hsl,
       "rgb": color.rgb
     }[this.format];
-
-    //this.selectPreviewText();
   },
 
   drawGrid: function() {
