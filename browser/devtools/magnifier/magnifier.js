@@ -333,6 +333,7 @@ Magnifier.prototype = {
     }
 
     this.drawGrid();
+    this.drawCrosshair();
 
     let rgb = this.centerColor;
     let color = new CssColor("rgb(" + rgb[0] + "," + rgb[1] + "," + rgb[2] + ")");
@@ -364,11 +365,18 @@ Magnifier.prototype = {
       this.ctx.lineTo(width, i - .5);
       this.ctx.stroke();
     }
+  },
 
+  drawCrosshair: function() {
     let x = y = this.centerCell * this.cellSize;
 
-    this.ctx.strokeStyle = "rgba(0, 0, 0, .5)";
-    this.ctx.strokeRect(x, y, this.cellSize, this.cellSize);
+    this.ctx.lineWidth = 1;
+    this.ctx.lineJoin = 'miter';
+    this.ctx.strokeStyle = "rgba(0, 0, 0, 1)";
+    this.ctx.strokeRect(x - 1.5, y - 1.5, this.cellSize + 2, this.cellSize + 2);
+
+    this.ctx.strokeStyle = "rgba(255, 255, 255, 1)";
+    this.ctx.strokeRect(x - 0.5, y - 0.5, this.cellSize, this.cellSize);
   },
 
   createOutline: function() {
