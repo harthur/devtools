@@ -191,15 +191,21 @@ Magnifier.prototype = {
 
     this.zoomLevel.value = this.zoomWindow.zoom;
     this.colorFormatOptions.value = this.format;
+
+    this.addPanelListeners();
+
     this.drawWindow();
+  },
 
-
+  addPanelListeners: function() {
     // TODO: This doesn't fire until after a dropdown is selected
     // this.iframe.contentWindow.addEventListener("keydown", (e) => {
     //   this.nudge("left", 10);
     // }, true);
 
-    this.toggleMagnifier.addEventListener("command", this.toggleDragging.bind(this), false);
+    this.toggleMagnifier.addEventListener("command",
+                           this.toggleDragging.bind(this), false);
+
     this.colorFormatOptions.addEventListener("command", () => {
       this.format = this.colorFormatOptions.value;
       Services.prefs.setCharPref(FORMAT_PREF, this.format);
