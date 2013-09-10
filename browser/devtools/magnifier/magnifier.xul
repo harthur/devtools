@@ -54,7 +54,7 @@
               </vbox>
             </hbox>
             <box>
-              <label for="zoom-level">Zoom</label><scale id="zoom-level" min="2" max="20" flex="1"/>
+              <label for="zoom-level">Zoom</label><scale id="zoom-level" min="2" max="26" increment="2" flex="1"/>
               <label id="zoom-level-value"/>
             </box>
             </vbox>

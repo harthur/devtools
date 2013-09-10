@@ -80,6 +80,42 @@ function Magnifier(chromeWindow) {
 }
 
 Magnifier.prototype = {
+  /**
+   * The number of cells (blown-up pixels) per direction in the grid.
+   */
+  get cellsWide() {
+    let { width, zoom } = this.zoomWindow;
+
+    // Canvas will render whole "pixels" (cells) only, and an even
+    // number at that. Round up to the nearest even number of pixels.
+    let cellsWide = Math.ceil(width / zoom)
+    cellsWide += cellsWide % 2;
+
+    return cellsWide;
+  },
+
+  /**
+   * Size of each cell (blown-up pixel) in the grid.
+   */
+  get cellSize() {
+    return this.zoomWindow.width / this.cellsWide;
+  },
+
+  /**
+   * Get index of cell in the center of the grid.
+   */
+  get centerCell() {
+    return Math.floor(this.cellsWide / 2);
+  },
+
+  /**
+   * Get color of center cell in the grid.
+   */
+  get centerColor() {
+    let x = y = (this.centerCell * this.cellSize) + (this.cellSize / 2);
+    return this.ctx.getImageData(x, y, 1, 1).data;
+  },
+
   toggle: function() {
     if (this._panel) {
       this.destroy();
@@ -278,7 +314,6 @@ Magnifier.prototype = {
     this.ctx.mozImageSmoothingEnabled = false;
 
     this.ctx.drawWindow(this.chromeWindow, drawX, drawY, width, height, "white");
-    let rgb = this.ctx.getImageData(Math.floor(width/2), Math.floor(height/2), 1, 1).data;
 
     this.moveOutline(x, y);
 
@@ -298,10 +333,8 @@ Magnifier.prototype = {
     }
 
     this.drawGrid();
-    this.drawCrosshair();
 
-    //this.canvasContainer.style.transform = "scale(" + zoom + ")";
-
+    let rgb = this.centerColor;
     let color = new CssColor("rgb(" + rgb[0] + "," + rgb[1] + "," + rgb[2] + ")");
     this.colorPreview.style.backgroundColor = color.hex;
 
@@ -317,29 +350,25 @@ Magnifier.prototype = {
   drawGrid: function() {
     let { width, height, zoom } = this.zoomWindow;
 
+    this.ctx.lineWidth = 1;
     this.ctx.strokeStyle = "rgba(0, 0, 0, .05)";
-    for (let i = 1; i < width; i += zoom) {
+
+    for (let i = 0; i < width; i += this.cellSize) {
       this.ctx.beginPath();
-      this.ctx.moveTo(i + .5, 0);
-      this.ctx.lineTo(i + .5, height);
+      this.ctx.moveTo(i - .5, 0);
+      this.ctx.lineTo(i - .5, height);
       this.ctx.stroke();
 
       this.ctx.beginPath();
-      this.ctx.moveTo(0, i + .5);
-      this.ctx.lineTo(width, i + .5);
+      this.ctx.moveTo(0, i - .5);
+      this.ctx.lineTo(width, i - .5);
       this.ctx.stroke();
     }
-  },
 
-  drawCrosshair: function() {
-    let { width, height, zoom } = this.zoomWindow;
+    let x = y = this.centerCell * this.cellSize;
 
     this.ctx.strokeStyle = "rgba(0, 0, 0, .5)";
-    this.ctx.lineWidth = 1;
-
-    let x = Math.round(width / 2) - 1 / zoom;
-    let y = Math.round(height / 2) - 1 / zoom;
-    this.ctx.strokeRect(x, y, zoom, zoom);
+    this.ctx.strokeRect(x, y, this.cellSize, this.cellSize);
   },
 
   createOutline: function() {
