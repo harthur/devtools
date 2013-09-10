@@ -30,8 +30,8 @@
       </menulist>
 
 
-      <toolbarbutton id="copy-clipboard" class="developer-toolbar-button">Copy</toolbarbutton>
-      <toolbarbutton id="toggle-magnifier" class="developer-toolbar-button" type="checkbox" style="" checked="true">Inspect</toolbarbutton>
+      <toolbarbutton id="copy-button" class="developer-toolbar-button">Copy</toolbarbutton>
+      <toolbarbutton id="toggle-button" class="developer-toolbar-button" type="checkbox" style="" checked="true">Inspect</toolbarbutton>
 
     </toolbar>
 

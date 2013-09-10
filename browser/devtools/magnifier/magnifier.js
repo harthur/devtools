@@ -182,7 +182,7 @@ Magnifier.prototype = {
     this.colorLabel = this.iframeDocument.querySelector("#color-text-preview");
     this.colorPreview = this.iframeDocument.querySelector("#color-preview");
     this.colorFormatOptions = this.iframeDocument.querySelector("#colorformat-list");
-    this.toggleMagnifier = this.iframeDocument.querySelector("#toggle-magnifier");
+    this.toggleButton = this.iframeDocument.querySelector("#toggle-button");
     this.canvasOverflow = this.iframeDocument.querySelector("#canvas-overflow");
     let computedOverflowStyle =  this.iframeDocument.defaultView.getComputedStyle(this.canvasOverflow);
 
@@ -203,7 +203,7 @@ Magnifier.prototype = {
     //   this.nudge("left", 10);
     // }, true);
 
-    this.toggleMagnifier.addEventListener("command",
+    this.toggleButton.addEventListener("command",
                            this.toggleDragging.bind(this), false);
 
     this.colorFormatOptions.addEventListener("command", () => {
@@ -213,9 +213,12 @@ Magnifier.prototype = {
       this.populateColorLabel();
     }, false);
 
+    this.canvas.addEventListener("click", this.onCellClick.bind(this));
+
     this.zoomLevel.addEventListener("change", this.onZoomChange.bind(this));
 
-    this.iframeDocument.querySelector("#copy-clipboard").addEventListener("command", () => {
+    let copyButton = this.iframeDocument.querySelector("#copy-button");
+    copyButton.addEventListener("command", () => {
       clipboardHelper.copyString(this.colorLabel.textContent);
     }, false);
   },
@@ -254,6 +257,27 @@ Magnifier.prototype = {
     event.stopPropagation();
   },
 
+  onCellClick: function(event) {
+    let rect = this.canvas.getBoundingClientRect();
+    let x = (event.clientX - rect.left);
+    let y = (event.clientY - rect.top);
+
+    let cellX = Math.floor(x / this.cellSize);
+    let cellY = Math.floor(y / this.cellSize);
+
+    let offsetX = cellX - this.centerCell;
+    let offsetY = cellY - this.centerCell;
+
+    this.moveBy(offsetX, offsetY);
+  },
+
+  moveBy: function(offsetX=0, offsetY=0) {
+    this.zoomWindow.x += offsetX;
+    this.zoomWindow.y += offsetY;
+
+    this.drawWindow();
+  },
+
   onZoomChange: function() {
     this.zoomWindow.zoom = this.zoomLevel.value;
 
@@ -276,27 +300,7 @@ Magnifier.prototype = {
       this.dragging = !this.dragging;
     }
 
-    this.toggleMagnifier.checked = this.dragging;
-  },
-
-  nudge: function(direction, amount) {
-    amount = amount || 1;
-    let {x, y} = this.zoomWindow;
-    if (direction === "left") {
-      x = x - amount;
-    }
-    if (direction === "right") {
-      x = x + amount;
-    }
-    if (direction === "up") {
-      y = y + amount;
-    }
-    if (direction === "down") {
-      y = y - amount;
-    }
-
-    this.moveRegion(x, y);
-
+    this.toggleButton.checked = this.dragging;
   },
 
   moveRegion: function(x, y) {
@@ -343,18 +347,6 @@ Magnifier.prototype = {
 
     this.colorPreview.style.backgroundColor = this.centerColor.hex;
     this.populateColorLabel();
-
-    //this.selectPreviewText();
-  },
-
-  populateColorLabel: function() {
-    let color = this.centerColor;
-
-    this.colorLabel.textContent = {
-      "hex": color.hex,
-      "hsl": color.hsl,
-      "rgb": color.rgb
-    }[this.format];
   },
 
   drawGrid: function() {
@@ -386,6 +378,16 @@ Magnifier.prototype = {
 
     this.ctx.strokeStyle = "rgba(255, 255, 255, 1)";
     this.ctx.strokeRect(x - 0.5, y - 0.5, this.cellSize, this.cellSize);
+  },
+
+  populateColorLabel: function() {
+    let color = this.centerColor;
+
+    this.colorLabel.textContent = {
+      "hex": color.hex,
+      "hsl": color.hsl,
+      "rgb": color.rgb
+    }[this.format];
   },
 
   createOutline: function() {
