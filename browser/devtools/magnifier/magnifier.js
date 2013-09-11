@@ -185,6 +185,7 @@ Magnifier.prototype = {
     this.colorFormatOptions = this.iframeDocument.querySelector("#colorformat-list");
     this.toggleButton = this.iframeDocument.querySelector("#toggle-button");
     this.canvasOverflow = this.iframeDocument.querySelector("#canvas-overflow");
+    this.copyButton = this.iframeDocument.querySelector("#copy-button");
     let computedOverflowStyle =  this.iframeDocument.defaultView.getComputedStyle(this.canvasOverflow);
 
     this.zoomWindow.width = parseInt(computedOverflowStyle.getPropertyValue("width"), 10);
@@ -214,14 +215,13 @@ Magnifier.prototype = {
     }, false);
 
     this.canvas.addEventListener("click", this.onCellClick.bind(this));
-    this.iframe.contentWindow.addEventListener("keydown", this.onKeyDown);
+
+    this.iframeDocument.addEventListener("keydown", this.maybeCopy.bind(this));
+    this.iframeDocument.addEventListener("keydown", this.onKeyDown);
 
     this.zoomLevel.addEventListener("change", this.onZoomChange.bind(this));
 
-    let copyButton = this.iframeDocument.querySelector("#copy-button");
-    copyButton.addEventListener("command", () => {
-      clipboardHelper.copyString(this.colorLabel.textContent);
-    }, false);
+    this.copyButton.addEventListener("command", this.doCopy.bind(this));
   },
 
   addListeners: function() {
@@ -258,6 +258,16 @@ Magnifier.prototype = {
     event.stopPropagation();
   },
 
+  doCopy: function() {
+      clipboardHelper.copyString(this.colorLabel.textContent);
+  },
+
+  maybeCopy: function(event) {
+    if (event.metaKey && event.keyCode === event.DOM_VK_C) {
+      this.doCopy();
+    }
+  },
+
   onKeyDown: function(event) {
     let offsetX = 0;
     let offsetY = 0;
@@ -282,7 +292,9 @@ Magnifier.prototype = {
     offsetY *= modifier;
     offsetX *= modifier;
 
-    this.moveBy(offsetX, offsetY);
+    if (offsetX !== 0 || offsetY !== 0) {
+      this.moveBy(offsetX, offsetY);
+    }
   },
 
   onCellClick: function(event) {
@@ -418,6 +430,8 @@ Magnifier.prototype = {
       "hsl": color.hsl,
       "rgb": color.rgb
     }[this.format];
+
+    //this.selectPreviewText();
   },
 
   createOutline: function() {
