@@ -205,9 +205,8 @@ Magnifier.prototype = {
   },
 
   addPanelListeners: function() {
-    this.iframe.contentWindow.addEventListener("click", (e) => {
-      this.iframe.focus();
-    }, false);
+    this.iframe.contentWindow.addEventListener("click", this.iframe.focus,
+                                               false);
 
     this.toggleButton.addEventListener("command",
                            this.toggleDragging.bind(this), false);
@@ -227,6 +226,9 @@ Magnifier.prototype = {
     this.zoomLevel.addEventListener("change", this.onZoomChange.bind(this));
 
     this.copyButton.addEventListener("command", this.doCopy.bind(this));
+
+    let closeCmd = this.iframeDocument.getElementById("magnifier-cmd-close");
+    closeCmd.addEventListener("command", this.destroy.bind(this), true);
   },
 
   addListeners: function() {
