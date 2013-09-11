@@ -65,6 +65,7 @@ function Magnifier(chromeWindow) {
 
   this.onMouseMove = this.onMouseMove.bind(this);
   this.onMouseDown = this.onMouseDown.bind(this);
+  this.onKeyDown = this.onKeyDown.bind(this);
 
   this.chromeWindow = chromeWindow;
   this.chromeDocument = chromeWindow.document;
@@ -198,10 +199,9 @@ Magnifier.prototype = {
   },
 
   addPanelListeners: function() {
-    // TODO: This doesn't fire until after a dropdown is selected
-    // this.iframe.contentWindow.addEventListener("keydown", (e) => {
-    //   this.nudge("left", 10);
-    // }, true);
+    this.iframe.contentWindow.addEventListener("click", (e) => {
+      this.iframe.focus();
+    }, false);
 
     this.toggleButton.addEventListener("command",
                            this.toggleDragging.bind(this), false);
@@ -214,6 +214,7 @@ Magnifier.prototype = {
     }, false);
 
     this.canvas.addEventListener("click", this.onCellClick.bind(this));
+    this.iframe.contentWindow.addEventListener("keydown", this.onKeyDown);
 
     this.zoomLevel.addEventListener("change", this.onZoomChange.bind(this));
 
@@ -255,6 +256,33 @@ Magnifier.prototype = {
 
     event.preventDefault();
     event.stopPropagation();
+  },
+
+  onKeyDown: function(event) {
+    let offsetX = 0;
+    let offsetY = 0;
+    let modifier = 1;
+
+    if (event.keyCode === event.DOM_VK_LEFT) {
+      offsetX = -1;
+    }
+    if (event.keyCode === event.DOM_VK_RIGHT) {
+      offsetX = 1;
+    }
+    if (event.keyCode === event.DOM_VK_UP) {
+      offsetY = -1;
+    }
+    if (event.keyCode === event.DOM_VK_DOWN) {
+      offsetY = 1;
+    }
+    if (event.shiftKey) {
+      modifier = 10;
+    }
+
+    offsetY *= modifier;
+    offsetX *= modifier;
+
+    this.moveBy(offsetX, offsetY);
   },
 
   onCellClick: function(event) {
@@ -344,6 +372,8 @@ Magnifier.prototype = {
 
     this.drawGrid();
     this.drawCrosshair();
+
+    this.iframe.focus();
 
     this.colorPreview.style.backgroundColor = this.centerColor.hex;
     this.populateColorLabel();
