@@ -47,7 +47,7 @@
       </menulist>
 
 
-      <toolbarbutton id="copy-button" class="developer-toolbar-button">Copy</toolbarbutton>
+      <toolbarbutton id="copy-button" class="developer-toolbar-button" data-copied="Copied" data-copy="Copy">Copy</toolbarbutton>
       <toolbarbutton id="toggle-button" class="developer-toolbar-button" type="checkbox" style="" checked="true">Inspect</toolbarbutton>
 
     </toolbar>
