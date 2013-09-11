@@ -234,7 +234,7 @@ Magnifier.prototype = {
   removeListeners: function() {
     this.chromeDocument.removeEventListener("mousemove", this.onMouseMove);
     this.chromeDocument.removeEventListener("mousedown", this.onMouseDown);
-    this.chromeDocument.removeEventListener("mousedown", this.onContextMenu);
+    this.chromeDocument.removeEventListener("contextmenu", this.onContextMenu);
   },
 
   onMouseMove: function(event) {
