@@ -318,6 +318,7 @@ Magnifier.prototype = {
 
     if (offsetX !== 0 || offsetY !== 0) {
       this.moveBy(offsetX, offsetY);
+      event.preventDefault();
     }
   },
 
