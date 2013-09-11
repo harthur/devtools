@@ -238,7 +238,7 @@ Magnifier.prototype = {
   removeListeners: function() {
     this.chromeDocument.removeEventListener("mousemove", this.onMouseMove);
     this.chromeDocument.removeEventListener("mousedown", this.onMouseDown);
-    this.chromeDocument.removeEventListener("mousedown", this.onContextMenu);
+    this.chromeDocument.removeEventListener("contextmenu", this.onContextMenu);
   },
 
   onMouseMove: function(event) {
@@ -266,9 +266,11 @@ Magnifier.prototype = {
   },
 
   onContextMenu: function() {
-    this.doCopy();
-    this.destroy();
-    return false;
+    if (this.dragging) {
+      this.doCopy();
+      this.destroy();
+      return false;
+    }
   },
 
   doCopy: function() {
