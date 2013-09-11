@@ -52,17 +52,6 @@ let MagnifierManager = {
 exports.MagnifierManager = MagnifierManager;
 
 function Magnifier(chromeWindow) {
-  let zoom = 2;
-  let format = "rgb";
-  try {
-    zoom = Services.prefs.getIntPref(ZOOM_PREF);
-    format = Services.prefs.getCharPref(FORMAT_PREF);
-  }
-  catch (e)  {
-    // TODO: why would this happen?
-  }
-  this.format = format;
-
   this.onMouseMove = this.onMouseMove.bind(this);
   this.onMouseDown = this.onMouseDown.bind(this);
   this.onKeyDown = this.onKeyDown.bind(this);
@@ -72,6 +61,8 @@ function Magnifier(chromeWindow) {
   this.chromeDocument = chromeWindow.document;
   this.dragging = true;
   this.popupSet = this.chromeDocument.querySelector("#mainPopupSet");
+
+  let zoom = Services.prefs.getIntPref(ZOOM_PREF);
   this.zoomWindow = {
     x: 0,          // the left coordinate of the center of the inspected region
     y: 0,          // the top coordinate of the center of the inspected region
@@ -79,6 +70,8 @@ function Magnifier(chromeWindow) {
     height: 1,     // height of canvas
     zoom: zoom     // zoom level - integer, minimum is 2
   };
+
+  this.format = Services.prefs.getCharPref(FORMAT_PREF);
 }
 
 Magnifier.prototype = {

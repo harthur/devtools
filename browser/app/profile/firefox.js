@@ -1193,6 +1193,9 @@ pref("devtools.hud.loglimit.cssparser", 200);
 pref("devtools.hud.loglimit.exception", 200);
 pref("devtools.hud.loglimit.console", 200);
 
+pref("devtools.magnifier.zoom", 10);
+pref("devtools.magnifier.format", "rgb");
+
 // The developer tools editor configuration:
 // - tabsize: how many spaces to use when a Tab character is displayed.
 // - expandtab: expand Tab characters to spaces.
