@@ -255,9 +255,11 @@ Magnifier.prototype = {
   },
 
   onContextMenu: function() {
-    this.doCopy();
-    this.destroy();
-    return false;
+    if (this.dragging) {
+      this.doCopy();
+      this.destroy();
+      return false;
+    }
   },
 
   doCopy: function() {
