@@ -1,7 +1,9 @@
 const {Cc, Ci, Cu} = require("chrome");
 
 Cu.import("resource://gre/modules/Services.jsm");
+
 let { CssColor } = require("devtools/magnifier/CSSColor");
+let EventEmitter = require("devtools/shared/event-emitter");
 
 loader.lazyGetter(this, "gDevTools",
   () => Cu.import("resource:///modules/devtools/gDevTools.jsm", {}).gDevTools);
@@ -28,8 +30,6 @@ let MagnifierManager = {
   toggle: function(chromeWindow) {
     let magnifier = this.getInstance(chromeWindow);
     if (magnifier) {
-      this._instances.delete(chromeWindow);
-
       magnifier.destroy();
     }
     else {
@@ -45,7 +45,16 @@ let MagnifierManager = {
   createInstance: function(chromeWindow) {
     let magnifier = new Magnifier(chromeWindow);
     this._instances.set(chromeWindow, magnifier);
+
+    magnifier.on("destroy", () => {
+      this.deleteInstance(chromeWindow);
+    });
+
     return magnifier;
+  },
+
+  deleteInstance: function(chromeWindow) {
+    this._instances.delete(chromeWindow);
   }
 }
 
@@ -72,6 +81,8 @@ function Magnifier(chromeWindow) {
   };
 
   this.format = Services.prefs.getCharPref(FORMAT_PREF);
+
+  EventEmitter.decorate(this);
 }
 
 Magnifier.prototype = {
@@ -132,13 +143,13 @@ Magnifier.prototype = {
 
   destroy: function() {
     if (this._panel) {
-      this._panel.hidePopup();
       this.popupSet.removeChild(this._panel);
-
       this._panel = null;
     }
     this.removeListeners();
     this.destroyOutline();
+
+    this.emit("destroy");
   },
 
   buildPanel: function() {
