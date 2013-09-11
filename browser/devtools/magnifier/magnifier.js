@@ -55,6 +55,7 @@ function Magnifier(chromeWindow) {
   this.onMouseMove = this.onMouseMove.bind(this);
   this.onMouseDown = this.onMouseDown.bind(this);
   this.onKeyDown = this.onKeyDown.bind(this);
+  this.onContextMenu = this.onContextMenu.bind(this);
 
   this.chromeWindow = chromeWindow;
   this.chromeDocument = chromeWindow.document;
@@ -220,11 +221,13 @@ Magnifier.prototype = {
   addListeners: function() {
     this.chromeDocument.addEventListener("mousemove", this.onMouseMove);
     this.chromeDocument.addEventListener("mousedown", this.onMouseDown);
+    this.chromeDocument.addEventListener("contextmenu", this.onContextMenu);
   },
 
   removeListeners: function() {
     this.chromeDocument.removeEventListener("mousemove", this.onMouseMove);
     this.chromeDocument.removeEventListener("mousedown", this.onMouseDown);
+    this.chromeDocument.removeEventListener("mousedown", this.onContextMenu);
   },
 
   onMouseMove: function(event) {
@@ -249,6 +252,12 @@ Magnifier.prototype = {
 
     event.preventDefault();
     event.stopPropagation();
+  },
+
+  onContextMenu: function() {
+    this.doCopy();
+    this.destroy();
+    return false;
   },
 
   doCopy: function() {
