@@ -42,6 +42,13 @@
 #toggle-magnifier[checked] {
 	background:rgb(255, 200, 200);
 }
+#copy-button {
+	min-width: 4em;
+}
+#copy-button.highlight {
+	background:rgb(255, 200, 200);
+	color: black;
+}
 
 #grid {
 	position:absolute;

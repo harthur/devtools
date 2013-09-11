@@ -55,7 +55,6 @@ function Magnifier(chromeWindow) {
   this.onMouseMove = this.onMouseMove.bind(this);
   this.onMouseDown = this.onMouseDown.bind(this);
   this.onKeyDown = this.onKeyDown.bind(this);
-  this.onContextMenu = this.onContextMenu.bind(this);
 
   this.chromeWindow = chromeWindow;
   this.chromeDocument = chromeWindow.document;
@@ -221,13 +220,11 @@ Magnifier.prototype = {
   addListeners: function() {
     this.chromeDocument.addEventListener("mousemove", this.onMouseMove);
     this.chromeDocument.addEventListener("mousedown", this.onMouseDown);
-    this.chromeDocument.addEventListener("contextmenu", this.onContextMenu);
   },
 
   removeListeners: function() {
     this.chromeDocument.removeEventListener("mousemove", this.onMouseMove);
     this.chromeDocument.removeEventListener("mousedown", this.onMouseDown);
-    this.chromeDocument.removeEventListener("contextmenu", this.onContextMenu);
   },
 
   onMouseMove: function(event) {
@@ -252,18 +249,28 @@ Magnifier.prototype = {
 
     event.preventDefault();
     event.stopPropagation();
-  },
 
-  onContextMenu: function() {
-    if (this.dragging) {
-      this.doCopy();
-      this.destroy();
-      return false;
+    if (event.which === 3) {
+      this.doCopy(() => {
+        this.destroy();
+      });
     }
   },
 
-  doCopy: function() {
-      clipboardHelper.copyString(this.colorLabel.textContent);
+  doCopy: function(cb) {
+    Services.appShell.hiddenDOMWindow.clearTimeout(this.copyTimeout);
+    clipboardHelper.copyString(this.colorLabel.textContent);
+
+    this.copyButton.textContent = this.copyButton.getAttribute("data-copied");
+    this.copyButton.classList.add("highlight");
+    this.copyTimeout = Services.appShell.hiddenDOMWindow.setTimeout(() => {
+      this.copyButton.textContent = this.copyButton.getAttribute("data-copy");
+      this.copyButton.classList.remove("highlight");
+
+      if (cb && cb.apply) {
+        cb();
+      }
+    }, 750);
   },
 
   maybeCopy: function(event) {
