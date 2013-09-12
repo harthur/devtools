@@ -14,7 +14,7 @@ loader.lazyGetter(this, "clipboardHelper", function() {
 });
 
 const PANEL_STYLE = "background: rgba(0,100,150,0.1);" +
-                    "height: 275px;width:350px";
+                    "height: 300px;width:350px";
 
 const OUTLINE_STYLE = "border: solid 1px white; outline: solid 1px black;" +
                       "position: fixed; display: block; transition: all linear 0.1s;"
@@ -210,7 +210,7 @@ Magnifier.prototype = {
     this.toggleButton.addEventListener("command",
                            this.toggleDragging.bind(this), false);
 
-    this.colorFormatOptions.addEventListener("command", () => {
+   this.colorFormatOptions.addEventListener("command", () => {
       this.format = this.colorFormatOptions.value;
       Services.prefs.setCharPref(FORMAT_PREF, this.format);
 

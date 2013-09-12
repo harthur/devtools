@@ -30,13 +30,13 @@
   </keyset>
 
   <vbox id="magnifier-container" flex="1">
-    <toolbar
-    class="devtools-toolbar"
-    style="border-bottom: 1px solid rgb(20,30,39) !important;"
-    flex="1">
+    <toolbar id="magnifier-toolbar"
+             class="devtools-toolbar"
+             flex="1">
       <box id="color-preview">
       </box>
-      <hbox align="center" flex="1" id="color-text-preview" class="devtools-monospace">
+      <hbox id="color-text-preview" class="devtools-monospace"
+            align="center" flex="1" >
       </hbox>
       <menulist class="devtools-menulist" id="colorformat-list"  sizetopopup="pref" label="RGB">
         <menupopup>
@@ -45,35 +45,36 @@
           <menuitem label="Hex" value="hex" style="text-align: center"></menuitem>
         </menupopup>
       </menulist>
-
-
-      <toolbarbutton id="copy-button" class="developer-toolbar-button" data-copied="Copied" data-copy="Copy">Copy</toolbarbutton>
-      <toolbarbutton id="toggle-button" class="developer-toolbar-button" type="checkbox" style="" checked="true">Inspect</toolbarbutton>
+      <toolbarbutton id="copy-button" class="devtools-toolbarbutton"
+                     data-copied="Copied" data-copy="Copy">
+        Copy
+      </toolbarbutton>
+      <toolbarbutton id="toggle-button" class="devtools-toolbarbutton"
+                     type="checkbox" checked="true"/>
 
     </toolbar>
-
+      <hbox flex="1">
+        <vbox  flex="1">
+          <spacer flex="1" />
+          <box>
             <hbox flex="1">
-              <vbox  flex="1">
-                <spacer flex="1" />
-                <box>
-                  <hbox flex="1">
-                    <spacer flex="1" />
-                    <box id="canvas-overflow">
-                    <box id="canvas-container">
-                      <canvas id="canvas" xmlns="http://www.w3.org/1999/xhtml"></canvas>
-                    </box>
-                    </box>
-                    <spacer flex="1" />
-                  </hbox>
-                </box>
-                  <!-- -->
-                <spacer flex="1" />
-              </vbox>
+              <spacer flex="1" />
+              <box id="canvas-overflow">
+              <box id="canvas-container">
+                <canvas id="canvas" xmlns="http://www.w3.org/1999/xhtml"></canvas>
+              </box>
+              </box>
+              <spacer flex="1" />
             </hbox>
-            <box>
-              <label for="zoom-level">Zoom</label><scale id="zoom-level" min="2" max="20" increment="2" flex="1"/>
-              <label id="zoom-level-value"/>
-            </box>
-            </vbox>
-
+          </box>
+            <!-- -->
+          <spacer flex="1" />
+        </vbox>
+      </hbox>
+      <box>
+        <label for="zoom-level">Zoom</label>
+        <scale id="zoom-level" min="2" max="20" increment="2" flex="1"/>
+        <label id="zoom-level-value"/>
+      </box>
+  </vbox>
 </window>

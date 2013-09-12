@@ -1,3 +1,7 @@
+#magnifier-toolbar {
+	border-bottom: 1px solid rgb(20,30,39) !important;
+}
+
 #magnifier-container {
 	background: #eee;
 }
@@ -11,8 +15,8 @@
 }
 #canvas-overflow {
 	overflow: hidden;
-	width: 200px;
-	height: 200px;
+	width: 220px;
+	height: 220px;
 	margin: 10px 10px 5px;
 	border: solid 1px #333;
 }
@@ -39,9 +43,16 @@
 	transform-origin: 50% 50%;
 }
 
-#toggle-magnifier[checked] {
-	background:rgb(255, 200, 200);
+#toggle-button {
+  list-style-image: url("chrome://browser/skin/devtools/inspect-button.png");
+  -moz-image-region: rect(0px 16px 16px 0px);
+  padding: 0;
 }
+
+#toggle-button[checked=true] {
+  -moz-image-region: rect(0px 32px 16px 16px);
+}
+
 #copy-button {
 	min-width: 4em;
 }
