@@ -407,13 +407,16 @@ Magnifier.prototype = {
       this.ctx.drawImage(this.canvas, sx, sy, sw, sh, dx, dy, dw, dh);
     }
 
-    this.drawGrid();
-    this.drawCrosshair();
-
     this.iframe.focus();
 
     this.colorPreview.style.backgroundColor = this.centerColor.hex;
     this.populateColorLabel();
+
+    if (this.zoomWindow.zoom > 2) {
+      // grid at 2x is too busy
+      this.drawGrid();
+    }
+    this.drawCrosshair();
   },
 
   drawGrid: function() {
