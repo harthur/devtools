@@ -35,14 +35,12 @@
              flex="1">
       <box id="color-preview">
       </box>
-      <hbox id="color-text-preview" class="devtools-monospace"
-            align="center" flex="1" >
-      </hbox>
-      <menulist class="devtools-menulist" id="colorformat-list"  sizetopopup="pref" label="RGB">
+      <menulist class="devtools-menulist devtools-monospace"
+                id="color-value-list"  sizetopopup="pref">
         <menupopup>
-          <menuitem label="RGB" value="rgb" style="text-align: center"></menuitem>
-          <menuitem label="HSL" value="hsl" style="text-align: center"></menuitem>
-          <menuitem label="Hex" value="hex" style="text-align: center"></menuitem>
+          <menuitem id="rgb-value" format="rgb"></menuitem>
+          <menuitem id="hsl-value" format="hsl"></menuitem>
+          <menuitem id="hex-value" format="hex"></menuitem>
         </menupopup>
       </menulist>
       <toolbarbutton id="copy-button" class="devtools-toolbarbutton"

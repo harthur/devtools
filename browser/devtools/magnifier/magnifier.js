@@ -14,7 +14,7 @@ loader.lazyGetter(this, "clipboardHelper", function() {
 });
 
 const PANEL_STYLE = "background: rgba(0,100,150,0.1);" +
-                    "height: 300px;width:350px";
+                    "height: 320px;width:310px";
 
 const OUTLINE_STYLE = "border: solid 1px white; outline: solid 1px black;" +
                       "position: fixed; display: block; transition: all linear 0.1s;"
@@ -186,7 +186,7 @@ Magnifier.prototype = {
     this.zoomLevel = this.iframeDocument.querySelector("#zoom-level");
     this.colorLabel = this.iframeDocument.querySelector("#color-text-preview");
     this.colorPreview = this.iframeDocument.querySelector("#color-preview");
-    this.colorFormatOptions = this.iframeDocument.querySelector("#colorformat-list");
+    this.colorValues = this.iframeDocument.querySelector("#color-value-list");
     this.toggleButton = this.iframeDocument.querySelector("#toggle-button");
     this.canvasOverflow = this.iframeDocument.querySelector("#canvas-overflow");
     this.copyButton = this.iframeDocument.querySelector("#copy-button");
@@ -196,7 +196,6 @@ Magnifier.prototype = {
     this.zoomWindow.height = parseInt(computedOverflowStyle.getPropertyValue("height"), 10);
 
     this.zoomLevel.value = this.zoomWindow.zoom;
-    this.colorFormatOptions.value = this.format;
 
     this.addPanelListeners();
 
@@ -210,11 +209,11 @@ Magnifier.prototype = {
     this.toggleButton.addEventListener("command",
                            this.toggleDragging.bind(this), false);
 
-   this.colorFormatOptions.addEventListener("command", () => {
-      this.format = this.colorFormatOptions.value;
+    this.colorValues.addEventListener("command", () => {
+      this.format = this.colorValues.selectedItem.getAttribute("format");
       Services.prefs.setCharPref(FORMAT_PREF, this.format);
 
-      this.populateColorLabel();
+      this.populateColorValues();
     }, false);
 
     this.canvas.addEventListener("click", this.onCellClick.bind(this));
@@ -272,7 +271,7 @@ Magnifier.prototype = {
 
   doCopy: function(cb) {
     Services.appShell.hiddenDOMWindow.clearTimeout(this.copyTimeout);
-    clipboardHelper.copyString(this.colorLabel.textContent);
+    clipboardHelper.copyString(this.colorValues.value);
 
     this.copyButton.textContent = this.copyButton.getAttribute("data-copied");
     this.copyButton.classList.add("highlight");
@@ -410,7 +409,7 @@ Magnifier.prototype = {
     this.iframe.focus();
 
     this.colorPreview.style.backgroundColor = this.centerColor.hex;
-    this.populateColorLabel();
+    this.populateColorValues();
 
     if (this.zoomWindow.zoom > 2) {
       // grid at 2x is too busy
@@ -450,16 +449,15 @@ Magnifier.prototype = {
     this.ctx.strokeRect(x - 0.5, y - 0.5, this.cellSize, this.cellSize);
   },
 
-  populateColorLabel: function() {
+  populateColorValues: function() {
     let color = this.centerColor;
 
-    this.colorLabel.textContent = {
-      "hex": color.hex,
-      "hsl": color.hsl,
-      "rgb": color.rgb
-    }[this.format];
+    for (let format of ["rgb", "hsl", "hex"]) {
+      let item = this.iframeDocument.getElementById(format + "-value");
+      item.value = item.label = color[format];
+    }
 
-    //this.selectPreviewText();
+    this.colorValues.value = color[this.format];
   },
 
   createOutline: function() {
