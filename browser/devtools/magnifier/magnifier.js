@@ -196,11 +196,14 @@ Magnifier.prototype = {
     this.zoomWindow.height = parseInt(computedOverflowStyle.getPropertyValue("height"), 10);
 
     this.zoomLevel.value = this.zoomWindow.zoom;
+    this.populateZoomLabel();
 
     this.addPanelListeners();
 
     this.drawWindow();
   },
+
+
 
   addPanelListeners: function() {
     this.iframe.contentWindow.addEventListener("click", this.iframe.focus,
@@ -345,12 +348,16 @@ Magnifier.prototype = {
   onZoomChange: function() {
     this.zoomWindow.zoom = this.zoomLevel.value;
 
-    let label = this.iframeDocument.querySelector("#zoom-level-value");
-    label.value = this.zoomLevel.value + "x";
+    this.populateZoomLabel();
 
     Services.prefs.setIntPref(ZOOM_PREF, this.zoomWindow.zoom);
 
     this.drawWindow();
+  },
+
+  populateZoomLabel: function() {
+    let label = this.iframeDocument.querySelector("#zoom-level-label");
+    label.value = this.zoomWindow.zoom + "x";
   },
 
   toggleDragging: function(mode) {

@@ -69,10 +69,10 @@
           <spacer flex="1" />
         </vbox>
       </hbox>
-      <box>
-        <label for="zoom-level">Zoom</label>
+      <box align="center">
+        <label for="zoom-level">Zoom:</label>
         <scale id="zoom-level" min="2" max="20" increment="2" flex="1"/>
-        <label id="zoom-level-value"/>
+        <label id="zoom-level-label"/>
       </box>
   </vbox>
 </window>
