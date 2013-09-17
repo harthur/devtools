@@ -203,8 +203,6 @@ Magnifier.prototype = {
     this.drawWindow();
   },
 
-
-
   addPanelListeners: function() {
     this.iframe.contentWindow.addEventListener("click", this.iframe.focus,
                                                false);
