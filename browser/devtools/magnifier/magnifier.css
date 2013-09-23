@@ -38,6 +38,11 @@
 	min-width: 180px;
 }
 
+#color-value-list > .menulist-label-box > .menulist-label {
+	text-align: start;
+	-moz-padding-start: 1em;
+}
+
 #canvas-container {
 	transform-origin: 50% 50%;
 }
