@@ -27,6 +27,9 @@
          key="&closeCmd.key;"
          command="magnifier-cmd-close"
          modifiers="accel"/>
+    <key id="magnifier-key-escape"
+         keycode="VK_ESCAPE"
+         command="magnifier-cmd-close"/>
   </keyset>
 
   <vbox id="magnifier-container" flex="1">
