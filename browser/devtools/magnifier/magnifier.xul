@@ -20,6 +20,8 @@
   <commandset id="magnifier-commandset">
     <command id="magnifier-cmd-close"
              oncommand="void(0);"/>
+    <command id="magnifier-cmd-copy"
+             oncommand="void(0);"/>
   </commandset>
 
   <keyset id="magnifier-keyset">
@@ -30,6 +32,9 @@
     <key id="magnifier-key-escape"
          keycode="VK_ESCAPE"
          command="magnifier-cmd-close"/>
+    <key id="magnifier-key-enter"
+         keycode="VK_RETURN"
+         command="magnifier-cmd-copy"/>
   </keyset>
 
   <vbox id="magnifier-container" flex="1">

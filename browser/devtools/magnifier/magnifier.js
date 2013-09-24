@@ -224,10 +224,13 @@ Magnifier.prototype = {
 
     this.zoomLevel.addEventListener("change", this.onZoomChange.bind(this));
 
-    this.copyButton.addEventListener("command", this.doCopy.bind(this));
+    this.copyButton.addEventListener("command", this.copyColor.bind(this));
 
     let closeCmd = this.iframeDocument.getElementById("magnifier-cmd-close");
     closeCmd.addEventListener("command", this.destroy.bind(this), true);
+
+    let copyCmd = this.iframeDocument.getElementById("magnifier-cmd-copy");
+    copyCmd.addEventListener("command", this.copyColor.bind(this), true);
   },
 
   addListeners: function() {
@@ -264,13 +267,11 @@ Magnifier.prototype = {
     event.stopPropagation();
 
     if (event.which === 3) {
-      this.doCopy(() => {
-        this.destroy();
-      });
+      this.copyColor(this.destroy.bind(this));
     }
   },
 
-  doCopy: function(cb) {
+  copyColor: function(cb) {
     Services.appShell.hiddenDOMWindow.clearTimeout(this.copyTimeout);
     clipboardHelper.copyString(this.colorValues.value);
 
@@ -288,7 +289,7 @@ Magnifier.prototype = {
 
   maybeCopy: function(event) {
     if (event.metaKey && event.keyCode === event.DOM_VK_C) {
-      this.doCopy();
+      this.copyColor();
     }
   },
 
