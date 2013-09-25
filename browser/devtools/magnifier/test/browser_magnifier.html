@@ -1,0 +1,59 @@
+<!-- Any copyright is dedicated to the Public Domain.
+     http://creativecommons.org/publicdomain/zero/1.0/ -->
+<html>
+  <head>
+    <meta charset=utf-8 />
+    <style>
+
+body {
+    background: #333;
+}
+.box {
+    position:absolute;
+    width: 100px;
+    height: 100px;
+}
+.topleft {
+    background: orange;
+    top:0;
+    left: 0;
+}
+.topright {
+    background: blue;
+    top:0;
+    left: 100px;
+}
+.bottomleft {
+    background: green;
+    top: 100px;
+    left: 0;
+}
+.bottomright {
+    background: red;
+    top: 100px;
+    left: 100px;
+}
+
+    </style>
+  </head>
+  <body>
+    <h1>Magnifier test</h1>
+
+    <div id="topleft" class="box topleft">
+        <p>Top Left<br />Position</p>
+    </div>
+
+    <div id="topright" class="box topright">
+        <p>Top Right<br />Position</p>
+    </div>
+
+    <div id="bottomright" class="box bottomright">
+        <p>Bottom Right<br />Position</p>
+    </div>
+
+    <div id="bottomleft" class="box bottomleft">
+        <p>Bottom Left<br />Position</p>
+    </div>
+
+  </body>
+</html>
