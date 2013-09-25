@@ -31,7 +31,6 @@ gcli.addCommand({
     let target = context.environment.target;
     let chromeWindow = context.environment.chromeWindow;
 
-    let magnifier = MagnifierManager.instanceForWindow(chromeWindow);
-    magnifier.toggle();
+    MagnifierManager.toggle(chromeWindow);
   }
 });
