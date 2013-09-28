@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+   - License, v. 2.0. If a copy of the MPL was not distributed with this
+   - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
+
+<!DOCTYPE window [
+<!ENTITY % magnifierDTD SYSTEM "chrome://browser/locale/devtools/magnifier.dtd" >
+ %magnifierDTD;
+]>
+
+<?xml-stylesheet href="chrome://global/skin/global.css"?>
+<?xml-stylesheet href="chrome://browser/skin/devtools/common.css"?>
+<?xml-stylesheet href="chrome://browser/skin/devtools/widgets.css"?>
+<?xml-stylesheet href="chrome://browser/skin/devtools/profiler.css"?>
+<?xml-stylesheet href="chrome://browser/content/devtools/widgets.css"?>
+<?xml-stylesheet href="chrome://browser/content/devtools/magnifier.css" type="text/css"?>
+
+<window xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <commandset id="magnifier-commandset">
+    <command id="magnifier-cmd-close"
+             oncommand="void(0);"/>
+    <command id="magnifier-cmd-copy"
+             oncommand="void(0);"/>
+  </commandset>
+
+  <keyset id="magnifier-keyset">
+    <key id="magnifier-key-close"
+         key="&closeCmd.key;"
+         command="magnifier-cmd-close"
+         modifiers="accel"/>
+    <key id="magnifier-key-escape"
+         keycode="VK_ESCAPE"
+         command="magnifier-cmd-close"/>
+    <key id="magnifier-key-enter"
+         keycode="VK_RETURN"
+         command="magnifier-cmd-copy"/>
+  </keyset>
+
+  <vbox id="magnifier-container" flex="1">
+    <toolbar id="magnifier-toolbar"
+             class="devtools-toolbar"
+             flex="1">
+      <box id="color-preview">
+      </box>
+      <menulist class="devtools-menulist devtools-monospace"
+                id="color-value-list"  sizetopopup="pref">
+        <menupopup>
+          <menuitem id="rgb-value" format="rgb"></menuitem>
+          <menuitem id="hsl-value" format="hsl"></menuitem>
+          <menuitem id="hex-value" format="hex"></menuitem>
+        </menupopup>
+      </menulist>
+      <toolbarbutton id="copy-button" class="devtools-toolbarbutton"
+                     data-copied="Copied" data-copy="Copy">
+        Copy
+      </toolbarbutton>
+      <toolbarbutton id="toggle-button" class="devtools-toolbarbutton"
+                     type="checkbox" checked="true"/>
+
+    </toolbar>
+      <hbox flex="1">
+        <vbox  flex="1">
+          <spacer flex="1" />
+          <box>
+            <hbox flex="1">
+              <spacer flex="1" />
+              <box id="canvas-overflow">
+              <box id="canvas-container">
+                <canvas id="canvas" xmlns="http://www.w3.org/1999/xhtml"></canvas>
+              </box>
+              </box>
+              <spacer flex="1" />
+            </hbox>
+          </box>
+            <!-- -->
+          <spacer flex="1" />
+        </vbox>
+      </hbox>
+      <box align="center">
+        <label for="zoom-level">Zoom:</label>
+        <scale id="zoom-level" min="2" max="20" increment="2" flex="1"/>
+        <label id="zoom-level-label"/>
+      </box>
+  </vbox>
+</window>

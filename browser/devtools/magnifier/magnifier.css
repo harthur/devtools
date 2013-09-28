@@ -1,0 +1,79 @@
+#magnifier-toolbar {
+	border-bottom: 1px solid rgb(20,30,39) !important;
+}
+
+#magnifier-container {
+	background: #eee;
+}
+
+#zoom-level {
+	vertical-align: middle;
+}
+
+#canvas {
+	image-rendering: -moz-crisp-edges;
+}
+#canvas-overflow {
+	overflow: hidden;
+	width: 240px;
+	height: 240px;
+	margin: 10px 10px 5px;
+	border: solid 1px #333;
+}
+#canvas-container {
+	display:block;
+	position: relative;
+}
+
+#color-preview {
+	width: 28px;
+	box-shadow: 0px 0px 0px black;
+	border: solid 1px #fff;
+	margin-left: 3px;
+	margin-right: 5px;
+}
+
+#color-value-list {
+	-moz-user-select:text;
+	min-width: 180px;
+}
+
+#color-value-list > .menulist-label-box > .menulist-label {
+	text-align: start;
+	-moz-padding-start: 1em;
+}
+
+#canvas-container {
+	transform-origin: 50% 50%;
+}
+
+#toggle-button {
+  list-style-image: url("chrome://browser/skin/devtools/inspect-button.png");
+  -moz-image-region: rect(0px 16px 16px 0px);
+  padding: 0;
+}
+
+#toggle-button[checked=true] {
+  -moz-image-region: rect(0px 32px 16px 16px);
+}
+
+#copy-button {
+	min-width: 4em;
+}
+#copy-button.highlight {
+	background:rgb(255, 200, 200);
+	color: black;
+}
+
+#grid {
+	position:absolute;
+	top:0;
+	left:0;
+	right:0;
+	bottom:0;
+	display:block;
+	pointer-events: none;
+	background-position: 2px 2px, 1px 1px;
+	background-size: 1px 3px, 3px 1px;
+	background-image: linear-gradient(0deg, transparent 1px, rgba(0,0,0,.1) 2px, transparent 3px, rgba(0,0,0,.1) 4px), linear-gradient(90deg, transparent 1px, rgba(0,0,0,.1) 2px, transparent 3px, rgba(0,0,0,.1) 4px);
+}
